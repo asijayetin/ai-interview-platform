@@ -31,14 +31,14 @@ if (!process.env.GEMINI_API_KEY) {
 const GEMINI_URL =
   "https://generativelanguage.googleapis.com/v1beta/interactions";
 
-// Models are tried in this order.
-// If one is busy/unavailable, the next one is tried.
+// Questions ke liye models
 const QUESTION_MODELS = [
   "gemini-3.5-flash-lite",
   "gemini-3.5-flash",
   "gemini-3.1-flash-lite",
 ];
 
+// Evaluation ke liye models
 const EVALUATION_MODELS = [
   "gemini-3.5-flash",
   "gemini-3.5-flash-lite",
@@ -67,18 +67,11 @@ const interviewSchema = new mongoose.Schema(
       required: true,
     },
 
-    // ====================================
-    // AI GENERATED QUESTIONS
-    // ====================================
-
+    // AI generated questions
     questions: {
       type: [String],
       default: [],
     },
-
-    // ====================================
-    // CANDIDATE ANSWERS
-    // ====================================
 
     answers: [
       {
@@ -86,10 +79,6 @@ const interviewSchema = new mongoose.Schema(
         answer: String,
       },
     ],
-
-    // ====================================
-    // AI EVALUATION
-    // ====================================
 
     score: {
       type: Number,
@@ -162,14 +151,7 @@ async function callGemini(
   let lastError =
     "Gemini request failed.";
 
-  // Try every model
-  for (
-    let modelIndex = 0;
-    modelIndex < models.length;
-    modelIndex++
-  ) {
-    const model = models[modelIndex];
-
+  for (const model of models) {
     console.log(
       `Trying Gemini model: ${model}`
     );
@@ -177,7 +159,6 @@ async function callGemini(
     const controller =
       new AbortController();
 
-    // Do not let one request hang forever
     const timeout = setTimeout(() => {
       controller.abort();
     }, 20000);
@@ -197,12 +178,13 @@ async function callGemini(
           },
 
           body: JSON.stringify({
-            model: model,
+            model,
 
             input: prompt,
 
             generation_config: {
-              thinking_level: "minimal",
+              thinking_level:
+                "minimal",
             },
 
             response_format: {
@@ -222,11 +204,12 @@ async function callGemini(
 
       clearTimeout(timeout);
 
-      let data;
+      let data = {};
 
       try {
-        data = await response.json();
-      } catch (jsonError) {
+        data =
+          await response.json();
+      } catch (error) {
         data = {};
       }
 
@@ -239,6 +222,10 @@ async function callGemini(
       // ====================================
 
       if (response.ok) {
+        console.log(
+          `Gemini success using ${model}`
+        );
+
         return {
           data,
           model,
@@ -254,7 +241,8 @@ async function callGemini(
         data?.message ||
         "Unknown Gemini error";
 
-      lastError = errorMessage;
+      lastError =
+        errorMessage;
 
       console.log(
         `Gemini ${model} error:`,
@@ -262,7 +250,7 @@ async function callGemini(
       );
 
       // ====================================
-      // TEMPORARY / CAPACITY ERROR
+      // TEMPORARY ERROR
       // ====================================
 
       const temporaryError =
@@ -289,20 +277,22 @@ async function callGemini(
 
       if (temporaryError) {
         console.log(
-          `${model} unavailable. Trying next Gemini model...`
+          `${model} unavailable. Trying next model...`
         );
 
-        // Immediately try next model.
-        // No long 10-20 second wait.
         continue;
       }
 
-      // Non-temporary error
+      // Other errors
       throw new Error(
         errorMessage
       );
     } catch (error) {
       clearTimeout(timeout);
+
+      // ====================================
+      // TIMEOUT
+      // ====================================
 
       if (
         error.name ===
@@ -315,19 +305,21 @@ async function callGemini(
           lastError
         );
 
-        // Try next model
         continue;
       }
 
+      // ====================================
+      // NETWORK / OTHER ERROR
+      // ====================================
+
       console.log(
-        `Gemini ${model} network/error:`,
+        `Gemini ${model} error:`,
         error.message
       );
 
       lastError =
         error.message;
 
-      // Try next model
       continue;
     }
   }
@@ -346,10 +338,7 @@ function extractGeminiText(
 ) {
   let aiText = "";
 
-  // ====================================
-  // INTERACTIONS API - STEPS
-  // ====================================
-
+  // Interactions API
   if (
     Array.isArray(
       geminiData?.steps
@@ -384,10 +373,7 @@ function extractGeminiText(
     }
   }
 
-  // ====================================
-  // OUTPUT TEXT
-  // ====================================
-
+  // output_text fallback
   if (
     !aiText &&
     typeof geminiData?.output_text ===
@@ -397,10 +383,7 @@ function extractGeminiText(
       geminiData.output_text;
   }
 
-  // ====================================
-  // OUTPUTS
-  // ====================================
-
+  // outputs fallback
   if (
     !aiText &&
     Array.isArray(
@@ -551,7 +534,6 @@ app.post(
       res.status(500).json({
         message:
           "Signup failed",
-
         error:
           error.message,
       });
@@ -613,7 +595,6 @@ app.post(
           {
             userId:
               user._id,
-
             email:
               user.email,
           },
@@ -652,7 +633,6 @@ app.post(
       res.status(500).json({
         message:
           "Login failed",
-
         error:
           error.message,
       });
@@ -740,33 +720,12 @@ app.post(
       );
 
       console.log(
-        "Generating AI interview questions..."
+        "Generating AI questions..."
       );
-
-      // ====================================
-      // GEMINI KEY
-      // ====================================
-
-      if (
-        !process.env.GEMINI_API_KEY
-      ) {
-        return res.status(500).json({
-          message:
-            "Gemini API key is missing",
-
-          error:
-            "GEMINI_API_KEY was not found",
-        });
-      }
-
-      // ====================================
-      // FIND INTERVIEW
-      // ====================================
 
       const interview =
         await Interview.findOne({
-          _id:
-            req.params.id,
+          _id: req.params.id,
 
           userId:
             req.user.userId,
@@ -780,14 +739,16 @@ app.post(
       }
 
       // ====================================
-      // IF QUESTIONS ALREADY EXIST
+      // IMPORTANT:
+      // Already generated questions
       // ====================================
 
       if (
         Array.isArray(
           interview.questions
         ) &&
-        interview.questions.length === 5
+        interview.questions.length ===
+          5
       ) {
         console.log(
           "Questions already exist. Returning saved questions."
@@ -803,13 +764,26 @@ app.post(
       }
 
       // ====================================
+      // GEMINI KEY
+      // ====================================
+
+      if (
+        !process.env.GEMINI_API_KEY
+      ) {
+        return res.status(500).json({
+          message:
+            "Gemini API key is missing",
+        });
+      }
+
+      // ====================================
       // PROMPT
       // ====================================
 
       const prompt = `
 You are an expert professional interviewer.
 
-Generate exactly 5 interview questions for a candidate.
+Generate exactly 5 interview questions.
 
 Interview Type:
 ${interview.interviewType}
@@ -819,48 +793,43 @@ ${interview.role}
 
 IMPORTANT RULES:
 
-1. Questions must be specifically relevant to the target role.
-2. Questions must also match the selected interview type.
-3. Do NOT give generic questions when role-specific questions are possible.
-4. Use realistic questions that an actual interviewer could ask.
-5. Questions should be appropriate for the candidate applying for this role.
-6. Keep questions clear and concise.
-7. Generate exactly 5 questions.
-8. Do not include answers.
-9. Do not include explanations.
-10. Do not number the questions inside the question text.
+1. Questions must be highly relevant to BOTH the interview type and the selected role.
 
-INTERVIEW TYPE RULES:
+2. Do not generate generic questions when a role-specific question is possible.
 
-If interview type is HR:
-Focus on behavioral, communication, motivation, teamwork, leadership, conflict handling, career goals and role-specific HR topics.
+3. Questions should match the expected skill level of the selected role.
 
-If interview type is Technical:
-Focus on technical concepts, tools, technologies, architecture, practical scenarios and role-specific technical knowledge.
+4. If the role is Data Analyst:
+   - HR interviews should focus on behavioral questions relevant to analytics work.
+   - Technical interviews should focus on SQL, Excel, statistics, data cleaning, dashboards, Python/pandas, analytics concepts, etc.
+   - Coding interviews should contain coding/data problems appropriate for a Data Analyst.
 
-If interview type is Coding:
-Focus on programming, data structures, algorithms, debugging, problem solving and coding questions relevant to the selected role and technology.
+5. If the role is Frontend Developer:
+   - HR interviews should focus on frontend-related behavioral situations.
+   - Technical interviews should focus on HTML, CSS, JavaScript, React, browser concepts, APIs, performance, etc.
+   - Coding interviews should contain frontend/JavaScript coding problems.
 
-ROLE EXAMPLES:
+6. If the role is Backend Developer:
+   - Questions should be related to APIs, databases, backend architecture, authentication, Node.js/server concepts, etc.
 
-For Data Analyst:
-Ask about SQL, Excel, Python, statistics, data cleaning, dashboards, data visualization and analytical thinking when appropriate.
+7. If the role is Java Developer:
+   - Technical questions should cover Java, OOP, collections, exceptions, multithreading, JVM, Spring/backend concepts where appropriate.
+   - Coding questions should be Java coding problems.
 
-For Frontend Developer:
-Ask about HTML, CSS, JavaScript, React, browser concepts, APIs, state management, performance and frontend architecture when appropriate.
+8. If the role is Software Engineer:
+   - Questions should cover programming, DSA, software engineering concepts, APIs, databases, system concepts, debugging, etc.
 
-For Backend Developer:
-Ask about APIs, databases, authentication, Node.js/Java/Python backend concepts, scalability and server-side development when appropriate.
+9. HR questions must still be related to the selected role.
 
-For Java Developer:
-Ask about Java, OOP, collections, exceptions, multithreading, Spring Boot, databases and backend development when appropriate.
+10. Avoid repeating the same question.
 
-For Software Engineer:
-Ask about programming, DSA, OOP, databases, system concepts, debugging and software engineering practices when appropriate.
+11. Keep questions clear and interview-ready.
 
-If the role is something else, intelligently adapt the questions to that role.
+12. Return exactly 5 questions.
 
-Return ONLY JSON in this exact format:
+Return ONLY valid JSON.
+
+Format:
 
 {
   "questions": [
@@ -887,6 +856,10 @@ Return ONLY JSON in this exact format:
             items: {
               type: "string",
             },
+
+            minItems: 5,
+
+            maxItems: 5,
           },
         },
 
@@ -896,7 +869,7 @@ Return ONLY JSON in this exact format:
       };
 
       // ====================================
-      // CALL GEMINI
+      // CALL GEMINI WITH FALLBACK
       // ====================================
 
       const result =
@@ -906,32 +879,19 @@ Return ONLY JSON in this exact format:
           QUESTION_MODELS
         );
 
-      console.log(
-        "Questions generated using:",
-        result.model
-      );
-
-      // ====================================
-      // EXTRACT RESPONSE
-      // ====================================
-
       const aiText =
         extractGeminiText(
           result.data
         );
 
       console.log(
-        "Gemini question response:",
-        aiText
+        "Gemini question response received."
       );
 
       if (!aiText) {
         return res.status(500).json({
           message:
             "Gemini returned an empty response",
-
-          error:
-            "No questions were returned by Gemini.",
         });
       }
 
@@ -939,17 +899,17 @@ Return ONLY JSON in this exact format:
       // PARSE JSON
       // ====================================
 
-      let parsed;
+      const cleanedText =
+        cleanAIJson(
+          aiText
+        );
+
+      let resultData;
 
       try {
-        const cleaned =
-          cleanAIJson(
-            aiText
-          );
-
-        parsed =
+        resultData =
           JSON.parse(
-            cleaned
+            cleanedText
           );
       } catch (error) {
         console.log(
@@ -958,7 +918,7 @@ Return ONLY JSON in this exact format:
         );
 
         console.log(
-          "AI question text:",
+          "AI TEXT:",
           aiText
         );
 
@@ -977,38 +937,36 @@ Return ONLY JSON in this exact format:
 
       if (
         !Array.isArray(
-          parsed.questions
+          resultData.questions
         )
       ) {
         return res.status(500).json({
           message:
             "Gemini returned invalid questions",
-
-          error:
-            "questions must be an array",
         });
       }
 
       const questions =
-        parsed.questions
+        resultData.questions
           .map((question) =>
-            String(question).trim()
+            String(
+              question
+            ).trim()
           )
           .filter(
             (question) =>
               question.length > 0
-          )
-          .slice(0, 5);
+          );
 
       if (
         questions.length !== 5
       ) {
         return res.status(500).json({
           message:
-            "Gemini did not generate exactly 5 questions",
+            "Gemini did not return exactly 5 questions",
 
-          error:
-            `Received ${questions.length} valid questions.`,
+          received:
+            questions.length,
         });
       }
 
@@ -1025,19 +983,15 @@ Return ONLY JSON in this exact format:
         "AI questions saved successfully."
       );
 
-      // ====================================
-      // SEND QUESTIONS
-      // ====================================
+      console.log(
+        `Questions generated using ${result.model}`
+      );
 
       return res.json({
         message:
           "AI questions generated successfully",
 
-        questions:
-          questions,
-
-        model:
-          result.model,
+        questions,
       });
     } catch (error) {
       console.log(
@@ -1045,20 +999,19 @@ Return ONLY JSON in this exact format:
         error
       );
 
-      return res.status(500).json({
+      return res.status(503).json({
         message:
-          "Failed to generate AI questions",
+          "AI question generation is temporarily unavailable. Please try again.",
 
         error:
-          error.message ||
-          "Unknown Gemini error",
+          error.message,
       });
     }
   }
 );
 
 // ========================================
-// GET INTERVIEW QUESTIONS
+// GET SAVED QUESTIONS
 // ========================================
 
 app.get(
@@ -1068,8 +1021,7 @@ app.get(
     try {
       const interview =
         await Interview.findOne({
-          _id:
-            req.params.id,
+          _id: req.params.id,
 
           userId:
             req.user.userId,
@@ -1082,10 +1034,9 @@ app.get(
         });
       }
 
-      res.json({
+      return res.json({
         questions:
-          interview.questions ||
-          [],
+          interview.questions || [],
       });
     } catch (error) {
       console.log(
@@ -1093,7 +1044,7 @@ app.get(
         error
       );
 
-      res.status(500).json({
+      return res.status(500).json({
         message:
           "Failed to fetch questions",
 
@@ -1130,8 +1081,7 @@ app.post(
 
       const interview =
         await Interview.findOne({
-          _id:
-            req.params.id,
+          _id: req.params.id,
 
           userId:
             req.user.userId,
@@ -1236,29 +1186,12 @@ app.post(
         Date.now();
 
       // ====================================
-      // GEMINI KEY
-      // ====================================
-
-      if (
-        !process.env.GEMINI_API_KEY
-      ) {
-        return res.status(500).json({
-          message:
-            "Gemini API key is missing",
-
-          error:
-            "GEMINI_API_KEY was not found",
-        });
-      }
-
-      // ====================================
       // FIND INTERVIEW
       // ====================================
 
       const interview =
         await Interview.findOne({
-          _id:
-            req.params.id,
+          _id: req.params.id,
 
           userId:
             req.user.userId,
@@ -1277,7 +1210,8 @@ app.post(
 
       if (
         !interview.answers ||
-        interview.answers.length === 0
+        interview.answers.length ===
+          0
       ) {
         return res.status(400).json({
           message:
@@ -1298,11 +1232,11 @@ app.post(
           .join("\n\n");
 
       // ====================================
-      // EVALUATION PROMPT
+      // PROMPT
       // ====================================
 
       const prompt = `
-You are an expert professional interview evaluator.
+You are an expert interview evaluator.
 
 Interview Type:
 ${interview.interviewType}
@@ -1310,7 +1244,7 @@ ${interview.interviewType}
 Role:
 ${interview.role}
 
-Evaluate the candidate's complete interview answers below.
+Evaluate the candidate's answers below.
 
 ${answerText}
 
@@ -1318,31 +1252,32 @@ Give fair scores from 0 to 10.
 
 Evaluate:
 
-1. Overall performance
+1. Overall score
 2. Communication
-3. Relevance of answers to the question and role
+3. Relevance of answers
 4. Clarity
+5. Overall feedback
+6. Specific improvements
 
 Consider the selected interview type and role while evaluating.
 
-Return ONLY valid JSON in exactly this format:
+Return ONLY valid JSON.
+
+Format:
 
 {
   "score": 0,
   "communicationScore": 0,
   "relevanceScore": 0,
   "clarityScore": 0,
-  "feedback": "short useful feedback",
-  "improvements": "specific improvements the candidate should make"
+  "feedback": "short feedback",
+  "improvements": "specific improvements"
 }
 
-Rules:
+Scores must be numbers between 0 and 10.
 
-- Scores must be numbers between 0 and 10.
-- Do not use percentages.
-- Do not write /10.
-- Feedback should be concise but useful.
-- Improvements should be practical.
+Do not use percentages.
+Do not write /10.
 `;
 
       // ====================================
@@ -1389,7 +1324,7 @@ Rules:
       };
 
       // ====================================
-      // CALL GEMINI
+      // CALL GEMINI WITH FALLBACK
       // ====================================
 
       const result =
@@ -1399,32 +1334,19 @@ Rules:
           EVALUATION_MODELS
         );
 
-      console.log(
-        "Evaluation generated using:",
-        result.model
-      );
-
-      // ====================================
-      // EXTRACT AI RESPONSE
-      // ====================================
-
       const aiText =
         extractGeminiText(
           result.data
         );
 
       console.log(
-        "Gemini evaluation response:",
-        aiText
+        `Evaluation received using ${result.model}`
       );
 
       if (!aiText) {
         return res.status(500).json({
           message:
             "Gemini returned an empty response",
-
-          error:
-            "No AI output was returned.",
         });
       }
 
@@ -1450,7 +1372,7 @@ Rules:
           );
       } catch (error) {
         console.log(
-          "JSON parse error:",
+          "Evaluation JSON parse error:",
           error.message
         );
 
@@ -1480,8 +1402,7 @@ Rules:
       ];
 
       for (
-        const field of
-          scoreFields
+        const field of scoreFields
       ) {
         const value =
           Number(
@@ -1489,9 +1410,7 @@ Rules:
           );
 
         if (
-          !Number.isFinite(
-            value
-          ) ||
+          !Number.isFinite(value) ||
           value < 0 ||
           value > 10
         ) {
@@ -1525,7 +1444,7 @@ Rules:
         );
 
       // ====================================
-      // SAVE TO MONGODB
+      // SAVE EVALUATION
       // ====================================
 
       interview.score =
@@ -1549,7 +1468,8 @@ Rules:
       await interview.save();
 
       const totalTime =
-        Date.now() - startTime;
+        Date.now() -
+        startTime;
 
       console.log(
         `Gemini evaluation saved successfully in ${totalTime} ms`
@@ -1589,9 +1509,9 @@ Rules:
         error
       );
 
-      return res.status(500).json({
+      return res.status(503).json({
         message:
-          "Failed to evaluate interview",
+          "AI evaluation is temporarily unavailable. Please try again.",
 
         error:
           error.message ||
@@ -1613,19 +1533,6 @@ mongoose
     console.log(
       "MongoDB connected successfully"
     );
-
-    const PORT =
-      process.env.PORT || 5000;
-
-    app.listen(
-      PORT,
-      "0.0.0.0",
-      () => {
-        console.log(
-          `Server running on port ${PORT}`
-        );
-      }
-    );
   })
   .catch((error) => {
     console.log(
@@ -1633,3 +1540,20 @@ mongoose
       error
     );
   });
+
+// ========================================
+// START SERVER
+// ========================================
+
+const PORT =
+  process.env.PORT || 5000;
+
+app.listen(
+  PORT,
+  "0.0.0.0",
+  () => {
+    console.log(
+      `Server running on port ${PORT}`
+    );
+  }
+);
