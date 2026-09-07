@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+const API_URL = import.meta.env.VITE_API_URL;
 
 function Interview({ onBackToDashboard }) {
   const [interviewType, setInterviewType] = useState("");
@@ -9,69 +11,719 @@ function Interview({ onBackToDashboard }) {
 
   const [interviewId, setInterviewId] = useState(null);
 
-  const [currentQuestion, setCurrentQuestion] = useState(0);
+  // ==========================================
+  // QUESTIONS
+  // ==========================================
+
+  const [questions, setQuestions] = useState([]);
+  const [questionsLoading, setQuestionsLoading] =
+    useState(false);
+
+  const [currentQuestion, setCurrentQuestion] =
+    useState(0);
+
+  // ==========================================
+  // ANSWER
+  // ==========================================
+
   const [answer, setAnswer] = useState("");
 
-  const [completed, setCompleted] = useState(false);
+  // ==========================================
+  // EVALUATION
+  // ==========================================
 
-  const [evaluation, setEvaluation] = useState(null);
+  const [completed, setCompleted] =
+    useState(false);
+
+  const [evaluation, setEvaluation] =
+    useState(null);
+
+  // ==========================================
+  // GENERAL STATE
+  // ==========================================
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const API_URL = import.meta.env.VITE_API_URL;
+  // ==========================================
+  // CAMERA + MICROPHONE
+  // ==========================================
 
-  const questions = [
-    "Tell me about yourself.",
-    "Why should we hire you?",
-    "What are your strengths and weaknesses?",
-    "Tell me about a challenging project you worked on.",
-    "Where do you see yourself in five years?",
-  ];
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
 
-  // --------------------------------
+  const [cameraActive, setCameraActive] =
+    useState(false);
+
+  const [cameraError, setCameraError] =
+    useState("");
+
+  const [micActive, setMicActive] =
+    useState(false);
+
+  const [micError, setMicError] =
+    useState("");
+
+  // ==========================================
+  // SPEECH TO TEXT
+  // ==========================================
+
+  const recognitionRef = useRef(null);
+
+  const [isListening, setIsListening] =
+    useState(false);
+
+  const [speechSupported, setSpeechSupported] =
+    useState(true);
+
+  const [speechError, setSpeechError] =
+    useState("");
+
+  // ==========================================
+  // SPEECH RECOGNITION SETUP
+  // ==========================================
+
+  useEffect(() => {
+    const SpeechRecognition =
+      window.SpeechRecognition ||
+      window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      setSpeechSupported(false);
+
+      console.log(
+        "Speech recognition is not supported."
+      );
+
+      return;
+    }
+
+    setSpeechSupported(true);
+
+    const recognition =
+      new SpeechRecognition();
+
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+
+    recognition.onstart = () => {
+      console.log(
+        "Speech recognition started"
+      );
+
+      setIsListening(true);
+      setSpeechError("");
+    };
+
+    recognition.onresult = (event) => {
+      let finalTranscript = "";
+
+      let interimTranscript = "";
+
+      for (
+        let i = event.resultIndex;
+        i < event.results.length;
+        i++
+      ) {
+        const transcript =
+          event.results[i][0].transcript;
+
+        if (
+          event.results[i].isFinal
+        ) {
+          finalTranscript += transcript;
+        } else {
+          interimTranscript += transcript;
+        }
+      }
+
+      if (finalTranscript) {
+        setAnswer((previousAnswer) => {
+          const previous =
+            previousAnswer.trim();
+
+          if (!previous) {
+            return finalTranscript.trim();
+          }
+
+          return (
+            previous +
+            " " +
+            finalTranscript.trim()
+          );
+        });
+      }
+
+      console.log(
+        "Interim transcript:",
+        interimTranscript
+      );
+    };
+
+    recognition.onerror = (event) => {
+      console.log(
+        "Speech recognition error:",
+        event.error
+      );
+
+      if (
+        event.error ===
+        "not-allowed"
+      ) {
+        setSpeechError(
+          "Microphone permission was denied for speech recognition."
+        );
+      } else if (
+        event.error ===
+        "no-speech"
+      ) {
+        setSpeechError(
+          "No speech detected. Please speak clearly."
+        );
+      } else if (
+        event.error ===
+        "audio-capture"
+      ) {
+        setSpeechError(
+          "Microphone could not be accessed."
+        );
+      } else if (
+        event.error !==
+        "aborted"
+      ) {
+        setSpeechError(
+          `Speech recognition error: ${event.error}`
+        );
+      }
+
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      console.log(
+        "Speech recognition ended"
+      );
+
+      setIsListening(false);
+    };
+
+    recognitionRef.current =
+      recognition;
+
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (error) {
+          console.log(
+            "Speech cleanup error:",
+            error
+          );
+        }
+
+        recognitionRef.current = null;
+      }
+    };
+  }, []);
+
+  // ==========================================
+  // ATTACH CAMERA STREAM
+  // ==========================================
+
+  useEffect(() => {
+    if (
+      cameraActive &&
+      videoRef.current &&
+      streamRef.current
+    ) {
+      videoRef.current.srcObject =
+        streamRef.current;
+
+      videoRef.current
+        .play()
+        .catch((error) => {
+          console.log(
+            "Video play error:",
+            error
+          );
+        });
+    }
+  }, [cameraActive]);
+
+  // ==========================================
+  // START CAMERA + MICROPHONE
+  // ==========================================
+
+  const startCamera = async () => {
+    setCameraError("");
+    setMicError("");
+
+    if (
+      !navigator.mediaDevices ||
+      !navigator.mediaDevices.getUserMedia
+    ) {
+      setCameraError(
+        "Camera and microphone are not supported by this browser."
+      );
+
+      return;
+    }
+
+    // Already running
+    if (streamRef.current) {
+      setCameraActive(true);
+
+      const audioTrack =
+        streamRef.current
+          .getAudioTracks()[0];
+
+      if (audioTrack) {
+        setMicActive(
+          audioTrack.enabled
+        );
+      }
+
+      return;
+    }
+
+    try {
+      const stream =
+        await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: {
+              ideal: 1280,
+            },
+
+            height: {
+              ideal: 720,
+            },
+
+            facingMode: "user",
+          },
+
+          audio: true,
+        });
+
+      streamRef.current = stream;
+
+      // Microphone
+      const audioTrack =
+        stream.getAudioTracks()[0];
+
+      if (audioTrack) {
+        audioTrack.enabled = true;
+
+        setMicActive(true);
+
+        console.log(
+          "Microphone started successfully"
+        );
+      } else {
+        setMicActive(false);
+
+        setMicError(
+          "Microphone was not found."
+        );
+      }
+
+      // Camera
+      setCameraActive(true);
+
+      console.log(
+        "Camera and microphone started successfully"
+      );
+    } catch (error) {
+      console.log(
+        "Camera/Microphone error:",
+        error
+      );
+
+      setCameraActive(false);
+      setMicActive(false);
+
+      if (
+        error.name ===
+        "NotAllowedError"
+      ) {
+        setCameraError(
+          "Camera or microphone permission was denied. Please allow access."
+        );
+      } else if (
+        error.name ===
+        "NotFoundError"
+      ) {
+        setCameraError(
+          "Camera or microphone was not found on this device."
+        );
+      } else if (
+        error.name ===
+        "NotReadableError"
+      ) {
+        setCameraError(
+          "Camera or microphone is already being used by another application."
+        );
+      } else {
+        setCameraError(
+          "Unable to access the camera or microphone."
+        );
+      }
+    }
+  };
+
+  // ==========================================
+  // TOGGLE MICROPHONE
+  // ==========================================
+
+  const toggleMicrophone = () => {
+    if (!streamRef.current) {
+      setMicError(
+        "Microphone is not started yet."
+      );
+
+      return;
+    }
+
+    const audioTrack =
+      streamRef.current
+        .getAudioTracks()[0];
+
+    if (!audioTrack) {
+      setMicError(
+        "No microphone track was found."
+      );
+
+      return;
+    }
+
+    audioTrack.enabled =
+      !audioTrack.enabled;
+
+    setMicActive(
+      audioTrack.enabled
+    );
+
+    if (
+      !audioTrack.enabled &&
+      isListening
+    ) {
+      stopListening();
+    }
+
+    setMicError("");
+  };
+
+  // ==========================================
+  // START SPEECH
+  // ==========================================
+
+  const startListening = () => {
+    setSpeechError("");
+
+    if (!speechSupported) {
+      setSpeechError(
+        "Speech-to-text is not supported. Please use Chrome or Edge."
+      );
+
+      return;
+    }
+
+    if (!micActive) {
+      setSpeechError(
+        "Please turn on the microphone first."
+      );
+
+      return;
+    }
+
+    if (!recognitionRef.current) {
+      setSpeechError(
+        "Speech recognition is not available."
+      );
+
+      return;
+    }
+
+    try {
+      recognitionRef.current.start();
+
+      console.log(
+        "Listening started"
+      );
+    } catch (error) {
+      console.log(
+        "Speech start error:",
+        error
+      );
+
+      if (
+        error.name ===
+        "InvalidStateError"
+      ) {
+        setSpeechError(
+          "Speech recognition is already running."
+        );
+      } else {
+        setSpeechError(
+          "Unable to start speech recognition."
+        );
+      }
+    }
+  };
+
+  // ==========================================
+  // STOP SPEECH
+  // ==========================================
+
+  const stopListening = () => {
+    if (!recognitionRef.current) {
+      return;
+    }
+
+    try {
+      recognitionRef.current.stop();
+
+      setIsListening(false);
+
+      console.log(
+        "Listening stopped"
+      );
+    } catch (error) {
+      console.log(
+        "Speech stop error:",
+        error
+      );
+    }
+  };
+
+  // ==========================================
+  // STOP CAMERA + MICROPHONE
+  // ==========================================
+
+  const stopCamera = () => {
+    // Stop speech
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (error) {
+        console.log(
+          "Speech stop error:",
+          error
+        );
+      }
+    }
+
+    setIsListening(false);
+
+    // Stop media tracks
+    if (streamRef.current) {
+      streamRef.current
+        .getTracks()
+        .forEach((track) => {
+          track.stop();
+        });
+
+      streamRef.current = null;
+    }
+
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+
+    setCameraActive(false);
+    setMicActive(false);
+  };
+
+  // ==========================================
+  // GENERATE AI QUESTIONS
+  // ==========================================
+
+  const generateQuestions = async () => {
+    setQuestionsLoading(true);
+    setError("");
+
+    const token =
+      localStorage.getItem("token");
+
+    if (!token) {
+      setError(
+        "Please login first."
+      );
+
+      setQuestionsLoading(false);
+
+      return false;
+    }
+
+    if (!interviewId) {
+      setError(
+        "Interview ID not found."
+      );
+
+      setQuestionsLoading(false);
+
+      return false;
+    }
+
+    if (!API_URL) {
+      setError(
+        "API URL is not configured."
+      );
+
+      setQuestionsLoading(false);
+
+      return false;
+    }
+
+    try {
+      console.log(
+        "Generating AI questions..."
+      );
+
+      const response =
+        await fetch(
+          `${API_URL}/api/interviews/${interviewId}/questions`,
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+
+              Authorization:
+                `Bearer ${token}`,
+            },
+          }
+        );
+
+      const data =
+        await response.json();
+
+      console.log(
+        "Questions response:",
+        data
+      );
+
+      if (!response.ok) {
+        setError(
+          data.error ||
+            data.message ||
+            "Failed to generate AI questions."
+        );
+
+        setQuestionsLoading(false);
+
+        return false;
+      }
+
+      if (
+        !Array.isArray(
+          data.questions
+        ) ||
+        data.questions.length === 0
+      ) {
+        setError(
+          "AI did not return any questions."
+        );
+
+        setQuestionsLoading(false);
+
+        return false;
+      }
+
+      setQuestions(
+        data.questions
+      );
+
+      setCurrentQuestion(0);
+
+      console.log(
+        "AI questions generated:",
+        data.questions
+      );
+
+      setQuestionsLoading(false);
+
+      return true;
+    } catch (error) {
+      console.log(
+        "Generate questions error:",
+        error
+      );
+
+      setError(
+        "Server error while generating AI questions."
+      );
+
+      setQuestionsLoading(false);
+
+      return false;
+    }
+  };
+
+  // ==========================================
   // START INTERVIEW
-  // --------------------------------
+  // ==========================================
 
   const startInterview = async () => {
     setError("");
 
-    if (!interviewType || !role) {
-      setError("Please select interview type and role.");
+    if (
+      !interviewType ||
+      !role
+    ) {
+      setError(
+        "Please select interview type and role."
+      );
+
       return;
     }
 
-    const token = localStorage.getItem("token");
+    const token =
+      localStorage.getItem("token");
 
     if (!token) {
-      setError("Please login first.");
+      setError(
+        "Please login first."
+      );
+
       return;
     }
 
     if (!API_URL) {
-      setError("API URL is not configured.");
+      setError(
+        "API URL is not configured."
+      );
+
       return;
     }
 
     setLoading(true);
 
     try {
-      const response = await fetch(
-        `${API_URL}/api/interviews`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            interviewType,
-            role,
-          }),
-        }
-      );
+      const response =
+        await fetch(
+          `${API_URL}/api/interviews`,
+          {
+            method: "POST",
 
-      const data = await response.json();
+            headers: {
+              "Content-Type":
+                "application/json",
+
+              Authorization:
+                `Bearer ${token}`,
+            },
+
+            body: JSON.stringify({
+              interviewType,
+              role,
+            }),
+          }
+        );
+
+      const data =
+        await response.json();
 
       if (!response.ok) {
         setError(
@@ -81,10 +733,13 @@ function Interview({ onBackToDashboard }) {
         );
 
         setLoading(false);
+
         return;
       }
 
-      setInterviewId(data.interview._id);
+      setInterviewId(
+        data.interview._id
+      );
 
       setStarted(true);
 
@@ -106,66 +761,106 @@ function Interview({ onBackToDashboard }) {
     setLoading(false);
   };
 
-  // --------------------------------
+  // ==========================================
   // CONTINUE TO QUESTIONS
-  // --------------------------------
+  // ==========================================
 
-  const continueToQuestions = () => {
-    setShowQuestions(true);
-    setCurrentQuestion(0);
-    setAnswer("");
+  const continueToQuestions = async () => {
     setError("");
+    setSpeechError("");
+
+    // Start camera + microphone
+    await startCamera();
+
+    // Generate AI questions
+    const success =
+      await generateQuestions();
+
+    if (success) {
+      setShowQuestions(true);
+      setCurrentQuestion(0);
+      setAnswer("");
+    }
   };
 
-  // --------------------------------
+  // ==========================================
   // SUBMIT ANSWER
-  // --------------------------------
+  // ==========================================
 
   const submitAnswer = async () => {
     setError("");
 
+    // Stop speech recognition
+    if (isListening) {
+      stopListening();
+    }
+
     if (!answer.trim()) {
-      setError("Please enter your answer.");
+      setError(
+        "Please enter or speak your answer."
+      );
+
       return;
     }
 
-    const token = localStorage.getItem("token");
+    const token =
+      localStorage.getItem("token");
 
     if (!token) {
-      setError("Please login first.");
+      setError(
+        "Please login first."
+      );
+
       return;
     }
 
     if (!interviewId) {
-      setError("Interview ID not found.");
+      setError(
+        "Interview ID not found."
+      );
+
       return;
     }
 
     if (!API_URL) {
-      setError("API URL is not configured.");
+      setError(
+        "API URL is not configured."
+      );
+
       return;
     }
 
     setLoading(true);
 
     try {
-      const response = await fetch(
-        `${API_URL}/api/interviews/${interviewId}/answer`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            question:
-              questions[currentQuestion],
-            answer: answer,
-          }),
-        }
-      );
+      const response =
+        await fetch(
+          `${API_URL}/api/interviews/${interviewId}/answer`,
+          {
+            method: "POST",
 
-      const data = await response.json();
+            headers: {
+              "Content-Type":
+                "application/json",
+
+              Authorization:
+                `Bearer ${token}`,
+            },
+
+            body: JSON.stringify({
+              question:
+                questions[
+                  currentQuestion
+                ],
+
+              answer:
+                answer,
+            }),
+          }
+        );
+
+      const data =
+        await response.json();
 
       if (!response.ok) {
         setError(
@@ -175,6 +870,7 @@ function Interview({ onBackToDashboard }) {
         );
 
         setLoading(false);
+
         return;
       }
 
@@ -183,21 +879,31 @@ function Interview({ onBackToDashboard }) {
         data.interview
       );
 
-      // Last question
+      // ========================================
+      // LAST QUESTION
+      // ========================================
+
       if (
         currentQuestion ===
         questions.length - 1
       ) {
         setAnswer("");
 
-        // Evaluate interview
         await evaluateInterview();
-      } else {
+      }
+
+      // ========================================
+      // NEXT QUESTION
+      // ========================================
+
+      else {
         setCurrentQuestion(
           currentQuestion + 1
         );
 
         setAnswer("");
+
+        setSpeechError("");
       }
     } catch (error) {
       console.log(
@@ -213,25 +919,35 @@ function Interview({ onBackToDashboard }) {
     setLoading(false);
   };
 
-  // --------------------------------
+  // ==========================================
   // AI EVALUATION
-  // --------------------------------
+  // ==========================================
 
   const evaluateInterview = async () => {
-    const token = localStorage.getItem("token");
+    const token =
+      localStorage.getItem("token");
 
     if (!token) {
-      setError("Please login first.");
+      setError(
+        "Please login first."
+      );
+
       return;
     }
 
     if (!interviewId) {
-      setError("Interview ID not found.");
+      setError(
+        "Interview ID not found."
+      );
+
       return;
     }
 
     if (!API_URL) {
-      setError("API URL is not configured.");
+      setError(
+        "API URL is not configured."
+      );
+
       return;
     }
 
@@ -240,21 +956,24 @@ function Interview({ onBackToDashboard }) {
         "Starting AI evaluation..."
       );
 
-      const response = await fetch(
-        `${API_URL}/api/interviews/${interviewId}/evaluate`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response =
+        await fetch(
+          `${API_URL}/api/interviews/${interviewId}/evaluate`,
+          {
+            method: "POST",
 
-      // Try to read JSON response
+            headers: {
+              Authorization:
+                `Bearer ${token}`,
+            },
+          }
+        );
+
       let data;
 
       try {
-        data = await response.json();
+        data =
+          await response.json();
       } catch (jsonError) {
         console.log(
           "Could not parse server response:",
@@ -273,29 +992,18 @@ function Interview({ onBackToDashboard }) {
         data
       );
 
-      // --------------------------------
-      // HANDLE BACKEND ERROR
-      // --------------------------------
-
       if (!response.ok) {
         const actualError =
           data.error ||
           data.message ||
           `AI evaluation failed. Status: ${response.status}`;
 
-        console.log(
-          "Actual AI error:",
+        setError(
           actualError
         );
 
-        setError(actualError);
-
         return;
       }
-
-      // --------------------------------
-      // CHECK EVALUATION DATA
-      // --------------------------------
 
       if (!data.evaluation) {
         setError(
@@ -305,16 +1013,16 @@ function Interview({ onBackToDashboard }) {
         return;
       }
 
-      console.log(
-        "AI evaluation successful:",
+      setEvaluation(
         data.evaluation
       );
-
-      setEvaluation(data.evaluation);
 
       setCompleted(true);
 
       setShowQuestions(false);
+
+      // Camera + microphone OFF
+      stopCamera();
     } catch (error) {
       console.log(
         "Evaluation error:",
@@ -327,18 +1035,36 @@ function Interview({ onBackToDashboard }) {
     }
   };
 
+  // ==========================================
+  // BACK TO DASHBOARD
+  // ==========================================
+
+  const handleBackToDashboard = () => {
+    stopCamera();
+
+    onBackToDashboard();
+  };
+
+  // ==========================================
+  // UI
+  // ==========================================
+
   return (
     <div className="interview-page">
+
       <div className="interview-container">
 
-        {/* -------------------------------- */}
+        {/* ================================== */}
         {/* TOP SECTION */}
-        {/* -------------------------------- */}
+        {/* ================================== */}
 
         <div className="interview-top">
+
           <button
             className="back-btn"
-            onClick={onBackToDashboard}
+            onClick={
+              handleBackToDashboard
+            }
           >
             ← Dashboard
           </button>
@@ -348,17 +1074,19 @@ function Interview({ onBackToDashboard }) {
           </h1>
 
           <p>
-            Practice your interview with our
-            AI-powered platform.
+            Practice your interview with
+            our AI-powered platform.
           </p>
+
         </div>
 
-        {/* -------------------------------- */}
+        {/* ================================== */}
         {/* INTERVIEW SETUP */}
-        {/* -------------------------------- */}
+        {/* ================================== */}
 
         {!started && (
           <div className="interview-setup">
+
             <div className="setup-card">
 
               <h2>
@@ -376,15 +1104,21 @@ function Interview({ onBackToDashboard }) {
 
                 <button
                   className={
-                    interviewType === "HR"
+                    interviewType ===
+                    "HR"
                       ? "type-card selected"
                       : "type-card"
                   }
+
                   onClick={() =>
-                    setInterviewType("HR")
+                    setInterviewType(
+                      "HR"
+                    )
                   }
                 >
-                  <span>👔</span>
+                  <span>
+                    👔
+                  </span>
 
                   <h3>
                     HR Interview
@@ -394,6 +1128,7 @@ function Interview({ onBackToDashboard }) {
                     Behavioral and personality
                     questions.
                   </p>
+
                 </button>
 
                 {/* TECHNICAL */}
@@ -405,39 +1140,47 @@ function Interview({ onBackToDashboard }) {
                       ? "type-card selected"
                       : "type-card"
                   }
+
                   onClick={() =>
                     setInterviewType(
                       "Technical"
                     )
                   }
                 >
-                  <span>💻</span>
+                  <span>
+                    💻
+                  </span>
 
                   <h3>
                     Technical Interview
                   </h3>
 
                   <p>
-                    Technical and concept-based
-                    questions.
+                    Technical and
+                    concept-based questions.
                   </p>
+
                 </button>
 
                 {/* CODING */}
 
                 <button
                   className={
-                    interviewType === "Coding"
+                    interviewType ===
+                    "Coding"
                       ? "type-card selected"
                       : "type-card"
                   }
+
                   onClick={() =>
                     setInterviewType(
                       "Coding"
                     )
                   }
                 >
-                  <span>⌨️</span>
+                  <span>
+                    ⌨️
+                  </span>
 
                   <h3>
                     Coding Interview
@@ -447,6 +1190,7 @@ function Interview({ onBackToDashboard }) {
                     Programming and
                     problem-solving questions.
                   </p>
+
                 </button>
 
               </div>
@@ -472,6 +1216,7 @@ function Interview({ onBackToDashboard }) {
                     )
                   }
                 >
+
                   <option value="">
                     Select a role
                   </option>
@@ -503,6 +1248,7 @@ function Interview({ onBackToDashboard }) {
                   <option value="Data Scientist">
                     Data Scientist
                   </option>
+
                 </select>
 
               </div>
@@ -519,7 +1265,9 @@ function Interview({ onBackToDashboard }) {
 
               <button
                 className="start-interview-btn"
-                onClick={startInterview}
+                onClick={
+                  startInterview
+                }
                 disabled={loading}
               >
                 {loading
@@ -528,16 +1276,18 @@ function Interview({ onBackToDashboard }) {
               </button>
 
             </div>
+
           </div>
         )}
 
-        {/* -------------------------------- */}
+        {/* ================================== */}
         {/* INTERVIEW STARTED */}
-        {/* -------------------------------- */}
+        {/* ================================== */}
 
         {started &&
           !showQuestions &&
           !completed && (
+
             <div className="interview-started">
 
               <div className="started-card">
@@ -551,8 +1301,8 @@ function Interview({ onBackToDashboard }) {
                 </h2>
 
                 <p>
-                  Your {interviewType} interview
-                  for{" "}
+                  Your {interviewType}
+                  interview for{" "}
                   <strong>
                     {role}
                   </strong>{" "}
@@ -569,21 +1319,35 @@ function Interview({ onBackToDashboard }) {
                   onClick={
                     continueToQuestions
                   }
+
+                  disabled={
+                    questionsLoading
+                  }
                 >
-                  Continue to Questions →
+                  {questionsLoading
+                    ? "🤖 Preparing AI Questions..."
+                    : "Continue to Questions →"}
                 </button>
+
+                {error && (
+                  <p className="interview-error">
+                    {error}
+                  </p>
+                )}
 
               </div>
 
             </div>
+
           )}
 
-        {/* -------------------------------- */}
+        {/* ================================== */}
         {/* QUESTIONS */}
-        {/* -------------------------------- */}
+        {/* ================================== */}
 
         {showQuestions &&
           !completed && (
+
             <div className="questions-section">
 
               <div className="question-card">
@@ -605,21 +1369,356 @@ function Interview({ onBackToDashboard }) {
                   </div>
 
                   <div className="question-count">
+
                     Question{" "}
                     {currentQuestion + 1}
                     {" "}
                     of{" "}
                     {questions.length}
+
                   </div>
 
                 </div>
 
+                {/* ================================= */}
+                {/* FLOATING CAMERA */}
+                {/* ================================= */}
+
+                <div
+                  style={{
+                    position: "fixed",
+
+                    top: "80px",
+
+                    right: "24px",
+
+                    width: "220px",
+
+                    height: "140px",
+
+                    background: "#020617",
+
+                    borderRadius: "12px",
+
+                    overflow: "hidden",
+
+                    border:
+                      cameraActive
+                        ? "2px solid #ef4444"
+                        : "2px solid #cbd5e1",
+
+                    boxShadow:
+                      "0 8px 25px rgba(0,0,0,0.18)",
+
+                    zIndex: 1000,
+                  }}
+                >
+
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+
+                    style={{
+                      width: "100%",
+
+                      height: "100%",
+
+                      objectFit: "cover",
+
+                      display:
+                        cameraActive
+                          ? "block"
+                          : "none",
+
+                      transform:
+                        "scaleX(-1)",
+                    }}
+                  />
+
+                  {!cameraActive && (
+
+                    <div
+                      style={{
+                        width: "100%",
+
+                        height: "100%",
+
+                        display: "flex",
+
+                        alignItems:
+                          "center",
+
+                        justifyContent:
+                          "center",
+
+                        flexDirection:
+                          "column",
+
+                        gap: "6px",
+
+                        color:
+                          "#cbd5e1",
+
+                        fontSize:
+                          "12px",
+
+                        textAlign:
+                          "center",
+                      }}
+                    >
+
+                      <span
+                        style={{
+                          fontSize:
+                            "28px",
+                        }}
+                      >
+                        📷
+                      </span>
+
+                      <span>
+                        Camera Off
+                      </span>
+
+                    </div>
+
+                  )}
+
+                  {cameraActive && (
+
+                    <div
+                      style={{
+                        position:
+                          "absolute",
+
+                        top: "8px",
+
+                        right: "8px",
+
+                        display: "flex",
+
+                        alignItems:
+                          "center",
+
+                        gap: "5px",
+
+                        padding:
+                          "4px 7px",
+
+                        borderRadius:
+                          "5px",
+
+                        background:
+                          "rgba(220,38,38,0.9)",
+
+                        color:
+                          "white",
+
+                        fontSize:
+                          "9px",
+
+                        fontWeight:
+                          "800",
+                      }}
+                    >
+                      <span>
+                        ●
+                      </span>
+
+                      LIVE
+                    </div>
+
+                  )}
+
+                </div>
+
+                {/* ================================= */}
+                {/* ERRORS */}
+                {/* ================================= */}
+
+                {cameraError && (
+
+                  <div
+                    style={{
+                      marginTop:
+                        "18px",
+
+                      padding:
+                        "10px 12px",
+
+                      borderRadius:
+                        "8px",
+
+                      background:
+                        "#fef2f2",
+
+                      color:
+                        "#dc2626",
+
+                      fontSize:
+                        "12px",
+                    }}
+                  >
+                    {cameraError}
+                  </div>
+
+                )}
+
+                {micError && (
+
+                  <div
+                    style={{
+                      marginTop:
+                        "10px",
+
+                      padding:
+                        "10px 12px",
+
+                      borderRadius:
+                        "8px",
+
+                      background:
+                        "#fff7ed",
+
+                      color:
+                        "#c2410c",
+
+                      fontSize:
+                        "12px",
+                    }}
+                  >
+                    {micError}
+                  </div>
+
+                )}
+
+                {speechError && (
+
+                  <div
+                    style={{
+                      marginTop:
+                        "10px",
+
+                      padding:
+                        "10px 12px",
+
+                      borderRadius:
+                        "8px",
+
+                      background:
+                        "#fff7ed",
+
+                      color:
+                        "#c2410c",
+
+                      fontSize:
+                        "12px",
+                    }}
+                  >
+                    {speechError}
+                  </div>
+
+                )}
+
+                {/* ================================= */}
+                {/* MIC CONTROL */}
+                {/* ================================= */}
+
+                {cameraActive && (
+
+                  <div
+                    style={{
+                      marginTop:
+                        "14px",
+
+                      display: "flex",
+
+                      alignItems:
+                        "center",
+
+                      gap: "10px",
+
+                      flexWrap:
+                        "wrap",
+                    }}
+                  >
+
+                    <button
+                      type="button"
+
+                      onClick={
+                        toggleMicrophone
+                      }
+
+                      style={{
+                        padding:
+                          "9px 14px",
+
+                        border:
+                          "1px solid #dbe1ea",
+
+                        borderRadius:
+                          "8px",
+
+                        background:
+                          micActive
+                            ? "#f0fdf4"
+                            : "#fef2f2",
+
+                        color:
+                          micActive
+                            ? "#15803d"
+                            : "#dc2626",
+
+                        fontSize:
+                          "12px",
+
+                        fontWeight:
+                          "700",
+
+                        cursor:
+                          "pointer",
+                      }}
+                    >
+                      {micActive
+                        ? "🎤 Mic ON"
+                        : "🔇 Mic OFF"}
+                    </button>
+
+                    <span
+                      style={{
+                        fontSize:
+                          "12px",
+
+                        fontWeight:
+                          "600",
+
+                        color:
+                          micActive
+                            ? "#15803d"
+                            : "#dc2626",
+                      }}
+                    >
+                      {micActive
+                        ? "Microphone is active"
+                        : "Microphone is muted"}
+                    </span>
+
+                  </div>
+
+                )}
+
+                {/* ================================= */}
                 {/* PROGRESS */}
+                {/* ================================= */}
 
                 <div className="progress-container">
 
                   <div
                     className="progress-bar"
+
                     style={{
                       width:
                         `${
@@ -629,11 +1728,13 @@ function Interview({ onBackToDashboard }) {
                           ) * 100
                         }%`,
                     }}
-                  ></div>
+                  />
 
                 </div>
 
+                {/* ================================= */}
                 {/* QUESTION */}
+                {/* ================================= */}
 
                 <div className="question-content">
 
@@ -652,7 +1753,9 @@ function Interview({ onBackToDashboard }) {
 
                 </div>
 
+                {/* ================================= */}
                 {/* ANSWER */}
+                {/* ================================= */}
 
                 <div className="answer-section">
 
@@ -662,51 +1765,298 @@ function Interview({ onBackToDashboard }) {
 
                   <textarea
                     value={answer}
+
                     onChange={(e) =>
                       setAnswer(
                         e.target.value
                       )
                     }
-                    placeholder="Type your answer here..."
+
+                    placeholder={
+                      isListening
+                        ? "🔴 Listening... Speak your answer."
+                        : "Type your answer or click Start Answer and speak..."
+                    }
+
                     rows="8"
-                  ></textarea>
+                  />
 
                 </div>
 
+                {/* ================================= */}
+                {/* SPEECH CONTROLS */}
+                {/* ================================= */}
+
+                {speechSupported ? (
+
+                  <div
+                    style={{
+                      marginTop:
+                        "14px",
+
+                      padding:
+                        "14px",
+
+                      border:
+                        "1px solid #e2e8f0",
+
+                      borderRadius:
+                        "10px",
+
+                      background:
+                        "#f8fafc",
+                    }}
+                  >
+
+                    <div
+                      style={{
+                        display: "flex",
+
+                        alignItems:
+                          "center",
+
+                        gap: "10px",
+
+                        flexWrap:
+                          "wrap",
+                      }}
+                    >
+
+                      {!isListening ? (
+
+                        <button
+                          type="button"
+
+                          onClick={
+                            startListening
+                          }
+
+                          disabled={
+                            !micActive
+                          }
+
+                          style={{
+                            padding:
+                              "10px 18px",
+
+                            border:
+                              "none",
+
+                            borderRadius:
+                              "8px",
+
+                            background:
+                              micActive
+                                ? "#2563eb"
+                                : "#94a3b8",
+
+                            color:
+                              "white",
+
+                            fontSize:
+                              "13px",
+
+                            fontWeight:
+                              "700",
+
+                            cursor:
+                              micActive
+                                ? "pointer"
+                                : "not-allowed",
+                          }}
+                        >
+                          🎤 Start Answer
+                        </button>
+
+                      ) : (
+
+                        <button
+                          type="button"
+
+                          onClick={
+                            stopListening
+                          }
+
+                          style={{
+                            padding:
+                              "10px 18px",
+
+                            border:
+                              "none",
+
+                            borderRadius:
+                              "8px",
+
+                            background:
+                              "#dc2626",
+
+                            color:
+                              "white",
+
+                            fontSize:
+                              "13px",
+
+                            fontWeight:
+                              "700",
+
+                            cursor:
+                              "pointer",
+                          }}
+                        >
+                          🛑 Stop Answer
+                        </button>
+
+                      )}
+
+                      {isListening && (
+
+                        <span
+                          style={{
+                            display:
+                              "flex",
+
+                            alignItems:
+                              "center",
+
+                            gap: "6px",
+
+                            fontSize:
+                              "12px",
+
+                            fontWeight:
+                              "700",
+
+                            color:
+                              "#dc2626",
+                          }}
+                        >
+                          🔴 Listening...
+                        </span>
+
+                      )}
+
+                      {!isListening &&
+                        answer.trim() && (
+
+                          <span
+                            style={{
+                              fontSize:
+                                "12px",
+
+                              color:
+                                "#64748b",
+
+                              fontWeight:
+                                "600",
+                            }}
+                          >
+                            ✓ Transcript captured
+                          </span>
+
+                        )}
+
+                    </div>
+
+                    <p
+                      style={{
+                        margin:
+                          "10px 0 0",
+
+                        fontSize:
+                          "11px",
+
+                        color:
+                          "#64748b",
+                      }}
+                    >
+                      Click "Start Answer"
+                      and speak clearly.
+                      Your speech will
+                      appear in the answer
+                      box.
+                    </p>
+
+                  </div>
+
+                ) : (
+
+                  <div
+                    style={{
+                      marginTop:
+                        "14px",
+
+                      padding:
+                        "12px",
+
+                      borderRadius:
+                        "8px",
+
+                      background:
+                        "#fff7ed",
+
+                      color:
+                        "#c2410c",
+
+                      fontSize:
+                        "12px",
+                    }}
+                  >
+                    Speech-to-text is not
+                    supported in this browser.
+                    Please use Google Chrome
+                    or Microsoft Edge.
+                  </div>
+
+                )}
+
+                {/* ================================= */}
                 {/* ERROR */}
+                {/* ================================= */}
 
                 {error && (
+
                   <p className="interview-error">
                     {error}
                   </p>
+
                 )}
 
+                {/* ================================= */}
                 {/* SUBMIT */}
+                {/* ================================= */}
 
                 <button
                   className="start-interview-btn"
-                  onClick={submitAnswer}
+
+                  onClick={
+                    submitAnswer
+                  }
+
                   disabled={loading}
                 >
+
                   {loading
                     ? "Processing..."
                     : currentQuestion ===
                       questions.length - 1
                     ? "Finish & Get AI Score 🤖"
                     : "Submit Answer →"}
+
                 </button>
 
               </div>
 
             </div>
+
           )}
 
-        {/* -------------------------------- */}
+        {/* ================================== */}
         {/* EVALUATION RESULT */}
-        {/* -------------------------------- */}
+        {/* ================================== */}
 
         {completed &&
           evaluation && (
+
             <div className="evaluation-section">
 
               <div className="evaluation-card">
@@ -728,8 +2078,6 @@ function Interview({ onBackToDashboard }) {
                   interview performance.
                 </p>
 
-                {/* OVERALL SCORE */}
-
                 <div className="overall-score">
 
                   <span>
@@ -737,15 +2085,16 @@ function Interview({ onBackToDashboard }) {
                   </span>
 
                   <strong>
+
                     {evaluation.score}
+
                     <small>
                       /10
                     </small>
+
                   </strong>
 
                 </div>
-
-                {/* SCORE GRID */}
 
                 <div className="score-grid">
 
@@ -796,8 +2145,6 @@ function Interview({ onBackToDashboard }) {
 
                 </div>
 
-                {/* FEEDBACK */}
-
                 <div className="feedback-box">
 
                   <h3>
@@ -809,8 +2156,6 @@ function Interview({ onBackToDashboard }) {
                   </p>
 
                 </div>
-
-                {/* IMPROVEMENTS */}
 
                 <div className="feedback-box">
 
@@ -824,12 +2169,11 @@ function Interview({ onBackToDashboard }) {
 
                 </div>
 
-                {/* BACK */}
-
                 <button
                   className="primary-btn"
+
                   onClick={
-                    onBackToDashboard
+                    handleBackToDashboard
                   }
                 >
                   Back to Dashboard →
@@ -838,9 +2182,11 @@ function Interview({ onBackToDashboard }) {
               </div>
 
             </div>
+
           )}
 
       </div>
+
     </div>
   );
 }
