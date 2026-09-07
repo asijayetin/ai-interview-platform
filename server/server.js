@@ -19,14 +19,31 @@ app.use(express.json());
 // ========================================
 
 if (!process.env.GEMINI_API_KEY) {
-  console.log(
-    "WARNING: GEMINI_API_KEY is missing from .env"
-  );
+  console.log("WARNING: GEMINI_API_KEY is missing");
 } else {
-  console.log(
-    "Gemini API key loaded successfully"
-  );
+  console.log("Gemini API key loaded successfully");
 }
+
+// ========================================
+// GEMINI CONFIG
+// ========================================
+
+const GEMINI_URL =
+  "https://generativelanguage.googleapis.com/v1beta/interactions";
+
+// Models are tried in this order.
+// If one is busy/unavailable, the next one is tried.
+const QUESTION_MODELS = [
+  "gemini-3.5-flash-lite",
+  "gemini-3.5-flash",
+  "gemini-3.1-flash-lite",
+];
+
+const EVALUATION_MODELS = [
+  "gemini-3.5-flash",
+  "gemini-3.5-flash-lite",
+  "gemini-3.1-flash-lite",
+];
 
 // ========================================
 // INTERVIEW SCHEMA
@@ -50,11 +67,18 @@ const interviewSchema = new mongoose.Schema(
       required: true,
     },
 
+    // ====================================
     // AI GENERATED QUESTIONS
+    // ====================================
+
     questions: {
       type: [String],
       default: [],
     },
+
+    // ====================================
+    // CANDIDATE ANSWERS
+    // ====================================
 
     answers: [
       {
@@ -62,6 +86,10 @@ const interviewSchema = new mongoose.Schema(
         answer: String,
       },
     ],
+
+    // ====================================
+    // AI EVALUATION
+    // ====================================
 
     score: {
       type: Number,
@@ -104,15 +132,347 @@ const Interview = mongoose.model(
 );
 
 // ========================================
-// HOME ROUTE
+// HOME
 // ========================================
 
 app.get("/", (req, res) => {
   res.json({
-    message:
-      "AI Interview Arena Backend is running!",
+    message: "AI Interview Arena Backend is running!",
   });
 });
+
+// ========================================
+// GEMINI HELPER
+// ========================================
+
+async function callGemini(
+  prompt,
+  responseSchema,
+  models
+) {
+  const geminiKey =
+    process.env.GEMINI_API_KEY;
+
+  if (!geminiKey) {
+    throw new Error(
+      "GEMINI_API_KEY was not found in environment variables."
+    );
+  }
+
+  let lastError =
+    "Gemini request failed.";
+
+  // Try every model
+  for (
+    let modelIndex = 0;
+    modelIndex < models.length;
+    modelIndex++
+  ) {
+    const model = models[modelIndex];
+
+    console.log(
+      `Trying Gemini model: ${model}`
+    );
+
+    const controller =
+      new AbortController();
+
+    // Do not let one request hang forever
+    const timeout = setTimeout(() => {
+      controller.abort();
+    }, 20000);
+
+    try {
+      const response = await fetch(
+        GEMINI_URL,
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+
+            "x-goog-api-key":
+              geminiKey,
+          },
+
+          body: JSON.stringify({
+            model: model,
+
+            input: prompt,
+
+            generation_config: {
+              thinking_level: "minimal",
+            },
+
+            response_format: {
+              type: "text",
+
+              mime_type:
+                "application/json",
+
+              schema:
+                responseSchema,
+            },
+          }),
+
+          signal: controller.signal,
+        }
+      );
+
+      clearTimeout(timeout);
+
+      let data;
+
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        data = {};
+      }
+
+      console.log(
+        `Gemini ${model} status: ${response.status}`
+      );
+
+      // ====================================
+      // SUCCESS
+      // ====================================
+
+      if (response.ok) {
+        return {
+          data,
+          model,
+        };
+      }
+
+      // ====================================
+      // ERROR MESSAGE
+      // ====================================
+
+      const errorMessage =
+        data?.error?.message ||
+        data?.message ||
+        "Unknown Gemini error";
+
+      lastError = errorMessage;
+
+      console.log(
+        `Gemini ${model} error:`,
+        errorMessage
+      );
+
+      // ====================================
+      // TEMPORARY / CAPACITY ERROR
+      // ====================================
+
+      const temporaryError =
+        response.status === 429 ||
+        response.status === 503 ||
+        /high demand/i.test(
+          errorMessage
+        ) ||
+        /temporarily/i.test(
+          errorMessage
+        ) ||
+        /try again later/i.test(
+          errorMessage
+        ) ||
+        /overloaded/i.test(
+          errorMessage
+        ) ||
+        /resource exhausted/i.test(
+          errorMessage
+        ) ||
+        /quota/i.test(
+          errorMessage
+        );
+
+      if (temporaryError) {
+        console.log(
+          `${model} unavailable. Trying next Gemini model...`
+        );
+
+        // Immediately try next model.
+        // No long 10-20 second wait.
+        continue;
+      }
+
+      // Non-temporary error
+      throw new Error(
+        errorMessage
+      );
+    } catch (error) {
+      clearTimeout(timeout);
+
+      if (
+        error.name ===
+        "AbortError"
+      ) {
+        lastError =
+          `Gemini model ${model} timed out.`;
+
+        console.log(
+          lastError
+        );
+
+        // Try next model
+        continue;
+      }
+
+      console.log(
+        `Gemini ${model} network/error:`,
+        error.message
+      );
+
+      lastError =
+        error.message;
+
+      // Try next model
+      continue;
+    }
+  }
+
+  throw new Error(
+    `All Gemini models are currently unavailable. Last error: ${lastError}`
+  );
+}
+
+// ========================================
+// EXTRACT GEMINI TEXT
+// ========================================
+
+function extractGeminiText(
+  geminiData
+) {
+  let aiText = "";
+
+  // ====================================
+  // INTERACTIONS API - STEPS
+  // ====================================
+
+  if (
+    Array.isArray(
+      geminiData?.steps
+    )
+  ) {
+    for (
+      const step of
+        geminiData.steps
+    ) {
+      if (
+        step.type ===
+          "model_output" &&
+        Array.isArray(
+          step.content
+        )
+      ) {
+        for (
+          const content of
+            step.content
+        ) {
+          if (
+            content.type ===
+              "text" &&
+            typeof content.text ===
+              "string"
+          ) {
+            aiText +=
+              content.text;
+          }
+        }
+      }
+    }
+  }
+
+  // ====================================
+  // OUTPUT TEXT
+  // ====================================
+
+  if (
+    !aiText &&
+    typeof geminiData?.output_text ===
+      "string"
+  ) {
+    aiText =
+      geminiData.output_text;
+  }
+
+  // ====================================
+  // OUTPUTS
+  // ====================================
+
+  if (
+    !aiText &&
+    Array.isArray(
+      geminiData?.outputs
+    )
+  ) {
+    for (
+      const output of
+        geminiData.outputs
+    ) {
+      if (
+        typeof output?.text ===
+        "string"
+      ) {
+        aiText +=
+          output.text;
+      }
+
+      if (
+        Array.isArray(
+          output?.content
+        )
+      ) {
+        for (
+          const content of
+            output.content
+        ) {
+          if (
+            typeof content?.text ===
+            "string"
+          ) {
+            aiText +=
+              content.text;
+          }
+        }
+      }
+    }
+  }
+
+  return aiText.trim();
+}
+
+// ========================================
+// CLEAN AI JSON
+// ========================================
+
+function cleanAIJson(
+  text
+) {
+  let cleaned =
+    text.trim();
+
+  cleaned =
+    cleaned.replace(
+      /^```json\s*/i,
+      ""
+    );
+
+  cleaned =
+    cleaned.replace(
+      /^```\s*/i,
+      ""
+    );
+
+  cleaned =
+    cleaned.replace(
+      /\s*```$/i,
+      ""
+    );
+
+  return cleaned.trim();
+}
 
 // ========================================
 // SIGNUP
@@ -128,7 +488,11 @@ app.post(
         password,
       } = req.body;
 
-      if (!name || !email || !password) {
+      if (
+        !name ||
+        !email ||
+        !password
+      ) {
         return res.status(400).json({
           message:
             "All fields are required",
@@ -137,7 +501,8 @@ app.post(
 
       const existingUser =
         await User.findOne({
-          email: email,
+          email:
+            email.toLowerCase(),
         });
 
       if (existingUser) {
@@ -155,9 +520,11 @@ app.post(
 
       const user =
         await User.create({
-          name: name,
-          email: email,
-          password: hashedPassword,
+          name,
+          email:
+            email.toLowerCase(),
+          password:
+            hashedPassword,
         });
 
       console.log(
@@ -205,7 +572,10 @@ app.post(
         password,
       } = req.body;
 
-      if (!email || !password) {
+      if (
+        !email ||
+        !password
+      ) {
         return res.status(400).json({
           message:
             "Email and password are required",
@@ -214,7 +584,8 @@ app.post(
 
       const user =
         await User.findOne({
-          email: email,
+          email:
+            email.toLowerCase(),
         });
 
       if (!user) {
@@ -240,12 +611,18 @@ app.post(
       const token =
         jwt.sign(
           {
-            userId: user._id,
-            email: user.email,
+            userId:
+              user._id,
+
+            email:
+              user.email,
           },
+
           process.env.JWT_SECRET,
+
           {
-            expiresIn: "7d",
+            expiresIn:
+              "7d",
           }
         );
 
@@ -258,7 +635,7 @@ app.post(
         message:
           "Login successful",
 
-        token: token,
+        token,
 
         user: {
           id: user._id,
@@ -297,7 +674,10 @@ app.post(
         role,
       } = req.body;
 
-      if (!interviewType || !role) {
+      if (
+        !interviewType ||
+        !role
+      ) {
         return res.status(400).json({
           message:
             "Interview type and role are required",
@@ -309,11 +689,9 @@ app.post(
           userId:
             req.user.userId,
 
-          interviewType:
-            interviewType,
+          interviewType,
 
-          role:
-            role,
+          role,
 
           questions: [],
 
@@ -329,8 +707,7 @@ app.post(
         message:
           "Interview created successfully",
 
-        interview:
-          interview,
+        interview,
       });
     } catch (error) {
       console.log(
@@ -363,29 +740,28 @@ app.post(
       );
 
       console.log(
-        "Starting Gemini question generation..."
+        "Generating AI interview questions..."
       );
 
-      // ------------------------------------
-      // CHECK GEMINI KEY
-      // ------------------------------------
+      // ====================================
+      // GEMINI KEY
+      // ====================================
 
-      const geminiKey =
-        process.env.GEMINI_API_KEY;
-
-      if (!geminiKey) {
+      if (
+        !process.env.GEMINI_API_KEY
+      ) {
         return res.status(500).json({
           message:
             "Gemini API key is missing",
 
           error:
-            "GEMINI_API_KEY was not found in .env",
+            "GEMINI_API_KEY was not found",
         });
       }
 
-      // ------------------------------------
+      // ====================================
       // FIND INTERVIEW
-      // ------------------------------------
+      // ====================================
 
       const interview =
         await Interview.findOne({
@@ -403,12 +779,14 @@ app.post(
         });
       }
 
-      // ------------------------------------
+      // ====================================
       // IF QUESTIONS ALREADY EXIST
-      // ------------------------------------
+      // ====================================
 
       if (
-        interview.questions &&
+        Array.isArray(
+          interview.questions
+        ) &&
         interview.questions.length === 5
       ) {
         console.log(
@@ -424,110 +802,65 @@ app.post(
         });
       }
 
-      // ------------------------------------
-      // INTERVIEW DETAILS
-      // ------------------------------------
-
-      const interviewType =
-        interview.interviewType;
-
-      const role =
-        interview.role;
-
-      console.log(
-        "Interview Type:",
-        interviewType
-      );
-
-      console.log(
-        "Role:",
-        role
-      );
-
-      // ------------------------------------
-      // GEMINI PROMPT
-      // ------------------------------------
+      // ====================================
+      // PROMPT
+      // ====================================
 
       const prompt = `
 You are an expert professional interviewer.
 
 Generate exactly 5 interview questions for a candidate.
 
-INTERVIEW TYPE:
-${interviewType}
+Interview Type:
+${interview.interviewType}
 
-JOB ROLE:
-${role}
+Target Role:
+${interview.role}
 
-The questions MUST be appropriate for BOTH the selected interview type AND the selected job role.
+IMPORTANT RULES:
 
-Important rules:
+1. Questions must be specifically relevant to the target role.
+2. Questions must also match the selected interview type.
+3. Do NOT give generic questions when role-specific questions are possible.
+4. Use realistic questions that an actual interviewer could ask.
+5. Questions should be appropriate for the candidate applying for this role.
+6. Keep questions clear and concise.
+7. Generate exactly 5 questions.
+8. Do not include answers.
+9. Do not include explanations.
+10. Do not number the questions inside the question text.
 
-1. If interview type is HR:
-   Ask behavioral, situational, personality, teamwork,
-   communication, leadership and career-related questions.
+INTERVIEW TYPE RULES:
 
-2. If interview type is Technical:
-   Ask technical concept questions specifically related
-   to the selected job role.
+If interview type is HR:
+Focus on behavioral, communication, motivation, teamwork, leadership, conflict handling, career goals and role-specific HR topics.
 
-3. If interview type is Coding:
-   Ask programming, coding, algorithm, debugging or
-   problem-solving questions appropriate for the selected role.
+If interview type is Technical:
+Focus on technical concepts, tools, technologies, architecture, practical scenarios and role-specific technical knowledge.
 
-4. The JOB ROLE is extremely important.
+If interview type is Coding:
+Focus on programming, data structures, algorithms, debugging, problem solving and coding questions relevant to the selected role and technology.
 
-Examples:
+ROLE EXAMPLES:
 
-HR + Frontend Developer:
-Ask HR/behavioral questions involving frontend development,
-projects, teamwork, deadlines, communication and technical situations.
+For Data Analyst:
+Ask about SQL, Excel, Python, statistics, data cleaning, dashboards, data visualization and analytical thinking when appropriate.
 
-Technical + Frontend Developer:
-Ask JavaScript, React, HTML, CSS, browser, API and frontend
-technical questions.
+For Frontend Developer:
+Ask about HTML, CSS, JavaScript, React, browser concepts, APIs, state management, performance and frontend architecture when appropriate.
 
-Coding + Java Developer:
-Ask Java coding, OOP, arrays, strings, data structures,
-algorithms and problem-solving questions.
+For Backend Developer:
+Ask about APIs, databases, authentication, Node.js/Java/Python backend concepts, scalability and server-side development when appropriate.
 
-Technical + Data Analyst:
-Ask SQL, Excel, statistics, data cleaning, dashboards,
-Python/pandas and analytical concepts.
+For Java Developer:
+Ask about Java, OOP, collections, exceptions, multithreading, Spring Boot, databases and backend development when appropriate.
 
-HR + Data Analyst:
-Ask behavioral questions related to data analysis projects,
-business problems, communication with stakeholders and
-working with data.
+For Software Engineer:
+Ask about programming, DSA, OOP, databases, system concepts, debugging and software engineering practices when appropriate.
 
-Coding + Data Analyst:
-Ask coding/problem-solving questions using Python, SQL,
-data manipulation and analytical problem solving.
+If the role is something else, intelligently adapt the questions to that role.
 
-Technical + Java Developer:
-Ask Java, OOP, collections, exception handling, multithreading,
-JVM and related technical questions.
-
-Technical + Backend Developer:
-Ask APIs, Node.js, Express, databases, authentication,
-server-side concepts and backend architecture.
-
-Technical + Full Stack Developer:
-Ask frontend, backend, APIs, databases and full-stack concepts.
-
-Technical + Data Scientist:
-Ask Python, statistics, machine learning, pandas,
-model evaluation and data science concepts.
-
-Do NOT give generic questions that could apply to every role.
-
-The questions should progress from easier to more challenging.
-
-Do not include answers.
-
-Return ONLY valid JSON.
-
-Return exactly this structure:
+Return ONLY JSON in this exact format:
 
 {
   "questions": [
@@ -540,189 +873,57 @@ Return exactly this structure:
 }
 `;
 
-      // ------------------------------------
-      // CALL GEMINI
-      // ------------------------------------
+      // ====================================
+      // RESPONSE SCHEMA
+      // ====================================
 
-      console.log(
-        "Sending question request to Gemini..."
-      );
+      const responseSchema = {
+        type: "object",
 
-      const geminiResponse =
-        await fetch(
-          "https://generativelanguage.googleapis.com/v1beta/interactions",
-          {
-            method:
-              "POST",
+        properties: {
+          questions: {
+            type: "array",
 
-            headers: {
-              "Content-Type":
-                "application/json",
-
-              "x-goog-api-key":
-                geminiKey,
+            items: {
+              type: "string",
             },
+          },
+        },
 
-            body: JSON.stringify({
-              model:
-                "gemini-3.6-flash",
+        required: [
+          "questions",
+        ],
+      };
 
-              input:
-                prompt,
+      // ====================================
+      // CALL GEMINI
+      // ====================================
 
-              response_format: {
-                type:
-                  "object",
-              },
-            }),
-          }
+      const result =
+        await callGemini(
+          prompt,
+          responseSchema,
+          QUESTION_MODELS
         );
 
-      // ------------------------------------
-      // READ GEMINI RESPONSE
-      // ------------------------------------
-
-      const geminiData =
-        await geminiResponse.json();
-
       console.log(
-        "Gemini HTTP status:",
-        geminiResponse.status
+        "Questions generated using:",
+        result.model
       );
 
-      // ------------------------------------
-      // GEMINI ERROR
-      // ------------------------------------
+      // ====================================
+      // EXTRACT RESPONSE
+      // ====================================
 
-      if (!geminiResponse.ok) {
-        console.log(
-          "Gemini API error:"
+      const aiText =
+        extractGeminiText(
+          result.data
         );
 
-        console.log(
-          JSON.stringify(
-            geminiData,
-            null,
-            2
-          )
-        );
-
-        return res.status(
-          geminiResponse.status
-        ).json({
-          message:
-            "Gemini API request failed",
-
-          error:
-            geminiData?.error?.message ||
-            "Unknown Gemini API error",
-        });
-      }
-
-      // ------------------------------------
-      // EXTRACT AI TEXT
-      // ------------------------------------
-
-      let aiText = "";
-
-      // output_text
-      if (
-        typeof geminiData.output_text ===
-        "string"
-      ) {
-        aiText =
-          geminiData.output_text;
-      }
-
-      // output array
-      if (
-        !aiText &&
-        Array.isArray(
-          geminiData.output
-        )
-      ) {
-        for (
-          const item of
-            geminiData.output
-        ) {
-          if (
-            typeof item ===
-            "string"
-          ) {
-            aiText += item;
-          }
-
-          if (
-            item &&
-            typeof item.text ===
-            "string"
-          ) {
-            aiText +=
-              item.text;
-          }
-
-          if (
-            item &&
-            typeof item.content ===
-            "string"
-          ) {
-            aiText +=
-              item.content;
-          }
-        }
-      }
-
-      // steps
-      if (
-        !aiText &&
-        Array.isArray(
-          geminiData.steps
-        )
-      ) {
-        for (
-          const step of
-            geminiData.steps
-        ) {
-          if (
-            Array.isArray(
-              step.content
-            )
-          ) {
-            for (
-              const content of
-                step.content
-            ) {
-              if (
-                typeof content.text ===
-                "string"
-              ) {
-                aiText +=
-                  content.text;
-              }
-            }
-          }
-
-          if (
-            typeof step.text ===
-            "string"
-          ) {
-            aiText +=
-              step.text;
-          }
-        }
-      }
-
       console.log(
-        "Gemini raw question response:"
-      );
-
-      console.log(
+        "Gemini question response:",
         aiText
       );
-
-      // ------------------------------------
-      // EMPTY RESPONSE
-      // ------------------------------------
 
       if (!aiText) {
         return res.status(500).json({
@@ -730,104 +931,74 @@ Return exactly this structure:
             "Gemini returned an empty response",
 
           error:
-            "Could not extract text from Gemini response",
-
-          rawResponse:
-            geminiData,
+            "No questions were returned by Gemini.",
         });
       }
 
-      // ------------------------------------
-      // CLEAN JSON
-      // ------------------------------------
-
-      let cleanedText =
-        aiText.trim();
-
-      cleanedText =
-        cleanedText.replace(
-          /^```json\s*/i,
-          ""
-        );
-
-      cleanedText =
-        cleanedText.replace(
-          /^```\s*/i,
-          ""
-        );
-
-      cleanedText =
-        cleanedText.replace(
-          /\s*```$/i,
-          ""
-        );
-
-      cleanedText =
-        cleanedText.trim();
-
-      // ------------------------------------
+      // ====================================
       // PARSE JSON
-      // ------------------------------------
+      // ====================================
 
-      let parsedData;
+      let parsed;
 
       try {
-        parsedData =
-          JSON.parse(
-            cleanedText
+        const cleaned =
+          cleanAIJson(
+            aiText
           );
-      } catch (parseError) {
+
+        parsed =
+          JSON.parse(
+            cleaned
+          );
+      } catch (error) {
         console.log(
-          "Gemini question JSON parse error:",
-          parseError
+          "Question JSON parse error:",
+          error.message
+        );
+
+        console.log(
+          "AI question text:",
+          aiText
         );
 
         return res.status(500).json({
           message:
-            "Gemini returned invalid JSON",
+            "Gemini returned invalid question JSON",
 
           error:
-            parseError.message,
-
-          rawResponse:
-            aiText,
+            error.message,
         });
       }
 
-      // ------------------------------------
+      // ====================================
       // VALIDATE QUESTIONS
-      // ------------------------------------
+      // ====================================
 
       if (
-        !parsedData ||
         !Array.isArray(
-          parsedData.questions
+          parsed.questions
         )
       ) {
         return res.status(500).json({
           message:
-            "Gemini returned invalid question data",
+            "Gemini returned invalid questions",
 
           error:
-            "questions array was not found",
+            "questions must be an array",
         });
       }
 
       const questions =
-        parsedData.questions
-          .filter(
-            (question) =>
-              typeof question ===
-              "string"
-          )
-          .map(
-            (question) =>
-              question.trim()
+        parsed.questions
+          .map((question) =>
+            String(question).trim()
           )
           .filter(
             (question) =>
               question.length > 0
-          );
+          )
+          .slice(0, 5);
 
       if (
         questions.length !== 5
@@ -837,16 +1008,13 @@ Return exactly this structure:
             "Gemini did not generate exactly 5 questions",
 
           error:
-            `Expected 5 questions but received ${questions.length}`,
-
-          questions:
-            questions,
+            `Received ${questions.length} valid questions.`,
         });
       }
 
-      // ------------------------------------
+      // ====================================
       // SAVE QUESTIONS
-      // ------------------------------------
+      // ====================================
 
       interview.questions =
         questions;
@@ -857,43 +1025,27 @@ Return exactly this structure:
         "AI questions saved successfully."
       );
 
-      console.log(
-        questions
-      );
-
-      // ------------------------------------
+      // ====================================
       // SEND QUESTIONS
-      // ------------------------------------
+      // ====================================
 
-      res.json({
+      return res.json({
         message:
           "AI questions generated successfully",
 
         questions:
           questions,
-      });
 
-      console.log(
-        "================================"
-      );
+        model:
+          result.model,
+      });
     } catch (error) {
       console.log(
-        "================================"
-      );
-
-      console.log(
-        "GEMINI QUESTION GENERATION ERROR:"
-      );
-
-      console.log(
+        "QUESTION GENERATION ERROR:",
         error
       );
 
-      console.log(
-        "================================"
-      );
-
-      res.status(500).json({
+      return res.status(500).json({
         message:
           "Failed to generate AI questions",
 
@@ -906,7 +1058,7 @@ Return exactly this structure:
 );
 
 // ========================================
-// GET SAVED QUESTIONS
+// GET INTERVIEW QUESTIONS
 // ========================================
 
 app.get(
@@ -932,7 +1084,8 @@ app.get(
 
       res.json({
         questions:
-          interview.questions || [],
+          interview.questions ||
+          [],
       });
     } catch (error) {
       console.log(
@@ -965,7 +1118,10 @@ app.post(
         answer,
       } = req.body;
 
-      if (!question || !answer) {
+      if (
+        !question ||
+        !answer
+      ) {
         return res.status(400).json({
           message:
             "Question and answer are required",
@@ -989,11 +1145,8 @@ app.post(
       }
 
       interview.answers.push({
-        question:
-          question,
-
-        answer:
-          answer,
+        question,
+        answer,
       });
 
       await interview.save();
@@ -1006,8 +1159,7 @@ app.post(
         message:
           "Answer saved successfully",
 
-        interview:
-          interview,
+        interview,
       });
     } catch (error) {
       console.log(
@@ -1044,8 +1196,7 @@ app.get(
         });
 
       res.json({
-        interviews:
-          interviews,
+        interviews,
       });
     } catch (error) {
       console.log(
@@ -1081,26 +1232,28 @@ app.post(
         "Starting Gemini evaluation..."
       );
 
-      // ------------------------------------
-      // CHECK GEMINI API KEY
-      // ------------------------------------
+      const startTime =
+        Date.now();
 
-      const geminiKey =
-        process.env.GEMINI_API_KEY;
+      // ====================================
+      // GEMINI KEY
+      // ====================================
 
-      if (!geminiKey) {
+      if (
+        !process.env.GEMINI_API_KEY
+      ) {
         return res.status(500).json({
           message:
             "Gemini API key is missing",
 
           error:
-            "GEMINI_API_KEY was not found in .env",
+            "GEMINI_API_KEY was not found",
         });
       }
 
-      // ------------------------------------
+      // ====================================
       // FIND INTERVIEW
-      // ------------------------------------
+      // ====================================
 
       const interview =
         await Interview.findOne({
@@ -1118,9 +1271,9 @@ app.post(
         });
       }
 
-      // ------------------------------------
+      // ====================================
       // CHECK ANSWERS
-      // ------------------------------------
+      // ====================================
 
       if (
         !interview.answers ||
@@ -1132,32 +1285,24 @@ app.post(
         });
       }
 
-      // ------------------------------------
+      // ====================================
       // PREPARE ANSWERS
-      // ------------------------------------
+      // ====================================
 
       const answerText =
         interview.answers
           .map(
             (item, index) =>
-              `Question ${
-                index + 1
-              }: ${item.question}\nAnswer: ${item.answer}`
+              `Q${index + 1}: ${item.question}\nA: ${item.answer}`
           )
           .join("\n\n");
 
-      console.log(
-        "Interview answers prepared."
-      );
-
-      // ------------------------------------
-      // PROMPT
-      // ------------------------------------
+      // ====================================
+      // EVALUATION PROMPT
+      // ====================================
 
       const prompt = `
 You are an expert professional interview evaluator.
-
-Evaluate the candidate's interview answers.
 
 Interview Type:
 ${interview.interviewType}
@@ -1165,226 +1310,113 @@ ${interview.interviewType}
 Role:
 ${interview.role}
 
-Candidate Answers:
+Evaluate the candidate's complete interview answers below.
 
 ${answerText}
 
-Evaluate the candidate from 0 to 10 in these areas:
+Give fair scores from 0 to 10.
 
-1. Overall score
+Evaluate:
+
+1. Overall performance
 2. Communication
-3. Relevance
+3. Relevance of answers to the question and role
 4. Clarity
 
-Also provide:
+Consider the selected interview type and role while evaluating.
 
-5. Short overall feedback
-6. Specific improvement suggestions
-
-Important:
-
-- Evaluate the actual answers.
-- Be realistic and fair.
-- Consider the candidate's role.
-- Consider the interview type.
-- Do not give 10 unless the answer is excellent.
-- Keep feedback concise.
-- Return ONLY a JSON object.
-- Do NOT use markdown.
-- Do NOT use code fences.
-
-Return exactly:
+Return ONLY valid JSON in exactly this format:
 
 {
   "score": 0,
   "communicationScore": 0,
   "relevanceScore": 0,
   "clarityScore": 0,
-  "feedback": "short overall feedback",
-  "improvements": "specific improvement suggestions"
+  "feedback": "short useful feedback",
+  "improvements": "specific improvements the candidate should make"
 }
+
+Rules:
+
+- Scores must be numbers between 0 and 10.
+- Do not use percentages.
+- Do not write /10.
+- Feedback should be concise but useful.
+- Improvements should be practical.
 `;
 
-      // ------------------------------------
-      // GEMINI API
-      // ------------------------------------
+      // ====================================
+      // RESPONSE SCHEMA
+      // ====================================
 
-      console.log(
-        "Sending request to Gemini..."
-      );
+      const responseSchema = {
+        type: "object",
 
-      const geminiResponse =
-        await fetch(
-          "https://generativelanguage.googleapis.com/v1beta/interactions",
-          {
-            method:
-              "POST",
+        properties: {
+          score: {
+            type: "number",
+          },
 
-            headers: {
-              "Content-Type":
-                "application/json",
+          communicationScore: {
+            type: "number",
+          },
 
-              "x-goog-api-key":
-                geminiKey,
-            },
+          relevanceScore: {
+            type: "number",
+          },
 
-            body: JSON.stringify({
-              model:
-                "gemini-3.6-flash",
+          clarityScore: {
+            type: "number",
+          },
 
-              input:
-                prompt,
+          feedback: {
+            type: "string",
+          },
 
-              response_format: {
-                type:
-                  "object",
-              },
-            }),
-          }
+          improvements: {
+            type: "string",
+          },
+        },
+
+        required: [
+          "score",
+          "communicationScore",
+          "relevanceScore",
+          "clarityScore",
+          "feedback",
+          "improvements",
+        ],
+      };
+
+      // ====================================
+      // CALL GEMINI
+      // ====================================
+
+      const result =
+        await callGemini(
+          prompt,
+          responseSchema,
+          EVALUATION_MODELS
         );
 
-      // ------------------------------------
-      // READ RESPONSE
-      // ------------------------------------
-
-      const geminiData =
-        await geminiResponse.json();
-
       console.log(
-        "Gemini HTTP status:",
-        geminiResponse.status
+        "Evaluation generated using:",
+        result.model
       );
 
-      // ------------------------------------
-      // HANDLE GEMINI ERROR
-      // ------------------------------------
+      // ====================================
+      // EXTRACT AI RESPONSE
+      // ====================================
 
-      if (!geminiResponse.ok) {
-        console.log(
-          "Gemini API error:"
+      const aiText =
+        extractGeminiText(
+          result.data
         );
 
-        console.log(
-          JSON.stringify(
-            geminiData,
-            null,
-            2
-          )
-        );
-
-        return res.status(
-          geminiResponse.status
-        ).json({
-          message:
-            "Gemini API request failed",
-
-          error:
-            geminiData?.error?.message ||
-            "Unknown Gemini API error",
-        });
-      }
-
-      // ------------------------------------
-      // EXTRACT RESPONSE
-      // ------------------------------------
-
-      let aiText = "";
-
-      if (
-        typeof geminiData.output_text ===
-        "string"
-      ) {
-        aiText =
-          geminiData.output_text;
-      }
-
-      if (
-        !aiText &&
-        Array.isArray(
-          geminiData.output
-        )
-      ) {
-        for (
-          const item of
-            geminiData.output
-        ) {
-          if (
-            typeof item ===
-            "string"
-          ) {
-            aiText += item;
-          }
-
-          if (
-            item &&
-            typeof item.text ===
-            "string"
-          ) {
-            aiText +=
-              item.text;
-          }
-
-          if (
-            item &&
-            typeof item.content ===
-            "string"
-          ) {
-            aiText +=
-              item.content;
-          }
-        }
-      }
-
-      if (
-        !aiText &&
-        Array.isArray(
-          geminiData.steps
-        )
-      ) {
-        for (
-          const step of
-            geminiData.steps
-        ) {
-          if (
-            Array.isArray(
-              step.content
-            )
-          ) {
-            for (
-              const content of
-                step.content
-            ) {
-              if (
-                typeof content.text ===
-                "string"
-              ) {
-                aiText +=
-                  content.text;
-              }
-            }
-          }
-
-          if (
-            typeof step.text ===
-            "string"
-          ) {
-            aiText +=
-              step.text;
-          }
-        }
-      }
-
       console.log(
-        "Gemini raw response:"
-      );
-
-      console.log(
+        "Gemini evaluation response:",
         aiText
       );
-
-      // ------------------------------------
-      // EMPTY RESPONSE
-      // ------------------------------------
 
       if (!aiText) {
         return res.status(500).json({
@@ -1392,44 +1424,22 @@ Return exactly:
             "Gemini returned an empty response",
 
           error:
-            "Could not extract text from Gemini response",
-
-          rawResponse:
-            geminiData,
+            "No AI output was returned.",
         });
       }
 
-      // ------------------------------------
+      // ====================================
       // CLEAN JSON
-      // ------------------------------------
+      // ====================================
 
-      let cleanedText =
-        aiText.trim();
-
-      cleanedText =
-        cleanedText.replace(
-          /^```json\s*/i,
-          ""
+      const cleanedText =
+        cleanAIJson(
+          aiText
         );
 
-      cleanedText =
-        cleanedText.replace(
-          /^```\s*/i,
-          ""
-        );
-
-      cleanedText =
-        cleanedText.replace(
-          /\s*```$/i,
-          ""
-        );
-
-      cleanedText =
-        cleanedText.trim();
-
-      // ------------------------------------
+      // ====================================
       // PARSE JSON
-      // ------------------------------------
+      // ====================================
 
       let evaluation;
 
@@ -1438,10 +1448,15 @@ Return exactly:
           JSON.parse(
             cleanedText
           );
-      } catch (parseError) {
+      } catch (error) {
         console.log(
-          "Gemini JSON parse error:",
-          parseError
+          "JSON parse error:",
+          error.message
+        );
+
+        console.log(
+          "AI TEXT:",
+          aiText
         );
 
         return res.status(500).json({
@@ -1449,49 +1464,69 @@ Return exactly:
             "Gemini returned invalid JSON",
 
           error:
-            parseError.message,
-
-          rawResponse:
-            aiText,
+            error.message,
         });
       }
 
-      // ------------------------------------
+      // ====================================
       // VALIDATE SCORES
-      // ------------------------------------
+      // ====================================
 
-      const scores = [
-        evaluation.score,
-        evaluation.communicationScore,
-        evaluation.relevanceScore,
-        evaluation.clarityScore,
+      const scoreFields = [
+        "score",
+        "communicationScore",
+        "relevanceScore",
+        "clarityScore",
       ];
 
-      const invalidScore =
-        scores.some(
-          (score) =>
-            typeof score !==
-              "number" ||
-            score < 0 ||
-            score > 10
-        );
+      for (
+        const field of
+          scoreFields
+      ) {
+        const value =
+          Number(
+            evaluation[field]
+          );
 
-      if (invalidScore) {
-        return res.status(500).json({
-          message:
-            "Gemini returned invalid scores",
+        if (
+          !Number.isFinite(
+            value
+          ) ||
+          value < 0 ||
+          value > 10
+        ) {
+          return res.status(500).json({
+            message:
+              "Gemini returned invalid scores",
 
-          error:
-            "Scores must be numbers between 0 and 10",
+            error:
+              "Scores must be numbers between 0 and 10",
+          });
+        }
 
-          evaluation:
-            evaluation,
-        });
+        evaluation[field] =
+          value;
       }
 
-      // ------------------------------------
-      // SAVE EVALUATION
-      // ------------------------------------
+      // ====================================
+      // FEEDBACK
+      // ====================================
+
+      evaluation.feedback =
+        String(
+          evaluation.feedback ||
+            ""
+        );
+
+      evaluation.improvements =
+        String(
+          evaluation.improvements ||
+            ""
+        );
+
+      // ====================================
+      // SAVE TO MONGODB
+      // ====================================
 
       interview.score =
         evaluation.score;
@@ -1506,24 +1541,25 @@ Return exactly:
         evaluation.clarityScore;
 
       interview.feedback =
-        evaluation.feedback ||
-        "";
+        evaluation.feedback;
 
       interview.improvements =
-        evaluation.improvements ||
-        "";
+        evaluation.improvements;
 
       await interview.save();
 
+      const totalTime =
+        Date.now() - startTime;
+
       console.log(
-        "Gemini evaluation saved successfully."
+        `Gemini evaluation saved successfully in ${totalTime} ms`
       );
 
-      // ------------------------------------
+      // ====================================
       // SEND RESULT
-      // ------------------------------------
+      // ====================================
 
-      res.json({
+      return res.json({
         message:
           "Interview evaluated successfully",
 
@@ -1547,28 +1583,13 @@ Return exactly:
             interview.improvements,
         },
       });
-
-      console.log(
-        "================================"
-      );
     } catch (error) {
       console.log(
-        "================================"
-      );
-
-      console.log(
-        "GEMINI EVALUATION ERROR:"
-      );
-
-      console.log(
+        "GEMINI EVALUATION ERROR:",
         error
       );
 
-      console.log(
-        "================================"
-      );
-
-      res.status(500).json({
+      return res.status(500).json({
         message:
           "Failed to evaluate interview",
 
@@ -1592,6 +1613,19 @@ mongoose
     console.log(
       "MongoDB connected successfully"
     );
+
+    const PORT =
+      process.env.PORT || 5000;
+
+    app.listen(
+      PORT,
+      "0.0.0.0",
+      () => {
+        console.log(
+          `Server running on port ${PORT}`
+        );
+      }
+    );
   })
   .catch((error) => {
     console.log(
@@ -1599,20 +1633,3 @@ mongoose
       error
     );
   });
-
-// ========================================
-// START SERVER
-// ========================================
-
-const PORT =
-  process.env.PORT || 5000;
-
-app.listen(
-  PORT,
-  "0.0.0.0",
-  () => {
-    console.log(
-      `Server running on port ${PORT}`
-    );
-  }
-);
