@@ -19,6 +19,8 @@ function Interview({ onBackToDashboard }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const API_URL = import.meta.env.VITE_API_URL;
+
   const questions = [
     "Tell me about yourself.",
     "Why should we hire you?",
@@ -35,9 +37,7 @@ function Interview({ onBackToDashboard }) {
     setError("");
 
     if (!interviewType || !role) {
-      setError(
-        "Please select interview type and role."
-      );
+      setError("Please select interview type and role.");
       return;
     }
 
@@ -48,11 +48,16 @@ function Interview({ onBackToDashboard }) {
       return;
     }
 
+    if (!API_URL) {
+      setError("API URL is not configured.");
+      return;
+    }
+
     setLoading(true);
 
     try {
       const response = await fetch(
-        "http://localhost:5000/api/interviews",
+        `${API_URL}/api/interviews`,
         {
           method: "POST",
           headers: {
@@ -136,11 +141,16 @@ function Interview({ onBackToDashboard }) {
       return;
     }
 
+    if (!API_URL) {
+      setError("API URL is not configured.");
+      return;
+    }
+
     setLoading(true);
 
     try {
       const response = await fetch(
-        `http://localhost:5000/api/interviews/${interviewId}/answer`,
+        `${API_URL}/api/interviews/${interviewId}/answer`,
         {
           method: "POST",
           headers: {
@@ -220,13 +230,18 @@ function Interview({ onBackToDashboard }) {
       return;
     }
 
+    if (!API_URL) {
+      setError("API URL is not configured.");
+      return;
+    }
+
     try {
       console.log(
         "Starting AI evaluation..."
       );
 
       const response = await fetch(
-        `http://localhost:5000/api/interviews/${interviewId}/evaluate`,
+        `${API_URL}/api/interviews/${interviewId}/evaluate`,
         {
           method: "POST",
           headers: {

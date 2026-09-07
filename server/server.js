@@ -648,71 +648,117 @@ The output must follow the provided JSON schema.
       };
 
       // ====================================
-      // GEMINI REQUEST
+      // GEMINI REQUEST WITH RETRY
       // ====================================
 
       console.log(
         "Sending request to Gemini..."
       );
 
-      const geminiResponse =
-        await fetch(
-          "https://generativelanguage.googleapis.com/v1beta/interactions",
-          {
-            method:
-              "POST",
+      const maxRetries = 3;
 
-            headers: {
-              "Content-Type":
-                "application/json",
+      let geminiResponse;
+      let geminiData;
 
-              "x-goog-api-key":
-                geminiKey,
-            },
-
-            body: JSON.stringify({
-              model:
-                "gemini-3.6-flash",
-
-              input:
-                prompt,
-
-              response_format: {
-                type: "text",
-
-                mime_type:
-                  "application/json",
-
-                schema:
-                  responseSchema,
-              },
-            }),
-          }
+      for (
+        let attempt = 1;
+        attempt <= maxRetries;
+        attempt++
+      ) {
+        console.log(
+          `Gemini attempt ${attempt}/${maxRetries}`
         );
 
-      // ====================================
-      // READ RESPONSE
-      // ====================================
+        geminiResponse =
+          await fetch(
+            "https://generativelanguage.googleapis.com/v1beta/interactions",
+            {
+              method:
+                "POST",
 
-      const geminiData =
-        await geminiResponse.json();
+              headers: {
+                "Content-Type":
+                  "application/json",
 
-      console.log(
-        "Gemini HTTP status:",
-        geminiResponse.status
-      );
+                "x-goog-api-key":
+                  geminiKey,
+              },
 
-      console.log(
-        "Complete Gemini response:"
-      );
+              body: JSON.stringify({
+                model:
+                  "gemini-3.6-flash",
 
-      console.log(
-        JSON.stringify(
-          geminiData,
-          null,
-          2
-        )
-      );
+                input:
+                  prompt,
+
+                response_format: {
+                  type: "text",
+
+                  mime_type:
+                    "application/json",
+
+                  schema:
+                    responseSchema,
+                },
+              }),
+            }
+          );
+
+        geminiData =
+          await geminiResponse.json();
+
+        console.log(
+          "Gemini HTTP status:",
+          geminiResponse.status
+        );
+
+        // Success
+        if (geminiResponse.ok) {
+          break;
+        }
+
+        const errorMessage =
+          geminiData?.error?.message ||
+          "";
+
+        console.log(
+          "Gemini error:",
+          errorMessage
+        );
+
+        // Check temporary errors
+        const isTemporaryError =
+          geminiResponse.status === 429 ||
+          geminiResponse.status === 503 ||
+          /high demand|temporarily|try again later|overloaded/i.test(
+            errorMessage
+          );
+
+        // Don't retry permanent errors
+        if (
+          !isTemporaryError ||
+          attempt === maxRetries
+        ) {
+          break;
+        }
+
+        const waitTime =
+          attempt * 3000;
+
+        console.log(
+          `Gemini temporarily unavailable. Waiting ${
+            waitTime / 1000
+          } seconds before retry...`
+        );
+
+        await new Promise(
+          (resolve) =>
+            setTimeout(
+              resolve,
+              waitTime
+            )
+        );
+      }
 
       // ====================================
       // GEMINI ERROR
@@ -1017,6 +1063,7 @@ The output must follow the provided JSON schema.
       console.log(
         "================================"
       );
+
     } catch (error) {
       console.log(
         "================================"
@@ -1075,6 +1122,7 @@ const PORT =
 
 app.listen(
   PORT,
+  "0.0.0.0",
   () => {
     console.log(
       `Server running on port ${PORT}`
