@@ -2,54 +2,121 @@ import { useEffect, useRef, useState } from "react";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
+const INTERVIEW_SESSION_KEY =
+  "activeInterviewSession";
+
+const getSavedInterviewSession = () => {
+  try {
+    const savedSession =
+      localStorage.getItem(
+        INTERVIEW_SESSION_KEY
+      );
+
+    if (!savedSession) {
+      return null;
+    }
+
+    return JSON.parse(savedSession);
+  } catch (error) {
+    console.log(
+      "Could not restore interview session:",
+      error
+    );
+
+    localStorage.removeItem(
+      INTERVIEW_SESSION_KEY
+    );
+
+    return null;
+  }
+};
+
 function Interview({ onBackToDashboard }) {
-  const [interviewType, setInterviewType] = useState("");
-  const [role, setRole] = useState("");
 
-  const [started, setStarted] = useState(false);
-  const [showQuestions, setShowQuestions] = useState(false);
+  const savedSession =
+    getSavedInterviewSession();
 
-  const [interviewId, setInterviewId] = useState(null);
+  const [interviewType, setInterviewType] =
+    useState(
+      savedSession?.interviewType || ""
+    );
+
+  const [role, setRole] =
+    useState(
+      savedSession?.role || ""
+    );
+
+  const [started, setStarted] =
+    useState(
+      savedSession?.started || false
+    );
+
+  const [showQuestions, setShowQuestions] =
+    useState(
+      savedSession?.showQuestions || false
+    );
+
+  const [interviewId, setInterviewId] =
+    useState(
+      savedSession?.interviewId || null
+    );
 
   // ==========================================
   // QUESTIONS
   // ==========================================
 
-  const [questions, setQuestions] = useState([]);
+  const [questions, setQuestions] =
+    useState(
+      savedSession?.questions || []
+    );
+
   const [questionsLoading, setQuestionsLoading] =
     useState(false);
 
   const [currentQuestion, setCurrentQuestion] =
-    useState(0);
+    useState(
+      savedSession?.currentQuestion || 0
+    );
 
   // ==========================================
   // ANSWER
   // ==========================================
 
-  const [answer, setAnswer] = useState("");
+  const [answer, setAnswer] =
+    useState(
+      savedSession?.answer || ""
+    );
 
   // ==========================================
   // EVALUATION
   // ==========================================
 
   const [completed, setCompleted] =
-    useState(false);
+    useState(
+      savedSession?.completed || false
+    );
 
   const [evaluation, setEvaluation] =
-    useState(null);
+    useState(
+      savedSession?.evaluation || null
+    );
 
   // ==========================================
   // GENERAL STATE
   // ==========================================
 
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [error, setError] =
+    useState("");
+
+  const [loading, setLoading] =
+    useState(false);
 
   // ==========================================
   // CAMERA + MICROPHONE
   // ==========================================
 
   const videoRef = useRef(null);
+
   const streamRef = useRef(null);
 
   const [cameraActive, setCameraActive] =
@@ -80,15 +147,75 @@ function Interview({ onBackToDashboard }) {
     useState("");
 
   // ==========================================
+  // SAVE INTERVIEW SESSION
+  // ==========================================
+
+  useEffect(() => {
+
+    const hasActiveInterview =
+      Boolean(interviewId) ||
+      started ||
+      showQuestions ||
+      completed;
+
+    if (!hasActiveInterview) {
+      return;
+    }
+
+    const session = {
+      interviewType,
+      role,
+      started,
+      showQuestions,
+      interviewId,
+      questions,
+      currentQuestion,
+      answer,
+      completed,
+      evaluation,
+    };
+
+    try {
+
+      localStorage.setItem(
+        INTERVIEW_SESSION_KEY,
+        JSON.stringify(session)
+      );
+
+    } catch (error) {
+
+      console.log(
+        "Could not save interview session:",
+        error
+      );
+
+    }
+
+  }, [
+    interviewType,
+    role,
+    started,
+    showQuestions,
+    interviewId,
+    questions,
+    currentQuestion,
+    answer,
+    completed,
+    evaluation,
+  ]);
+
+  // ==========================================
   // SPEECH RECOGNITION SETUP
   // ==========================================
 
   useEffect(() => {
+
     const SpeechRecognition =
       window.SpeechRecognition ||
       window.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
+
       setSpeechSupported(false);
 
       console.log(
@@ -104,19 +231,25 @@ function Interview({ onBackToDashboard }) {
       new SpeechRecognition();
 
     recognition.continuous = true;
+
     recognition.interimResults = true;
+
     recognition.lang = "en-US";
 
     recognition.onstart = () => {
+
       console.log(
         "Speech recognition started"
       );
 
       setIsListening(true);
+
       setSpeechError("");
+
     };
 
     recognition.onresult = (event) => {
+
       let finalTranscript = "";
 
       let interimTranscript = "";
@@ -126,42 +259,58 @@ function Interview({ onBackToDashboard }) {
         i < event.results.length;
         i++
       ) {
+
         const transcript =
           event.results[i][0].transcript;
 
         if (
           event.results[i].isFinal
         ) {
+
           finalTranscript += transcript;
+
         } else {
+
           interimTranscript += transcript;
+
         }
+
       }
 
       if (finalTranscript) {
-        setAnswer((previousAnswer) => {
-          const previous =
-            previousAnswer.trim();
 
-          if (!previous) {
-            return finalTranscript.trim();
+        setAnswer(
+          (previousAnswer) => {
+
+            const previous =
+              previousAnswer.trim();
+
+            if (!previous) {
+
+              return finalTranscript.trim();
+
+            }
+
+            return (
+              previous +
+              " " +
+              finalTranscript.trim()
+            );
+
           }
+        );
 
-          return (
-            previous +
-            " " +
-            finalTranscript.trim()
-          );
-        });
       }
 
       console.log(
         "Interim transcript:",
         interimTranscript
       );
+
     };
 
     recognition.onerror = (event) => {
+
       console.log(
         "Speech recognition error:",
         event.error
@@ -171,60 +320,80 @@ function Interview({ onBackToDashboard }) {
         event.error ===
         "not-allowed"
       ) {
+
         setSpeechError(
           "Microphone permission was denied for speech recognition."
         );
+
       } else if (
         event.error ===
         "no-speech"
       ) {
+
         setSpeechError(
           "No speech detected. Please speak clearly."
         );
+
       } else if (
         event.error ===
         "audio-capture"
       ) {
+
         setSpeechError(
           "Microphone could not be accessed."
         );
+
       } else if (
         event.error !==
         "aborted"
       ) {
+
         setSpeechError(
           `Speech recognition error: ${event.error}`
         );
+
       }
 
       setIsListening(false);
+
     };
 
     recognition.onend = () => {
+
       console.log(
         "Speech recognition ended"
       );
 
       setIsListening(false);
+
     };
 
     recognitionRef.current =
       recognition;
 
     return () => {
+
       if (recognitionRef.current) {
+
         try {
+
           recognitionRef.current.stop();
+
         } catch (error) {
+
           console.log(
             "Speech cleanup error:",
             error
           );
+
         }
 
         recognitionRef.current = null;
+
       }
+
     };
+
   }, []);
 
   // ==========================================
@@ -232,23 +401,29 @@ function Interview({ onBackToDashboard }) {
   // ==========================================
 
   useEffect(() => {
+
     if (
       cameraActive &&
       videoRef.current &&
       streamRef.current
     ) {
+
       videoRef.current.srcObject =
         streamRef.current;
 
       videoRef.current
         .play()
         .catch((error) => {
+
           console.log(
             "Video play error:",
             error
           );
+
         });
+
     }
+
   }, [cameraActive]);
 
   // ==========================================
@@ -256,22 +431,28 @@ function Interview({ onBackToDashboard }) {
   // ==========================================
 
   const startCamera = async () => {
+
     setCameraError("");
+
     setMicError("");
 
     if (
       !navigator.mediaDevices ||
       !navigator.mediaDevices.getUserMedia
     ) {
+
       setCameraError(
         "Camera and microphone are not supported by this browser."
       );
 
       return;
+
     }
 
     // Already running
+
     if (streamRef.current) {
+
       setCameraActive(true);
 
       const audioTrack =
@@ -279,15 +460,19 @@ function Interview({ onBackToDashboard }) {
           .getAudioTracks()[0];
 
       if (audioTrack) {
+
         setMicActive(
           audioTrack.enabled
         );
+
       }
 
       return;
+
     }
 
     try {
+
       const stream =
         await navigator.mediaDevices.getUserMedia({
           video: {
@@ -305,13 +490,16 @@ function Interview({ onBackToDashboard }) {
           audio: true,
         });
 
-      streamRef.current = stream;
+      streamRef.current =
+        stream;
 
       // Microphone
+
       const audioTrack =
         stream.getAudioTracks()[0];
 
       if (audioTrack) {
+
         audioTrack.enabled = true;
 
         setMicActive(true);
@@ -319,56 +507,73 @@ function Interview({ onBackToDashboard }) {
         console.log(
           "Microphone started successfully"
         );
+
       } else {
+
         setMicActive(false);
 
         setMicError(
           "Microphone was not found."
         );
+
       }
 
       // Camera
+
       setCameraActive(true);
 
       console.log(
         "Camera and microphone started successfully"
       );
+
     } catch (error) {
+
       console.log(
         "Camera/Microphone error:",
         error
       );
 
       setCameraActive(false);
+
       setMicActive(false);
 
       if (
         error.name ===
         "NotAllowedError"
       ) {
+
         setCameraError(
           "Camera or microphone permission was denied. Please allow access."
         );
+
       } else if (
         error.name ===
         "NotFoundError"
       ) {
+
         setCameraError(
           "Camera or microphone was not found on this device."
         );
+
       } else if (
         error.name ===
         "NotReadableError"
       ) {
+
         setCameraError(
           "Camera or microphone is already being used by another application."
         );
+
       } else {
+
         setCameraError(
           "Unable to access the camera or microphone."
         );
+
       }
+
     }
+
   };
 
   // ==========================================
@@ -376,12 +581,15 @@ function Interview({ onBackToDashboard }) {
   // ==========================================
 
   const toggleMicrophone = () => {
+
     if (!streamRef.current) {
+
       setMicError(
         "Microphone is not started yet."
       );
 
       return;
+
     }
 
     const audioTrack =
@@ -389,11 +597,13 @@ function Interview({ onBackToDashboard }) {
         .getAudioTracks()[0];
 
     if (!audioTrack) {
+
       setMicError(
         "No microphone track was found."
       );
 
       return;
+
     }
 
     audioTrack.enabled =
@@ -407,10 +617,13 @@ function Interview({ onBackToDashboard }) {
       !audioTrack.enabled &&
       isListening
     ) {
+
       stopListening();
+
     }
 
     setMicError("");
+
   };
 
   // ==========================================
@@ -418,39 +631,49 @@ function Interview({ onBackToDashboard }) {
   // ==========================================
 
   const startListening = () => {
+
     setSpeechError("");
 
     if (!speechSupported) {
+
       setSpeechError(
         "Speech-to-text is not supported. Please use Chrome or Edge."
       );
 
       return;
+
     }
 
     if (!micActive) {
+
       setSpeechError(
         "Please turn on the microphone first."
       );
 
       return;
+
     }
 
     if (!recognitionRef.current) {
+
       setSpeechError(
         "Speech recognition is not available."
       );
 
       return;
+
     }
 
     try {
+
       recognitionRef.current.start();
 
       console.log(
         "Listening started"
       );
+
     } catch (error) {
+
       console.log(
         "Speech start error:",
         error
@@ -460,15 +683,21 @@ function Interview({ onBackToDashboard }) {
         error.name ===
         "InvalidStateError"
       ) {
+
         setSpeechError(
           "Speech recognition is already running."
         );
+
       } else {
+
         setSpeechError(
           "Unable to start speech recognition."
         );
+
       }
+
     }
+
   };
 
   // ==========================================
@@ -476,11 +705,15 @@ function Interview({ onBackToDashboard }) {
   // ==========================================
 
   const stopListening = () => {
+
     if (!recognitionRef.current) {
+
       return;
+
     }
 
     try {
+
       recognitionRef.current.stop();
 
       setIsListening(false);
@@ -488,12 +721,16 @@ function Interview({ onBackToDashboard }) {
       console.log(
         "Listening stopped"
       );
+
     } catch (error) {
+
       console.log(
         "Speech stop error:",
         error
       );
+
     }
+
   };
 
   // ==========================================
@@ -501,37 +738,55 @@ function Interview({ onBackToDashboard }) {
   // ==========================================
 
   const stopCamera = () => {
+
     // Stop speech
+
     if (recognitionRef.current) {
+
       try {
+
         recognitionRef.current.stop();
+
       } catch (error) {
+
         console.log(
           "Speech stop error:",
           error
         );
+
       }
+
     }
 
     setIsListening(false);
 
     // Stop media tracks
+
     if (streamRef.current) {
+
       streamRef.current
         .getTracks()
         .forEach((track) => {
+
           track.stop();
+
         });
 
       streamRef.current = null;
+
     }
 
     if (videoRef.current) {
-      videoRef.current.srcObject = null;
+
+      videoRef.current.srcObject =
+        null;
+
     }
 
     setCameraActive(false);
+
     setMicActive(false);
+
   };
 
   // ==========================================
@@ -539,13 +794,16 @@ function Interview({ onBackToDashboard }) {
   // ==========================================
 
   const generateQuestions = async () => {
+
     setQuestionsLoading(true);
+
     setError("");
 
     const token =
       localStorage.getItem("token");
 
     if (!token) {
+
       setError(
         "Please login first."
       );
@@ -553,9 +811,11 @@ function Interview({ onBackToDashboard }) {
       setQuestionsLoading(false);
 
       return false;
+
     }
 
     if (!interviewId) {
+
       setError(
         "Interview ID not found."
       );
@@ -563,9 +823,11 @@ function Interview({ onBackToDashboard }) {
       setQuestionsLoading(false);
 
       return false;
+
     }
 
     if (!API_URL) {
+
       setError(
         "API URL is not configured."
       );
@@ -573,9 +835,11 @@ function Interview({ onBackToDashboard }) {
       setQuestionsLoading(false);
 
       return false;
+
     }
 
     try {
+
       console.log(
         "Generating AI questions..."
       );
@@ -605,6 +869,43 @@ function Interview({ onBackToDashboard }) {
       );
 
       if (!response.ok) {
+
+        // If saved interview no longer exists,
+        // remove stale local session.
+
+        if (
+          response.status === 404 ||
+          (
+            data.error &&
+            data.error
+              .toLowerCase()
+              .includes(
+                "interview"
+              ) &&
+            data.error
+              .toLowerCase()
+              .includes(
+                "not found"
+              )
+          )
+        ) {
+
+          localStorage.removeItem(
+            INTERVIEW_SESSION_KEY
+          );
+
+          setInterviewId(null);
+
+          setStarted(false);
+
+          setShowQuestions(false);
+
+          setQuestions([]);
+
+          setCurrentQuestion(0);
+
+        }
+
         setError(
           data.error ||
             data.message ||
@@ -614,6 +915,7 @@ function Interview({ onBackToDashboard }) {
         setQuestionsLoading(false);
 
         return false;
+
       }
 
       if (
@@ -622,6 +924,7 @@ function Interview({ onBackToDashboard }) {
         ) ||
         data.questions.length === 0
       ) {
+
         setError(
           "AI did not return any questions."
         );
@@ -629,6 +932,7 @@ function Interview({ onBackToDashboard }) {
         setQuestionsLoading(false);
 
         return false;
+
       }
 
       setQuestions(
@@ -645,7 +949,9 @@ function Interview({ onBackToDashboard }) {
       setQuestionsLoading(false);
 
       return true;
+
     } catch (error) {
+
       console.log(
         "Generate questions error:",
         error
@@ -658,7 +964,9 @@ function Interview({ onBackToDashboard }) {
       setQuestionsLoading(false);
 
       return false;
+
     }
+
   };
 
   // ==========================================
@@ -666,41 +974,49 @@ function Interview({ onBackToDashboard }) {
   // ==========================================
 
   const startInterview = async () => {
+
     setError("");
 
     if (
       !interviewType ||
       !role
     ) {
+
       setError(
         "Please select interview type and role."
       );
 
       return;
+
     }
 
     const token =
       localStorage.getItem("token");
 
     if (!token) {
+
       setError(
         "Please login first."
       );
 
       return;
+
     }
 
     if (!API_URL) {
+
       setError(
         "API URL is not configured."
       );
 
       return;
+
     }
 
     setLoading(true);
 
     try {
+
       const response =
         await fetch(
           `${API_URL}/api/interviews`,
@@ -726,6 +1042,7 @@ function Interview({ onBackToDashboard }) {
         await response.json();
 
       if (!response.ok) {
+
         setError(
           data.error ||
             data.message ||
@@ -735,6 +1052,7 @@ function Interview({ onBackToDashboard }) {
         setLoading(false);
 
         return;
+
       }
 
       setInterviewId(
@@ -747,7 +1065,9 @@ function Interview({ onBackToDashboard }) {
         "Interview created:",
         data.interview
       );
+
     } catch (error) {
+
       console.log(
         "Start interview error:",
         error
@@ -756,9 +1076,11 @@ function Interview({ onBackToDashboard }) {
       setError(
         "Server error. Please make sure the backend is running."
       );
+
     }
 
     setLoading(false);
+
   };
 
   // ==========================================
@@ -766,21 +1088,30 @@ function Interview({ onBackToDashboard }) {
   // ==========================================
 
   const continueToQuestions = async () => {
+
     setError("");
+
     setSpeechError("");
 
     // Start camera + microphone
+
     await startCamera();
 
     // Generate AI questions
+
     const success =
       await generateQuestions();
 
     if (success) {
+
       setShowQuestions(true);
+
       setCurrentQuestion(0);
+
       setAnswer("");
+
     }
+
   };
 
   // ==========================================
@@ -788,51 +1119,64 @@ function Interview({ onBackToDashboard }) {
   // ==========================================
 
   const submitAnswer = async () => {
+
     setError("");
 
     // Stop speech recognition
+
     if (isListening) {
+
       stopListening();
+
     }
 
     if (!answer.trim()) {
+
       setError(
         "Please enter or speak your answer."
       );
 
       return;
+
     }
 
     const token =
       localStorage.getItem("token");
 
     if (!token) {
+
       setError(
         "Please login first."
       );
 
       return;
+
     }
 
     if (!interviewId) {
+
       setError(
         "Interview ID not found."
       );
 
       return;
+
     }
 
     if (!API_URL) {
+
       setError(
         "API URL is not configured."
       );
 
       return;
+
     }
 
     setLoading(true);
 
     try {
+
       const response =
         await fetch(
           `${API_URL}/api/interviews/${interviewId}/answer`,
@@ -863,6 +1207,7 @@ function Interview({ onBackToDashboard }) {
         await response.json();
 
       if (!response.ok) {
+
         setError(
           data.error ||
             data.message ||
@@ -872,6 +1217,7 @@ function Interview({ onBackToDashboard }) {
         setLoading(false);
 
         return;
+
       }
 
       console.log(
@@ -887,9 +1233,11 @@ function Interview({ onBackToDashboard }) {
         currentQuestion ===
         questions.length - 1
       ) {
+
         setAnswer("");
 
         await evaluateInterview();
+
       }
 
       // ========================================
@@ -897,6 +1245,7 @@ function Interview({ onBackToDashboard }) {
       // ========================================
 
       else {
+
         setCurrentQuestion(
           currentQuestion + 1
         );
@@ -904,8 +1253,11 @@ function Interview({ onBackToDashboard }) {
         setAnswer("");
 
         setSpeechError("");
+
       }
+
     } catch (error) {
+
       console.log(
         "Submit answer error:",
         error
@@ -914,9 +1266,11 @@ function Interview({ onBackToDashboard }) {
       setError(
         "Server error. Please try again."
       );
+
     }
 
     setLoading(false);
+
   };
 
   // ==========================================
@@ -924,34 +1278,42 @@ function Interview({ onBackToDashboard }) {
   // ==========================================
 
   const evaluateInterview = async () => {
+
     const token =
       localStorage.getItem("token");
 
     if (!token) {
+
       setError(
         "Please login first."
       );
 
       return;
+
     }
 
     if (!interviewId) {
+
       setError(
         "Interview ID not found."
       );
 
       return;
+
     }
 
     if (!API_URL) {
+
       setError(
         "API URL is not configured."
       );
 
       return;
+
     }
 
     try {
+
       console.log(
         "Starting AI evaluation..."
       );
@@ -972,9 +1334,12 @@ function Interview({ onBackToDashboard }) {
       let data;
 
       try {
+
         data =
           await response.json();
+
       } catch (jsonError) {
+
         console.log(
           "Could not parse server response:",
           jsonError
@@ -985,6 +1350,7 @@ function Interview({ onBackToDashboard }) {
         );
 
         return;
+
       }
 
       console.log(
@@ -993,24 +1359,15 @@ function Interview({ onBackToDashboard }) {
       );
 
       if (!response.ok) {
-        const actualError =
+
+        setError(
           data.error ||
-          data.message ||
-          `AI evaluation failed. Status: ${response.status}`;
-
-        setError(
-          actualError
+            data.message ||
+            `AI evaluation failed. Status: ${response.status}`
         );
 
         return;
-      }
 
-      if (!data.evaluation) {
-        setError(
-          "AI evaluation completed but no evaluation data was returned."
-        );
-
-        return;
       }
 
       setEvaluation(
@@ -1019,28 +1376,30 @@ function Interview({ onBackToDashboard }) {
 
       setCompleted(true);
 
-      setShowQuestions(false);
-
-      // Camera + microphone OFF
-      stopCamera();
     } catch (error) {
+
       console.log(
         "Evaluation error:",
         error
       );
 
       setError(
-        `Failed to evaluate interview: ${error.message}`
+        "Server error during AI evaluation."
       );
-    }
-  };
 
-  // ==========================================
+    }
+
+  };
+    // ==========================================
   // BACK TO DASHBOARD
   // ==========================================
 
   const handleBackToDashboard = () => {
     stopCamera();
+
+    localStorage.removeItem(
+      INTERVIEW_SESSION_KEY
+    );
 
     onBackToDashboard();
   };
@@ -1288,58 +1647,57 @@ function Interview({ onBackToDashboard }) {
           !showQuestions &&
           !completed && (
 
-            <div className="interview-started">
+          <div className="interview-started">
 
-              <div className="started-card">
+            <div className="started-card">
 
-                <div className="success-icon">
-                  ✓
-                </div>
-
-                <h2>
-                  Interview Started!
-                </h2>
-
-                <p>
-                  Your {interviewType}
-                  interview for{" "}
-                  <strong>
-                    {role}
-                  </strong>{" "}
-                  has been created.
-                </p>
-
-                <p className="interview-id">
-                  Interview ID:{" "}
-                  {interviewId}
-                </p>
-
-                <button
-                  className="primary-btn"
-                  onClick={
-                    continueToQuestions
-                  }
-
-                  disabled={
-                    questionsLoading
-                  }
-                >
-                  {questionsLoading
-                    ? "🤖 Preparing AI Questions..."
-                    : "Continue to Questions →"}
-                </button>
-
-                {error && (
-                  <p className="interview-error">
-                    {error}
-                  </p>
-                )}
-
+              <div className="success-icon">
+                ✓
               </div>
+
+              <h2>
+                Interview Started!
+              </h2>
+
+              <p>
+                Your {interviewType}
+                interview for{" "}
+                <strong>
+                  {role}
+                </strong>{" "}
+                has been created.
+              </p>
+
+              <p className="interview-id">
+                Interview ID:{" "}
+                {interviewId}
+              </p>
+
+              <button
+                className="primary-btn"
+                onClick={
+                  continueToQuestions
+                }
+                disabled={
+                  questionsLoading
+                }
+              >
+                {questionsLoading
+                  ? "🤖 Preparing AI Questions..."
+                  : "Continue to Questions →"}
+              </button>
+
+              {error && (
+                <p className="interview-error">
+                  {error}
+                </p>
+              )}
 
             </div>
 
-          )}
+          </div>
+
+        )}
 
         {/* ================================== */}
         {/* QUESTIONS */}
@@ -1348,707 +1706,604 @@ function Interview({ onBackToDashboard }) {
         {showQuestions &&
           !completed && (
 
-            <div className="questions-section">
+          <div className="questions-section">
 
-              <div className="question-card">
+            <div className="question-card">
 
-                {/* HEADER */}
+              {/* HEADER */}
 
-                <div className="question-header">
+              <div className="question-header">
 
-                  <div>
+                <div>
 
-                    <p className="small-heading">
-                      {interviewType} INTERVIEW
-                    </p>
+                  <p className="small-heading">
+                    {interviewType} INTERVIEW
+                  </p>
 
-                    <h2>
-                      {role}
-                    </h2>
-
-                  </div>
-
-                  <div className="question-count">
-
-                    Question{" "}
-                    {currentQuestion + 1}
-                    {" "}
-                    of{" "}
-                    {questions.length}
-
-                  </div>
+                  <h2>
+                    {role}
+                  </h2>
 
                 </div>
 
-                {/* ================================= */}
-                {/* FLOATING CAMERA */}
-                {/* ================================= */}
+                <div className="question-count">
+                  Question{" "}
+                  {currentQuestion + 1}
+                  {" "}
+                  of{" "}
+                  {questions.length}
+                </div>
 
-                <div
+              </div>
+
+              {/* ================================= */}
+              {/* FLOATING CAMERA */}
+              {/* ================================= */}
+
+              <div
+                style={{
+                  position: "fixed",
+                  top: "80px",
+                  right: "24px",
+                  width: "220px",
+                  height: "140px",
+                  background: "#020617",
+                  borderRadius: "12px",
+                  overflow: "hidden",
+                  border:
+                    cameraActive
+                      ? "2px solid #ef4444"
+                      : "2px solid #cbd5e1",
+                  boxShadow:
+                    "0 8px 25px rgba(0,0,0,0.18)",
+                  zIndex: 1000,
+                }}
+              >
+
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+
                   style={{
-                    position: "fixed",
-
-                    top: "80px",
-
-                    right: "24px",
-
-                    width: "220px",
-
-                    height: "140px",
-
-                    background: "#020617",
-
-                    borderRadius: "12px",
-
-                    overflow: "hidden",
-
-                    border:
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    display:
                       cameraActive
-                        ? "2px solid #ef4444"
-                        : "2px solid #cbd5e1",
-
-                    boxShadow:
-                      "0 8px 25px rgba(0,0,0,0.18)",
-
-                    zIndex: 1000,
+                        ? "block"
+                        : "none",
+                    transform:
+                      "scaleX(-1)",
                   }}
-                >
+                />
 
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    muted
+                {!cameraActive && (
 
+                  <div
                     style={{
                       width: "100%",
-
                       height: "100%",
-
-                      objectFit: "cover",
-
-                      display:
-                        cameraActive
-                          ? "block"
-                          : "none",
-
-                      transform:
-                        "scaleX(-1)",
-                    }}
-                  />
-
-                  {!cameraActive && (
-
-                    <div
-                      style={{
-                        width: "100%",
-
-                        height: "100%",
-
-                        display: "flex",
-
-                        alignItems:
-                          "center",
-
-                        justifyContent:
-                          "center",
-
-                        flexDirection:
-                          "column",
-
-                        gap: "6px",
-
-                        color:
-                          "#cbd5e1",
-
-                        fontSize:
-                          "12px",
-
-                        textAlign:
-                          "center",
-                      }}
-                    >
-
-                      <span
-                        style={{
-                          fontSize:
-                            "28px",
-                        }}
-                      >
-                        📷
-                      </span>
-
-                      <span>
-                        Camera Off
-                      </span>
-
-                    </div>
-
-                  )}
-
-                  {cameraActive && (
-
-                    <div
-                      style={{
-                        position:
-                          "absolute",
-
-                        top: "8px",
-
-                        right: "8px",
-
-                        display: "flex",
-
-                        alignItems:
-                          "center",
-
-                        gap: "5px",
-
-                        padding:
-                          "4px 7px",
-
-                        borderRadius:
-                          "5px",
-
-                        background:
-                          "rgba(220,38,38,0.9)",
-
-                        color:
-                          "white",
-
-                        fontSize:
-                          "9px",
-
-                        fontWeight:
-                          "800",
-                      }}
-                    >
-                      <span>
-                        ●
-                      </span>
-
-                      LIVE
-                    </div>
-
-                  )}
-
-                </div>
-
-                {/* ================================= */}
-                {/* ERRORS */}
-                {/* ================================= */}
-
-                {cameraError && (
-
-                  <div
-                    style={{
-                      marginTop:
-                        "18px",
-
-                      padding:
-                        "10px 12px",
-
-                      borderRadius:
-                        "8px",
-
-                      background:
-                        "#fef2f2",
-
-                      color:
-                        "#dc2626",
-
-                      fontSize:
-                        "12px",
-                    }}
-                  >
-                    {cameraError}
-                  </div>
-
-                )}
-
-                {micError && (
-
-                  <div
-                    style={{
-                      marginTop:
-                        "10px",
-
-                      padding:
-                        "10px 12px",
-
-                      borderRadius:
-                        "8px",
-
-                      background:
-                        "#fff7ed",
-
-                      color:
-                        "#c2410c",
-
-                      fontSize:
-                        "12px",
-                    }}
-                  >
-                    {micError}
-                  </div>
-
-                )}
-
-                {speechError && (
-
-                  <div
-                    style={{
-                      marginTop:
-                        "10px",
-
-                      padding:
-                        "10px 12px",
-
-                      borderRadius:
-                        "8px",
-
-                      background:
-                        "#fff7ed",
-
-                      color:
-                        "#c2410c",
-
-                      fontSize:
-                        "12px",
-                    }}
-                  >
-                    {speechError}
-                  </div>
-
-                )}
-
-                {/* ================================= */}
-                {/* MIC CONTROL */}
-                {/* ================================= */}
-
-                {cameraActive && (
-
-                  <div
-                    style={{
-                      marginTop:
-                        "14px",
-
                       display: "flex",
-
                       alignItems:
                         "center",
-
-                      gap: "10px",
-
-                      flexWrap:
-                        "wrap",
+                      justifyContent:
+                        "center",
+                      flexDirection:
+                        "column",
+                      gap: "6px",
+                      color:
+                        "#cbd5e1",
+                      fontSize:
+                        "12px",
+                      textAlign:
+                        "center",
                     }}
                   >
-
-                    <button
-                      type="button"
-
-                      onClick={
-                        toggleMicrophone
-                      }
-
-                      style={{
-                        padding:
-                          "9px 14px",
-
-                        border:
-                          "1px solid #dbe1ea",
-
-                        borderRadius:
-                          "8px",
-
-                        background:
-                          micActive
-                            ? "#f0fdf4"
-                            : "#fef2f2",
-
-                        color:
-                          micActive
-                            ? "#15803d"
-                            : "#dc2626",
-
-                        fontSize:
-                          "12px",
-
-                        fontWeight:
-                          "700",
-
-                        cursor:
-                          "pointer",
-                      }}
-                    >
-                      {micActive
-                        ? "🎤 Mic ON"
-                        : "🔇 Mic OFF"}
-                    </button>
 
                     <span
                       style={{
                         fontSize:
-                          "12px",
-
-                        fontWeight:
-                          "600",
-
-                        color:
-                          micActive
-                            ? "#15803d"
-                            : "#dc2626",
+                          "28px",
                       }}
                     >
-                      {micActive
-                        ? "Microphone is active"
-                        : "Microphone is muted"}
+                      📷
+                    </span>
+
+                    <span>
+                      Camera Off
                     </span>
 
                   </div>
 
                 )}
 
-                {/* ================================= */}
-                {/* PROGRESS */}
-                {/* ================================= */}
-
-                <div className="progress-container">
-
-                  <div
-                    className="progress-bar"
-
-                    style={{
-                      width:
-                        `${
-                          (
-                            (currentQuestion + 1) /
-                            questions.length
-                          ) * 100
-                        }%`,
-                    }}
-                  />
-
-                </div>
-
-                {/* ================================= */}
-                {/* QUESTION */}
-                {/* ================================= */}
-
-                <div className="question-content">
-
-                  <p className="question-label">
-                    QUESTION{" "}
-                    {currentQuestion + 1}
-                  </p>
-
-                  <h2>
-                    {
-                      questions[
-                        currentQuestion
-                      ]
-                    }
-                  </h2>
-
-                </div>
-
-                {/* ================================= */}
-                {/* ANSWER */}
-                {/* ================================= */}
-
-                <div className="answer-section">
-
-                  <label>
-                    Your Answer
-                  </label>
-
-                  <textarea
-                    value={answer}
-
-                    onChange={(e) =>
-                      setAnswer(
-                        e.target.value
-                      )
-                    }
-
-                    placeholder={
-                      isListening
-                        ? "🔴 Listening... Speak your answer."
-                        : "Type your answer or click Start Answer and speak..."
-                    }
-
-                    rows="8"
-                  />
-
-                </div>
-
-                {/* ================================= */}
-                {/* SPEECH CONTROLS */}
-                {/* ================================= */}
-
-                {speechSupported ? (
+                {cameraActive && (
 
                   <div
                     style={{
-                      marginTop:
-                        "14px",
-
+                      position:
+                        "absolute",
+                      top: "8px",
+                      right: "8px",
+                      display: "flex",
+                      alignItems:
+                        "center",
+                      gap: "5px",
                       padding:
-                        "14px",
-
-                      border:
-                        "1px solid #e2e8f0",
-
+                        "4px 7px",
                       borderRadius:
-                        "10px",
-
+                        "5px",
                       background:
-                        "#f8fafc",
+                        "rgba(220,38,38,0.9)",
+                      color:
+                        "white",
+                      fontSize:
+                        "9px",
+                      fontWeight:
+                        "800",
                     }}
                   >
 
-                    <div
-                      style={{
-                        display: "flex",
+                    <span>
+                      ●
+                    </span>
 
-                        alignItems:
-                          "center",
+                    LIVE
 
-                        gap: "10px",
+                  </div>
 
-                        flexWrap:
-                          "wrap",
-                      }}
-                    >
+                )}
 
-                      {!isListening ? (
+              </div>
 
-                        <button
-                          type="button"
+              {/* ================================= */}
+              {/* ERRORS */}
+              {/* ================================= */}
 
-                          onClick={
-                            startListening
-                          }
+              {cameraError && (
 
-                          disabled={
-                            !micActive
-                          }
+                <div
+                  style={{
+                    marginTop:
+                      "18px",
+                    padding:
+                      "10px 12px",
+                    borderRadius:
+                      "8px",
+                    background:
+                      "#fef2f2",
+                    color:
+                      "#dc2626",
+                    fontSize:
+                      "12px",
+                  }}
+                >
+                  {cameraError}
+                </div>
 
-                          style={{
-                            padding:
-                              "10px 18px",
+              )}
 
-                            border:
-                              "none",
+              {micError && (
 
-                            borderRadius:
-                              "8px",
+                <div
+                  style={{
+                    marginTop:
+                      "10px",
+                    padding:
+                      "10px 12px",
+                    borderRadius:
+                      "8px",
+                    background:
+                      "#fff7ed",
+                    color:
+                      "#c2410c",
+                    fontSize:
+                      "12px",
+                  }}
+                >
+                  {micError}
+                </div>
 
-                            background:
-                              micActive
-                                ? "#2563eb"
-                                : "#94a3b8",
+              )}
 
-                            color:
-                              "white",
+              {speechError && (
 
-                            fontSize:
-                              "13px",
+                <div
+                  style={{
+                    marginTop:
+                      "10px",
+                    padding:
+                      "10px 12px",
+                    borderRadius:
+                      "8px",
+                    background:
+                      "#fff7ed",
+                    color:
+                      "#c2410c",
+                    fontSize:
+                      "12px",
+                  }}
+                >
+                  {speechError}
+                </div>
 
-                            fontWeight:
-                              "700",
+              )}
 
-                            cursor:
-                              micActive
-                                ? "pointer"
-                                : "not-allowed",
-                          }}
-                        >
-                          🎤 Start Answer
-                        </button>
+              {/* ================================= */}
+              {/* MIC CONTROL */}
+              {/* ================================= */}
 
-                      ) : (
+              {cameraActive && (
 
-                        <button
-                          type="button"
+                <div
+                  style={{
+                    marginTop:
+                      "14px",
+                    display: "flex",
+                    alignItems:
+                      "center",
+                    gap: "10px",
+                    flexWrap:
+                      "wrap",
+                  }}
+                >
 
-                          onClick={
-                            stopListening
-                          }
+                  <button
+                    type="button"
+                    onClick={
+                      toggleMicrophone
+                    }
 
-                          style={{
-                            padding:
-                              "10px 18px",
+                    style={{
+                      padding:
+                        "9px 14px",
+                      border:
+                        "1px solid #dbe1ea",
+                      borderRadius:
+                        "8px",
+                      background:
+                        micActive
+                          ? "#f0fdf4"
+                          : "#fef2f2",
+                      color:
+                        micActive
+                          ? "#15803d"
+                          : "#dc2626",
+                      fontSize:
+                        "12px",
+                      fontWeight:
+                        "700",
+                      cursor:
+                        "pointer",
+                    }}
+                  >
+                    {micActive
+                      ? "🎤 Mic ON"
+                      : "🔇 Mic OFF"}
+                  </button>
 
-                            border:
-                              "none",
+                  <span
+                    style={{
+                      fontSize:
+                        "12px",
+                      fontWeight:
+                        "600",
+                      color:
+                        micActive
+                          ? "#15803d"
+                          : "#dc2626",
+                    }}
+                  >
+                    {micActive
+                      ? "Microphone is active"
+                      : "Microphone is muted"}
+                  </span>
 
-                            borderRadius:
-                              "8px",
+                </div>
 
-                            background:
-                              "#dc2626",
+              )}
 
-                            color:
-                              "white",
+              {/* ================================= */}
+              {/* PROGRESS */}
+              {/* ================================= */}
 
-                            fontSize:
-                              "13px",
+              <div className="progress-container">
 
-                            fontWeight:
-                              "700",
+                <div
+                  className="progress-bar"
 
-                            cursor:
-                              "pointer",
-                          }}
-                        >
-                          🛑 Stop Answer
-                        </button>
+                  style={{
+                    width:
+                      `${
+                        (
+                          (currentQuestion + 1) /
+                          questions.length
+                        ) * 100
+                      }%`,
+                  }}
+                />
 
-                      )}
+              </div>
 
-                      {isListening && (
+              {/* ================================= */}
+              {/* QUESTION */}
+              {/* ================================= */}
+
+              <div className="question-content">
+
+                <p className="question-label">
+                  QUESTION{" "}
+                  {currentQuestion + 1}
+                </p>
+
+                <h2>
+                  {
+                    questions[
+                      currentQuestion
+                    ]
+                  }
+                </h2>
+
+              </div>
+
+              {/* ================================= */}
+              {/* ANSWER */}
+              {/* ================================= */}
+
+              <div className="answer-section">
+
+                <label>
+                  Your Answer
+                </label>
+
+                <textarea
+                  value={answer}
+
+                  onChange={(e) =>
+                    setAnswer(
+                      e.target.value
+                    )
+                  }
+
+                  placeholder={
+                    isListening
+                      ? "🔴 Listening... Speak your answer."
+                      : "Type your answer or click Start Answer and speak..."
+                  }
+
+                  rows="8"
+                />
+
+              </div>
+
+              {/* ================================= */}
+              {/* SPEECH CONTROLS */}
+              {/* ================================= */}
+
+              {speechSupported ? (
+
+                <div
+                  style={{
+                    marginTop:
+                      "14px",
+                    padding:
+                      "14px",
+                    border:
+                      "1px solid #e2e8f0",
+                    borderRadius:
+                      "10px",
+                    background:
+                      "#f8fafc",
+                  }}
+                >
+
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems:
+                        "center",
+                      gap: "10px",
+                      flexWrap:
+                        "wrap",
+                    }}
+                  >
+
+                    {!isListening ? (
+
+                      <button
+                        type="button"
+                        onClick={
+                          startListening
+                        }
+                        disabled={
+                          !micActive
+                        }
+
+                        style={{
+                          padding:
+                            "10px 18px",
+                          border:
+                            "none",
+                          borderRadius:
+                            "8px",
+                          background:
+                            micActive
+                              ? "#2563eb"
+                              : "#94a3b8",
+                          color:
+                            "white",
+                          fontSize:
+                            "13px",
+                          fontWeight:
+                            "700",
+                          cursor:
+                            micActive
+                              ? "pointer"
+                              : "not-allowed",
+                        }}
+                      >
+                        🎤 Start Answer
+                      </button>
+
+                    ) : (
+
+                      <button
+                        type="button"
+                        onClick={
+                          stopListening
+                        }
+
+                        style={{
+                          padding:
+                            "10px 18px",
+                          border:
+                            "none",
+                          borderRadius:
+                            "8px",
+                          background:
+                            "#dc2626",
+                          color:
+                            "white",
+                          fontSize:
+                            "13px",
+                          fontWeight:
+                            "700",
+                          cursor:
+                            "pointer",
+                        }}
+                      >
+                        🛑 Stop Answer
+                      </button>
+
+                    )}
+
+                    {isListening && (
+
+                      <span
+                        style={{
+                          display:
+                            "flex",
+                          alignItems:
+                            "center",
+                          gap: "6px",
+                          fontSize:
+                            "12px",
+                          fontWeight:
+                            "700",
+                          color:
+                            "#dc2626",
+                        }}
+                      >
+                        🔴 Listening...
+                      </span>
+
+                    )}
+
+                    {!isListening &&
+                      answer.trim() && (
 
                         <span
                           style={{
-                            display:
-                              "flex",
-
-                            alignItems:
-                              "center",
-
-                            gap: "6px",
-
                             fontSize:
                               "12px",
-
-                            fontWeight:
-                              "700",
-
                             color:
-                              "#dc2626",
+                              "#64748b",
+                            fontWeight:
+                              "600",
                           }}
                         >
-                          🔴 Listening...
+                          ✓ Transcript captured
                         </span>
 
                       )}
 
-                      {!isListening &&
-                        answer.trim() && (
-
-                          <span
-                            style={{
-                              fontSize:
-                                "12px",
-
-                              color:
-                                "#64748b",
-
-                              fontWeight:
-                                "600",
-                            }}
-                          >
-                            ✓ Transcript captured
-                          </span>
-
-                        )}
-
-                    </div>
-
-                    <p
-                      style={{
-                        margin:
-                          "10px 0 0",
-
-                        fontSize:
-                          "11px",
-
-                        color:
-                          "#64748b",
-                      }}
-                    >
-                      Click "Start Answer"
-                      and speak clearly.
-                      Your speech will
-                      appear in the answer
-                      box.
-                    </p>
-
                   </div>
 
-                ) : (
-
-                  <div
+                  <p
                     style={{
-                      marginTop:
-                        "14px",
-
-                      padding:
-                        "12px",
-
-                      borderRadius:
-                        "8px",
-
-                      background:
-                        "#fff7ed",
-
-                      color:
-                        "#c2410c",
-
+                      margin:
+                        "10px 0 0",
                       fontSize:
-                        "12px",
+                        "11px",
+                      color:
+                        "#64748b",
                     }}
                   >
-                    Speech-to-text is not
-                    supported in this browser.
-                    Please use Google Chrome
-                    or Microsoft Edge.
-                  </div>
-
-                )}
-
-                {/* ================================= */}
-                {/* ERROR */}
-                {/* ================================= */}
-
-                {error && (
-
-                  <p className="interview-error">
-                    {error}
+                    Click "Start Answer"
+                    and speak clearly.
+                    Your speech will
+                    appear in the answer
+                    box.
                   </p>
 
-                )}
+                </div>
 
-                {/* ================================= */}
-                {/* SUBMIT */}
-                {/* ================================= */}
+              ) : (
 
-                <button
-                  className="start-interview-btn"
-
-                  onClick={
-                    submitAnswer
-                  }
-
-                  disabled={loading}
+                <div
+                  style={{
+                    marginTop:
+                      "14px",
+                    padding:
+                      "12px",
+                    borderRadius:
+                      "8px",
+                    background:
+                      "#fff7ed",
+                    color:
+                      "#c2410c",
+                    fontSize:
+                      "12px",
+                  }}
                 >
+                  Speech-to-text is not
+                  supported in this browser.
+                  Please use Google Chrome
+                  or Microsoft Edge.
+                </div>
 
-                  {loading
-                    ? "Processing..."
-                    : currentQuestion ===
-                      questions.length - 1
-                    ? "Finish & Get AI Score 🤖"
-                    : "Submit Answer →"}
+              )}
 
-                </button>
+              {/* ================================= */}
+              {/* ERROR */}
+              {/* ================================= */}
 
-              </div>
+              {error && (
+
+                <p className="interview-error">
+                  {error}
+                </p>
+
+              )}
+
+              {/* ================================= */}
+              {/* SUBMIT */}
+              {/* ================================= */}
+
+              <button
+                className="start-interview-btn"
+
+                onClick={
+                  submitAnswer
+                }
+
+                disabled={loading}
+              >
+                {loading
+                  ? "Processing..."
+                  : currentQuestion ===
+                    questions.length - 1
+                  ? "Finish & Get AI Score 🤖"
+                  : "Submit Answer →"}
+              </button>
 
             </div>
 
-          )}
+          </div>
+
+        )}
 
         {/* ================================== */}
         {/* EVALUATION RESULT */}
@@ -2057,133 +2312,132 @@ function Interview({ onBackToDashboard }) {
         {completed &&
           evaluation && (
 
-            <div className="evaluation-section">
+          <div className="evaluation-section">
 
-              <div className="evaluation-card">
+            <div className="evaluation-card">
 
-                <div className="success-icon">
-                  ✓
-                </div>
+              <div className="success-icon">
+                ✓
+              </div>
 
-                <p className="small-heading">
-                  AI EVALUATION
-                </p>
+              <p className="small-heading">
+                AI EVALUATION
+              </p>
 
-                <h2>
-                  Interview Completed!
-                </h2>
+              <h2>
+                Interview Completed!
+              </h2>
 
-                <p className="evaluation-subtitle">
-                  Here is your AI-powered
-                  interview performance.
-                </p>
+              <p className="evaluation-subtitle">
+                Here is your AI-powered
+                interview performance.
+              </p>
 
-                <div className="overall-score">
+              <div className="overall-score">
+
+                <span>
+                  Overall Score
+                </span>
+
+                <strong>
+
+                  {evaluation.score}
+
+                  <small>
+                    /10
+                  </small>
+
+                </strong>
+
+              </div>
+
+              <div className="score-grid">
+
+                <div className="score-box">
 
                   <span>
-                    Overall Score
+                    Communication
                   </span>
 
                   <strong>
-
-                    {evaluation.score}
-
-                    <small>
-                      /10
-                    </small>
-
+                    {
+                      evaluation.communicationScore
+                    }
+                    /10
                   </strong>
 
                 </div>
 
-                <div className="score-grid">
+                <div className="score-box">
 
-                  <div className="score-box">
+                  <span>
+                    Relevance
+                  </span>
 
-                    <span>
-                      Communication
-                    </span>
-
-                    <strong>
-                      {
-                        evaluation.communicationScore
-                      }
-                      /10
-                    </strong>
-
-                  </div>
-
-                  <div className="score-box">
-
-                    <span>
-                      Relevance
-                    </span>
-
-                    <strong>
-                      {
-                        evaluation.relevanceScore
-                      }
-                      /10
-                    </strong>
-
-                  </div>
-
-                  <div className="score-box">
-
-                    <span>
-                      Clarity
-                    </span>
-
-                    <strong>
-                      {
-                        evaluation.clarityScore
-                      }
-                      /10
-                    </strong>
-
-                  </div>
+                  <strong>
+                    {
+                      evaluation.relevanceScore
+                    }
+                    /10
+                  </strong>
 
                 </div>
 
-                <div className="feedback-box">
+                <div className="score-box">
 
-                  <h3>
-                    AI Feedback
-                  </h3>
+                  <span>
+                    Clarity
+                  </span>
 
-                  <p>
-                    {evaluation.feedback}
-                  </p>
-
-                </div>
-
-                <div className="feedback-box">
-
-                  <h3>
-                    Areas to Improve
-                  </h3>
-
-                  <p>
-                    {evaluation.improvements}
-                  </p>
+                  <strong>
+                    {
+                      evaluation.clarityScore
+                    }
+                    /10
+                  </strong>
 
                 </div>
-
-                <button
-                  className="primary-btn"
-
-                  onClick={
-                    handleBackToDashboard
-                  }
-                >
-                  Back to Dashboard →
-                </button>
 
               </div>
 
+              <div className="feedback-box">
+
+                <h3>
+                  AI Feedback
+                </h3>
+
+                <p>
+                  {evaluation.feedback}
+                </p>
+
+              </div>
+
+              <div className="feedback-box">
+
+                <h3>
+                  Areas to Improve
+                </h3>
+
+                <p>
+                  {evaluation.improvements}
+                </p>
+
+              </div>
+
+              <button
+                className="primary-btn"
+                onClick={
+                  handleBackToDashboard
+                }
+              >
+                Back to Dashboard →
+              </button>
+
             </div>
 
-          )}
+          </div>
+
+        )}
 
       </div>
 

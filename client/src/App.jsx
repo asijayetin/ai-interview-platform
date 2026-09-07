@@ -13,20 +13,39 @@ function App() {
   // ========================================
 
   const getInitialPage = () => {
+
     const savedPage =
       localStorage.getItem("currentPage");
 
     const token =
       localStorage.getItem("token");
 
-    // If user is logged in
-    // and there is a saved page
-    if (token && savedPage) {
+    // Public pages can stay on the same page
+    // even when user is not logged in.
+    const publicPages = [
+      "home",
+      "login",
+      "signup",
+    ];
+
+    // If saved page exists and:
+    // 1. User is logged in
+    // OR
+    // 2. Saved page is a public page
+    //
+    // then restore that page.
+    if (
+      savedPage &&
+      (
+        token ||
+        publicPages.includes(savedPage)
+      )
+    ) {
       return savedPage;
     }
 
     // If user is logged in but
-    // no page was saved
+    // no valid page was saved
     if (token) {
       return "dashboard";
     }
@@ -177,6 +196,7 @@ function App() {
 
           onLogout={() => {
 
+            // Remove login data
             localStorage.removeItem(
               "token"
             );
@@ -185,10 +205,17 @@ function App() {
               "user"
             );
 
+            // Remove current page
             localStorage.removeItem(
               "currentPage"
             );
 
+            // Remove saved interview session
+            localStorage.removeItem(
+              "activeInterviewSession"
+            );
+
+            // Go to home
             setPageState("home");
 
           }}
