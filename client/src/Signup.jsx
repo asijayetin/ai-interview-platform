@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+const API_URL = import.meta.env.VITE_API_URL;
+
 function Signup({ onLoginClick }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -15,6 +17,12 @@ function Signup({ onLoginClick }) {
     setMessage("");
     setError("");
 
+    // Check API URL
+    if (!API_URL) {
+      setError("API URL is not configured.");
+      return;
+    }
+
     // Check password
     if (password !== confirmPassword) {
       setError("Passwords do not match");
@@ -23,7 +31,7 @@ function Signup({ onLoginClick }) {
 
     try {
       const response = await fetch(
-        "http://localhost:5000/api/auth/signup",
+        `${API_URL}/api/auth/signup`,
         {
           method: "POST",
 
@@ -42,11 +50,15 @@ function Signup({ onLoginClick }) {
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.message);
+        setError(
+          data.message || "Signup failed. Please try again."
+        );
         return;
       }
 
-      setMessage("Signup successful! You can now login.");
+      setMessage(
+        "Signup successful! You can now login."
+      );
 
       // Clear form
       setName("");
@@ -55,7 +67,8 @@ function Signup({ onLoginClick }) {
       setConfirmPassword("");
 
     } catch (error) {
-      console.log(error);
+      console.log("Signup error:", error);
+
       setError("Server error. Please try again.");
     }
   };

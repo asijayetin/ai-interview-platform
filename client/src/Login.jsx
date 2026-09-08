@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+const API_URL = import.meta.env.VITE_API_URL;
+
 function Login({ onSignupClick, onLoginSuccess }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -11,9 +13,14 @@ function Login({ onSignupClick, onLoginSuccess }) {
 
     setError("");
 
+    if (!API_URL) {
+      setError("API URL is not configured.");
+      return;
+    }
+
     try {
       const response = await fetch(
-        "http://localhost:5000/api/auth/login",
+        `${API_URL}/api/auth/login`,
         {
           method: "POST",
 
@@ -31,7 +38,9 @@ function Login({ onSignupClick, onLoginSuccess }) {
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.message);
+        setError(
+          data.message || "Login failed. Please try again."
+        );
         return;
       }
 

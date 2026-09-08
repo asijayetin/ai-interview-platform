@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./App.css";
 
 import Signup from "./Signup";
@@ -13,27 +13,18 @@ function App() {
   // ========================================
 
   const getInitialPage = () => {
-
     const savedPage =
       localStorage.getItem("currentPage");
 
     const token =
       localStorage.getItem("token");
 
-    // Public pages can stay on the same page
-    // even when user is not logged in.
     const publicPages = [
       "home",
       "login",
       "signup",
     ];
 
-    // If saved page exists and:
-    // 1. User is logged in
-    // OR
-    // 2. Saved page is a public page
-    //
-    // then restore that page.
     if (
       savedPage &&
       (
@@ -44,23 +35,24 @@ function App() {
       return savedPage;
     }
 
-    // If user is logged in but
-    // no valid page was saved
     if (token) {
       return "dashboard";
     }
 
-    // Otherwise open home
     return "home";
   };
 
+
+  // ========================================
+  // PAGE STATE
+  // ========================================
 
   const [page, setPageState] =
     useState(getInitialPage);
 
 
   // ========================================
-  // CHANGE PAGE
+  // SET PAGE
   // ========================================
 
   const setPage = (newPage) => {
@@ -71,11 +63,188 @@ function App() {
       "currentPage",
       newPage
     );
+
+    // Add page to browser history
+    window.history.pushState(
+      { page: newPage },
+      "",
+      window.location.pathname
+    );
+
+    // Scroll to top when changing page
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
   };
 
 
+  // ========================================
+  // BROWSER BACK BUTTON
+  // ========================================
+
+  useEffect(() => {
+
+    const initialPage = getInitialPage();
+
+    window.history.replaceState(
+      { page: initialPage },
+      "",
+      window.location.pathname
+    );
+
+
+    const handlePopState = (event) => {
+
+      const previousPage =
+        event.state?.page;
+
+      if (previousPage) {
+
+        setPageState(previousPage);
+
+        localStorage.setItem(
+          "currentPage",
+          previousPage
+        );
+
+        window.scrollTo({
+          top: 0,
+          behavior: "smooth",
+        });
+
+        return;
+      }
+
+      // If no history state exists,
+      // go back to home
+      setPageState("home");
+
+      localStorage.setItem(
+        "currentPage",
+        "home"
+      );
+    };
+
+
+    window.addEventListener(
+      "popstate",
+      handlePopState
+    );
+
+
+    return () => {
+      window.removeEventListener(
+        "popstate",
+        handlePopState
+      );
+    };
+
+  }, []);
+
+
+  // ========================================
+  // NAVIGATE TO HOME SECTION
+  // ========================================
+
+  const goToSection = (sectionId) => {
+
+    // If we are not on home,
+    // first move to home
+    if (page !== "home") {
+
+      setPageState("home");
+
+      localStorage.setItem(
+        "currentPage",
+        "home"
+      );
+
+      window.history.pushState(
+        { page: "home" },
+        "",
+        window.location.pathname
+      );
+
+      // Wait for home page to render
+      setTimeout(() => {
+
+        const section =
+          document.getElementById(sectionId);
+
+        if (section) {
+          section.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          });
+        }
+
+      }, 100);
+
+      return;
+    }
+
+
+    // Already on home
+    const section =
+      document.getElementById(sectionId);
+
+    if (section) {
+
+      section.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+
+    }
+  };
+
+
+  // ========================================
+  // LOGOUT
+  // ========================================
+
+  const handleLogout = () => {
+
+    localStorage.removeItem(
+      "token"
+    );
+
+    localStorage.removeItem(
+      "user"
+    );
+
+    localStorage.removeItem(
+      "currentPage"
+    );
+
+    localStorage.removeItem(
+      "activeInterviewSession"
+    );
+
+    setPageState("home");
+
+    window.history.pushState(
+      { page: "home" },
+      "",
+      window.location.pathname
+    );
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  };
+
+
+  // ========================================
+  // RETURN
+  // ========================================
+
   return (
+
     <div className="app">
+
 
       {/* ====================================
           NAVBAR
@@ -84,63 +253,88 @@ function App() {
       {page !== "dashboard" &&
         page !== "interview" && (
 
-          <header className="navbar">
+        <header className="navbar">
 
-            <div
-              className="logo"
+
+          {/* LOGO */}
+
+          <div
+            className="logo"
+            onClick={() =>
+              setPage("home")
+            }
+            style={{
+              cursor: "pointer",
+            }}
+          >
+            AI Interview Arena
+          </div>
+
+
+          {/* NAV LINKS */}
+
+          <nav className="nav-links">
+
+            <button
+              type="button"
               onClick={() =>
-                setPage("home")
+                goToSection("home")
               }
-              style={{
-                cursor: "pointer",
-              }}
             >
-              AI Interview Arena
-            </div>
+              Home
+            </button>
 
 
-            <nav className="nav-links">
-
-              <a href="#home">
-                Home
-              </a>
-
-              <a href="#features">
-                Features
-              </a>
-
-              <a href="#about">
-                About
-              </a>
-
-            </nav>
+            <button
+              type="button"
+              onClick={() =>
+                goToSection("features")
+              }
+            >
+              Features
+            </button>
 
 
-            <div className="nav-buttons">
+            <button
+              type="button"
+              onClick={() =>
+                goToSection("about")
+              }
+            >
+              About
+            </button>
 
-              <button
-                className="login-btn"
-                onClick={() =>
-                  setPage("login")
-                }
-              >
-                Login
-              </button>
+          </nav>
 
 
-              <button
-                className="signup-btn"
-                onClick={() =>
-                  setPage("signup")
-                }
-              >
-                Sign Up
-              </button>
+          {/* LOGIN / SIGNUP BUTTONS */}
 
-            </div>
+          <div className="nav-buttons">
 
-          </header>
-        )}
+            <button
+              className="login-btn"
+              onClick={() =>
+                setPage("login")
+              }
+            >
+              Login
+            </button>
+
+
+            <button
+              className="signup-btn"
+              onClick={() =>
+                setPage("signup")
+              }
+            >
+              Sign Up
+            </button>
+
+          </div>
+
+        </header>
+
+      )}
 
 
       {/* ====================================
@@ -193,32 +387,7 @@ function App() {
             setPage("interview")
           }
 
-
-          onLogout={() => {
-
-            // Remove login data
-            localStorage.removeItem(
-              "token"
-            );
-
-            localStorage.removeItem(
-              "user"
-            );
-
-            // Remove current page
-            localStorage.removeItem(
-              "currentPage"
-            );
-
-            // Remove saved interview session
-            localStorage.removeItem(
-              "activeInterviewSession"
-            );
-
-            // Go to home
-            setPageState("home");
-
-          }}
+          onLogout={handleLogout}
 
         />
 
@@ -251,6 +420,7 @@ function App() {
         <>
 
           <main>
+
 
             {/* ====================================
                 HERO
@@ -293,7 +463,12 @@ function App() {
                   </button>
 
 
-                  <button className="secondary-btn">
+                  <button
+                    className="secondary-btn"
+                    onClick={() =>
+                      goToSection("features")
+                    }
+                  >
                     Learn More
                   </button>
 
@@ -375,6 +550,7 @@ function App() {
 
 
               <div className="feature-grid">
+
 
                 {/* FEATURE 1 */}
 
@@ -497,25 +673,54 @@ function App() {
 
             <div className="footer-links">
 
-              <a href="#home">
+              <button
+                type="button"
+                onClick={() =>
+                  goToSection("home")
+                }
+              >
                 Home
-              </a>
+              </button>
 
-              <a href="#features">
+
+              <button
+                type="button"
+                onClick={() =>
+                  goToSection("features")
+                }
+              >
                 Features
-              </a>
+              </button>
 
-              <a href="#about">
+
+              <button
+                type="button"
+                onClick={() =>
+                  goToSection("about")
+                }
+              >
                 About
-              </a>
+              </button>
 
-              <a href="#">
+
+              <button
+                type="button"
+                onClick={() =>
+                  alert("Terms and Conditions will be available soon.")
+                }
+              >
                 Terms
-              </a>
+              </button>
 
-              <a href="#">
+
+              <button
+                type="button"
+                onClick={() =>
+                  alert("Privacy Policy will be available soon.")
+                }
+              >
                 Privacy
-              </a>
+              </button>
 
             </div>
 
@@ -532,6 +737,7 @@ function App() {
       )}
 
     </div>
+
   );
 }
 

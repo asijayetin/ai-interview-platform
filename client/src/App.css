@@ -2332,3 +2332,77 @@ a {
     padding: 14px;
   }
 }
+/* ========================================
+   NAV LINKS
+======================================== */
+
+.nav-links button {
+  background: none;
+  border: none;
+  outline: none;
+
+  color: #cfcfcf;
+  font-size: 15px;
+  font-weight: 500;
+
+  padding: 8px 4px;
+  margin: 0 10px;
+
+  cursor: pointer;
+
+  font-family: inherit;
+
+  transition: color 0.2s ease;
+}
+
+.nav-links button:hover {
+  color: #ffffff;
+}
+
+
+/* ========================================
+   FOOTER LINKS
+======================================== */
+
+.footer-links button {
+  background: none;
+  border: none;
+  outline: none;
+
+  color: #9b9b9b;
+  font-size: 14px;
+
+  padding: 0;
+  margin-right: 20px;
+
+  cursor: pointer;
+
+  font-family: inherit;
+
+  transition: color 0.2s ease;
+}
+
+.footer-links button:hover {
+  color: #ffffff;
+}
+.nav-links button {
+  background: none;
+  border: none;
+  outline: none;
+
+  color: #1a1a1a;
+  font-size: 15px;
+  font-weight: 600;
+
+  padding: 8px 4px;
+  margin: 0 14px;
+
+  cursor: pointer;
+  font-family: inherit;
+
+  transition: color 0.2s ease;
+}
+
+.nav-links button:hover {
+  color: #555;
+}
