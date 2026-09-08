@@ -30,6 +30,12 @@ function Signup({ onLoginClick }) {
     }
 
     try {
+      console.log("API_URL:", API_URL);
+      console.log(
+        "Signup URL:",
+        `${API_URL}/api/auth/signup`
+      );
+
       const response = await fetch(
         `${API_URL}/api/auth/signup`,
         {
@@ -47,7 +53,11 @@ function Signup({ onLoginClick }) {
         }
       );
 
+      console.log("Response received:", response.status);
+
       const data = await response.json();
+
+      console.log("Response data:", data);
 
       if (!response.ok) {
         setError(
@@ -69,7 +79,9 @@ function Signup({ onLoginClick }) {
     } catch (error) {
       console.log("Signup error:", error);
 
-      setError("Server error. Please try again.");
+      setError(
+        `Connection error: ${error.message}`
+      );
     }
   };
 
