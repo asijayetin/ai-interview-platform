@@ -5,6 +5,8 @@ import Signup from "./Signup";
 import Login from "./Login";
 import Dashboard from "./Dashboard";
 import Interview from "./Interview";
+import Profile from "./Profile";
+import Settings from "./Settings";
 
 function App() {
 
@@ -50,12 +52,17 @@ function App() {
   const [page, setPageState] =
     useState(getInitialPage);
 
+  const [profileMenuOpen, setProfileMenuOpen] =
+    useState(false);
+
 
   // ========================================
   // SET PAGE
   // ========================================
 
   const setPage = (newPage) => {
+
+    setProfileMenuOpen(false);
 
     setPageState(newPage);
 
@@ -206,6 +213,8 @@ function App() {
 
   const handleLogout = () => {
 
+    setProfileMenuOpen(false);
+
     localStorage.removeItem(
       "token"
     );
@@ -251,7 +260,8 @@ function App() {
       ==================================== */}
 
       {page !== "dashboard" &&
-        page !== "interview" && (
+        page !== "interview" &&
+        page !== "settings" && (
 
         <header className="navbar">
 
@@ -307,28 +317,98 @@ function App() {
           </nav>
 
 
-          {/* LOGIN / SIGNUP BUTTONS */}
+          {/* LOGIN / SIGNUP / PROFILE MENU */}
 
           <div className="nav-buttons">
 
-            <button
-              className="login-btn"
-              onClick={() =>
-                setPage("login")
-              }
-            >
-              Login
-            </button>
+            {localStorage.getItem("token") ? (
+              <div className="profile-menu-wrapper">
 
+                <button
+                  type="button"
+                  className="profile-menu-trigger"
+                  onClick={() =>
+                    setProfileMenuOpen((prev) => !prev)
+                  }
+                >
+                  <span className="profile-menu-avatar">
+                    {(JSON.parse(
+                      localStorage.getItem("user") || "{}"
+                    ).name || "U")
+                      .split(" ")
+                      .map((part) => part[0])
+                      .join("")
+                      .slice(0, 2)
+                      .toUpperCase()}
+                  </span>
 
-            <button
-              className="signup-btn"
-              onClick={() =>
-                setPage("signup")
-              }
-            >
-              Sign Up
-            </button>
+                  <span className="profile-menu-name">
+                    {JSON.parse(
+                      localStorage.getItem("user") || "{}"
+                    ).name || "User"}
+                  </span>
+
+                  <span className="profile-menu-arrow">
+                    {profileMenuOpen ? "▲" : "▼"}
+                  </span>
+                </button>
+
+                {profileMenuOpen && (
+                  <div className="profile-dropdown">
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPage("profile")
+                      }
+                    >
+                      👤 Profile
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPage("settings")
+                      }
+                    >
+                      ⚙️ Settings
+                    </button>
+
+                    <div className="profile-dropdown-divider" />
+
+                    <button
+                      type="button"
+                      className="profile-dropdown-logout"
+                      onClick={handleLogout}
+                    >
+                      🚪 Logout
+                    </button>
+
+                  </div>
+                )}
+
+              </div>
+            ) : (
+              <>
+                <button
+                  className="login-btn"
+                  onClick={() =>
+                    setPage("login")
+                  }
+                >
+                  Login
+                </button>
+
+                <button
+                  className="signup-btn"
+                  onClick={() =>
+                    setPage("signup")
+                  }
+                >
+                  Sign Up
+                </button>
+              </>
+            )}
 
           </div>
 
@@ -388,7 +468,38 @@ function App() {
           }
 
           onLogout={handleLogout}
+          onProfile={() => setPage("profile")}
 
+        />
+
+      )}
+
+
+      {/* ====================================
+          PROFILE
+      ==================================== */}
+
+      {page === "profile" && (
+
+        <Profile
+          onBackToDashboard={() =>
+            setPage("dashboard")
+          }
+          onLogout={handleLogout}
+        />
+
+      )}
+
+      {/* ====================================
+          SETTINGS
+      ==================================== */}
+
+      {page === "settings" && (
+
+        <Settings
+          onBackToProfile={() =>
+            setPage("profile")
+          }
         />
 
       )}

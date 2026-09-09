@@ -7,7 +7,7 @@ const API_URL =
 const SELECTED_INTERVIEW_KEY =
   "selectedInterviewId";
 
-function Dashboard({ onStartInterview, onLogout }) {
+function Dashboard({ onStartInterview, onProfile, onLogout }) {
   const [interviews, setInterviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -928,12 +928,21 @@ function Dashboard({ onStartInterview, onLogout }) {
 
         </div>
 
-        <button
-          className="logout-btn"
-          onClick={onLogout}
-        >
-          Logout
-        </button>
+        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+          <button
+            className="secondary-btn"
+            onClick={onProfile}
+          >
+            Profile
+          </button>
+
+          <button
+            className="logout-btn"
+            onClick={onLogout}
+          >
+            Logout
+          </button>
+        </div>
 
       </div>
 
