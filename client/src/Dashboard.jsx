@@ -99,6 +99,46 @@ function Dashboard({ onStartInterview, onLogout }) {
     ).length;
 
   // =========================================
+  // EVALUATED INTERVIEWS
+  // =========================================
+
+  const evaluatedInterviews =
+    interviews.filter(
+      (interview) =>
+        interview.score !== null &&
+        interview.score !== undefined
+    );
+
+  // =========================================
+  // AVERAGE SCORE
+  // =========================================
+
+  const averageScore =
+    evaluatedInterviews.length > 0
+      ? (
+          evaluatedInterviews.reduce(
+            (total, interview) =>
+              total + Number(interview.score),
+            0
+          ) / evaluatedInterviews.length
+        ).toFixed(1)
+      : "--";
+
+  // =========================================
+  // BEST SCORE
+  // =========================================
+
+  const bestScore =
+    evaluatedInterviews.length > 0
+      ? Math.max(
+          ...evaluatedInterviews.map(
+            (interview) =>
+              Number(interview.score)
+          )
+        )
+      : "--";
+
+  // =========================================
   // OPEN INTERVIEW HISTORY
   // =========================================
 
@@ -173,9 +213,7 @@ function Dashboard({ onStartInterview, onLogout }) {
         {/* HISTORY HEADER */}
         {/* ================================= */}
 
-        <div
-          className="dashboard-header"
-        >
+        <div className="dashboard-header">
 
           <div>
 
@@ -199,7 +237,6 @@ function Dashboard({ onStartInterview, onLogout }) {
 
         </div>
 
-
         {/* ================================= */}
         {/* BACK BUTTON */}
         {/* ================================= */}
@@ -213,7 +250,6 @@ function Dashboard({ onStartInterview, onLogout }) {
         >
           ← Back to Dashboard
         </button>
-
 
         {/* ================================= */}
         {/* INTERVIEW SUMMARY */}
@@ -289,7 +325,6 @@ function Dashboard({ onStartInterview, onLogout }) {
 
             </div>
 
-
             {/* SCORE */}
 
             <div
@@ -346,7 +381,6 @@ function Dashboard({ onStartInterview, onLogout }) {
           </div>
 
         </section>
-
 
         {/* ================================= */}
         {/* PERFORMANCE SCORES */}
@@ -429,7 +463,6 @@ function Dashboard({ onStartInterview, onLogout }) {
 
             </div>
 
-
             {/* RELEVANCE */}
 
             <div
@@ -477,7 +510,6 @@ function Dashboard({ onStartInterview, onLogout }) {
               </strong>
 
             </div>
-
 
             {/* CLARITY */}
 
@@ -531,7 +563,6 @@ function Dashboard({ onStartInterview, onLogout }) {
 
         </section>
 
-
         {/* ================================= */}
         {/* QUESTIONS & ANSWERS */}
         {/* ================================= */}
@@ -555,7 +586,6 @@ function Dashboard({ onStartInterview, onLogout }) {
           >
             Questions & Answers
           </h2>
-
 
           {answers.length === 0 ? (
 
@@ -609,7 +639,6 @@ function Dashboard({ onStartInterview, onLogout }) {
                       Q{index + 1}.{" "}
                       {item.question}
                     </p>
-
 
                     {/* ANSWER */}
 
@@ -666,7 +695,6 @@ function Dashboard({ onStartInterview, onLogout }) {
 
         </section>
 
-
         {/* ================================= */}
         {/* AI FEEDBACK */}
         {/* ================================= */}
@@ -696,7 +724,6 @@ function Dashboard({ onStartInterview, onLogout }) {
             >
               AI Feedback
             </h2>
-
 
             {/* FEEDBACK */}
 
@@ -742,7 +769,6 @@ function Dashboard({ onStartInterview, onLogout }) {
 
             )}
 
-
             {/* IMPROVEMENTS */}
 
             {interview.improvements && (
@@ -786,7 +812,6 @@ function Dashboard({ onStartInterview, onLogout }) {
           </section>
 
         )}
-
 
         {/* ================================= */}
         {/* BACK BUTTON */}
@@ -835,7 +860,6 @@ function Dashboard({ onStartInterview, onLogout }) {
 
       </div>
 
-
       {/* WELCOME */}
 
       <section className="welcome-section">
@@ -853,7 +877,6 @@ function Dashboard({ onStartInterview, onLogout }) {
         </p>
 
       </section>
-
 
       {/* START INTERVIEW */}
 
@@ -885,10 +908,11 @@ function Dashboard({ onStartInterview, onLogout }) {
 
       </section>
 
-
       {/* STATS */}
 
       <section className="dashboard-stats">
+
+        {/* TOTAL INTERVIEWS */}
 
         <div className="stat-card">
 
@@ -908,6 +932,7 @@ function Dashboard({ onStartInterview, onLogout }) {
 
         </div>
 
+        {/* AVERAGE SCORE */}
 
         <div className="stat-card">
 
@@ -916,7 +941,7 @@ function Dashboard({ onStartInterview, onLogout }) {
           <div>
 
             <h3>
-              --
+              {averageScore}
             </h3>
 
             <p>
@@ -927,10 +952,31 @@ function Dashboard({ onStartInterview, onLogout }) {
 
         </div>
 
+        {/* BEST SCORE */}
 
         <div className="stat-card">
 
           <span>🏆</span>
+
+          <div>
+
+            <h3>
+              {bestScore}
+            </h3>
+
+            <p>
+              Best Score
+            </p>
+
+          </div>
+
+        </div>
+
+        {/* COMPLETED */}
+
+        <div className="stat-card">
+
+          <span>✅</span>
 
           <div>
 
@@ -948,7 +994,6 @@ function Dashboard({ onStartInterview, onLogout }) {
 
       </section>
 
-
       {/* RECENT INTERVIEWS */}
 
       <section className="recent-section">
@@ -965,7 +1010,6 @@ function Dashboard({ onStartInterview, onLogout }) {
 
         </div>
 
-
         {loading && (
 
           <div className="empty-interviews">
@@ -977,7 +1021,6 @@ function Dashboard({ onStartInterview, onLogout }) {
           </div>
 
         )}
-
 
         {error && !loading && (
 
@@ -994,7 +1037,6 @@ function Dashboard({ onStartInterview, onLogout }) {
           </div>
 
         )}
-
 
         {!loading &&
           !error &&
@@ -1027,7 +1069,6 @@ function Dashboard({ onStartInterview, onLogout }) {
             </div>
 
           )}
-
 
         {!loading &&
           !error &&
@@ -1081,7 +1122,6 @@ function Dashboard({ onStartInterview, onLogout }) {
 
                     </div>
 
-
                     <div className="history-details">
 
                       <span>
@@ -1089,7 +1129,6 @@ function Dashboard({ onStartInterview, onLogout }) {
                           0}
                         /5 Answers
                       </span>
-
 
                       {/* SCORE */}
 
@@ -1103,7 +1142,6 @@ function Dashboard({ onStartInterview, onLogout }) {
                           : "Score --"}
 
                       </span>
-
 
                       <span>
                         {new Date(

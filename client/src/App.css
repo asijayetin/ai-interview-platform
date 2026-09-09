@@ -2406,3 +2406,26 @@ a {
 .nav-links button:hover {
   color: #555;
 }
+/* =========================================
+   DASHBOARD STATS - 4 CARDS
+========================================= */
+
+.dashboard-stats {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+/* TABLET */
+
+@media (max-width: 1000px) {
+  .dashboard-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* MOBILE */
+
+@media (max-width: 700px) {
+  .dashboard-stats {
+    grid-template-columns: 1fr;
+  }
+}
