@@ -71,6 +71,11 @@ const emailTransporter =
           pass:
             process.env.SMTP_PASS,
         },
+
+        // Prevent the SMTP request from hanging forever.
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 15000,
       })
     : null;
 
