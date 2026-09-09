@@ -1391,6 +1391,35 @@ function Interview({ onBackToDashboard }) {
 
   };
     // ==========================================
+  // PRACTICE AGAIN
+  // ==========================================
+
+  const practiceAgain = () => {
+    stopCamera();
+
+    localStorage.removeItem(
+      INTERVIEW_SESSION_KEY
+    );
+
+    setInterviewType("");
+    setRole("");
+    setStarted(false);
+    setShowQuestions(false);
+    setInterviewId(null);
+    setQuestions([]);
+    setCurrentQuestion(0);
+    setAnswer("");
+    setCompleted(false);
+    setEvaluation(null);
+    setError("");
+    setCameraError("");
+    setMicError("");
+    setSpeechError("");
+    setQuestionsLoading(false);
+    setLoading(false);
+  };
+
+  // ==========================================
   // BACK TO DASHBOARD
   // ==========================================
 
@@ -2316,6 +2345,14 @@ function Interview({ onBackToDashboard }) {
 
             <div className="evaluation-card">
 
+              <button
+                type="button"
+                className="back-btn"
+                onClick={handleBackToDashboard}
+              >
+                ← Dashboard
+              </button>
+
               <div className="success-icon">
                 ✓
               </div>
@@ -2333,6 +2370,18 @@ function Interview({ onBackToDashboard }) {
                 interview performance.
               </p>
 
+              <div className="interview-result-meta">
+
+                <span>
+                  {interviewType} Interview
+                </span>
+
+                <span>
+                  {role}
+                </span>
+
+              </div>
+
               <div className="overall-score">
 
                 <span>
@@ -2340,13 +2389,10 @@ function Interview({ onBackToDashboard }) {
                 </span>
 
                 <strong>
-
                   {evaluation.score}
-
                   <small>
                     /10
                   </small>
-
                 </strong>
 
               </div>
@@ -2360,9 +2406,7 @@ function Interview({ onBackToDashboard }) {
                   </span>
 
                   <strong>
-                    {
-                      evaluation.communicationScore
-                    }
+                    {evaluation.communicationScore}
                     /10
                   </strong>
 
@@ -2375,9 +2419,7 @@ function Interview({ onBackToDashboard }) {
                   </span>
 
                   <strong>
-                    {
-                      evaluation.relevanceScore
-                    }
+                    {evaluation.relevanceScore}
                     /10
                   </strong>
 
@@ -2390,9 +2432,7 @@ function Interview({ onBackToDashboard }) {
                   </span>
 
                   <strong>
-                    {
-                      evaluation.clarityScore
-                    }
+                    {evaluation.clarityScore}
                     /10
                   </strong>
 
@@ -2424,14 +2464,25 @@ function Interview({ onBackToDashboard }) {
 
               </div>
 
-              <button
-                className="primary-btn"
-                onClick={
-                  handleBackToDashboard
-                }
-              >
-                Back to Dashboard →
-              </button>
+              <div className="result-actions">
+
+                <button
+                  type="button"
+                  className="primary-btn"
+                  onClick={practiceAgain}
+                >
+                  🔄 Practice Again
+                </button>
+
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={handleBackToDashboard}
+                >
+                  🏠 Back to Dashboard
+                </button>
+
+              </div>
 
             </div>
 

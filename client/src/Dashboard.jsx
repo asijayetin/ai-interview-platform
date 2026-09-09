@@ -13,6 +13,16 @@ function Dashboard({ onStartInterview, onLogout }) {
   const [error, setError] = useState("");
 
   // =========================================
+  // HISTORY FILTER + SORT
+  // =========================================
+
+  const [interviewTypeFilter, setInterviewTypeFilter] =
+    useState("All");
+
+  const [sortBy, setSortBy] =
+    useState("newest");
+
+  // =========================================
   // SELECTED INTERVIEW
   // =========================================
 
@@ -98,20 +108,12 @@ function Dashboard({ onStartInterview, onLogout }) {
         interview.answers.length === 5
     ).length;
 
-  // =========================================
-  // EVALUATED INTERVIEWS
-  // =========================================
-
   const evaluatedInterviews =
     interviews.filter(
       (interview) =>
         interview.score !== null &&
         interview.score !== undefined
     );
-
-  // =========================================
-  // AVERAGE SCORE
-  // =========================================
 
   const averageScore =
     evaluatedInterviews.length > 0
@@ -124,10 +126,6 @@ function Dashboard({ onStartInterview, onLogout }) {
         ).toFixed(1)
       : "--";
 
-  // =========================================
-  // BEST SCORE
-  // =========================================
-
   const bestScore =
     evaluatedInterviews.length > 0
       ? Math.max(
@@ -137,6 +135,71 @@ function Dashboard({ onStartInterview, onLogout }) {
           )
         )
       : "--";
+
+  // =========================================
+  // FILTER + SORT INTERVIEWS
+  // =========================================
+
+  const filteredInterviews = [...interviews]
+    .filter((interview) => {
+      if (interviewTypeFilter === "All") {
+        return true;
+      }
+
+      return (
+        interview.interviewType ===
+        interviewTypeFilter
+      );
+    })
+    .sort((a, b) => {
+      // Oldest first
+      if (sortBy === "oldest") {
+        return (
+          new Date(a.createdAt) -
+          new Date(b.createdAt)
+        );
+      }
+
+      // Highest score
+      if (sortBy === "highest") {
+        const scoreA =
+          a.score !== null &&
+          a.score !== undefined
+            ? Number(a.score)
+            : -1;
+
+        const scoreB =
+          b.score !== null &&
+          b.score !== undefined
+            ? Number(b.score)
+            : -1;
+
+        return scoreB - scoreA;
+      }
+
+      // Lowest score
+      if (sortBy === "lowest") {
+        const scoreA =
+          a.score !== null &&
+          a.score !== undefined
+            ? Number(a.score)
+            : 11;
+
+        const scoreB =
+          b.score !== null &&
+          b.score !== undefined
+            ? Number(b.score)
+            : 11;
+
+        return scoreA - scoreB;
+      }
+
+      // Newest first
+      return (
+        new Date(b.createdAt) -
+        new Date(a.createdAt)
+      );
+    });
 
   // =========================================
   // OPEN INTERVIEW HISTORY
@@ -213,8 +276,9 @@ function Dashboard({ onStartInterview, onLogout }) {
         {/* HISTORY HEADER */}
         {/* ================================= */}
 
-        <div className="dashboard-header">
-
+        <div
+          className="dashboard-header"
+        >
           <div>
 
             <h1>
@@ -237,6 +301,7 @@ function Dashboard({ onStartInterview, onLogout }) {
 
         </div>
 
+
         {/* ================================= */}
         {/* BACK BUTTON */}
         {/* ================================= */}
@@ -250,6 +315,7 @@ function Dashboard({ onStartInterview, onLogout }) {
         >
           ← Back to Dashboard
         </button>
+
 
         {/* ================================= */}
         {/* INTERVIEW SUMMARY */}
@@ -325,6 +391,7 @@ function Dashboard({ onStartInterview, onLogout }) {
 
             </div>
 
+
             {/* SCORE */}
 
             <div
@@ -381,6 +448,7 @@ function Dashboard({ onStartInterview, onLogout }) {
           </div>
 
         </section>
+
 
         {/* ================================= */}
         {/* PERFORMANCE SCORES */}
@@ -463,6 +531,7 @@ function Dashboard({ onStartInterview, onLogout }) {
 
             </div>
 
+
             {/* RELEVANCE */}
 
             <div
@@ -510,6 +579,7 @@ function Dashboard({ onStartInterview, onLogout }) {
               </strong>
 
             </div>
+
 
             {/* CLARITY */}
 
@@ -563,6 +633,7 @@ function Dashboard({ onStartInterview, onLogout }) {
 
         </section>
 
+
         {/* ================================= */}
         {/* QUESTIONS & ANSWERS */}
         {/* ================================= */}
@@ -586,6 +657,7 @@ function Dashboard({ onStartInterview, onLogout }) {
           >
             Questions & Answers
           </h2>
+
 
           {answers.length === 0 ? (
 
@@ -639,6 +711,7 @@ function Dashboard({ onStartInterview, onLogout }) {
                       Q{index + 1}.{" "}
                       {item.question}
                     </p>
+
 
                     {/* ANSWER */}
 
@@ -695,6 +768,7 @@ function Dashboard({ onStartInterview, onLogout }) {
 
         </section>
 
+
         {/* ================================= */}
         {/* AI FEEDBACK */}
         {/* ================================= */}
@@ -724,6 +798,7 @@ function Dashboard({ onStartInterview, onLogout }) {
             >
               AI Feedback
             </h2>
+
 
             {/* FEEDBACK */}
 
@@ -769,6 +844,7 @@ function Dashboard({ onStartInterview, onLogout }) {
 
             )}
 
+
             {/* IMPROVEMENTS */}
 
             {interview.improvements && (
@@ -812,6 +888,7 @@ function Dashboard({ onStartInterview, onLogout }) {
           </section>
 
         )}
+
 
         {/* ================================= */}
         {/* BACK BUTTON */}
@@ -860,6 +937,7 @@ function Dashboard({ onStartInterview, onLogout }) {
 
       </div>
 
+
       {/* WELCOME */}
 
       <section className="welcome-section">
@@ -877,6 +955,7 @@ function Dashboard({ onStartInterview, onLogout }) {
         </p>
 
       </section>
+
 
       {/* START INTERVIEW */}
 
@@ -908,11 +987,10 @@ function Dashboard({ onStartInterview, onLogout }) {
 
       </section>
 
+
       {/* STATS */}
 
       <section className="dashboard-stats">
-
-        {/* TOTAL INTERVIEWS */}
 
         <div className="stat-card">
 
@@ -932,7 +1010,6 @@ function Dashboard({ onStartInterview, onLogout }) {
 
         </div>
 
-        {/* AVERAGE SCORE */}
 
         <div className="stat-card">
 
@@ -952,7 +1029,6 @@ function Dashboard({ onStartInterview, onLogout }) {
 
         </div>
 
-        {/* BEST SCORE */}
 
         <div className="stat-card">
 
@@ -972,7 +1048,6 @@ function Dashboard({ onStartInterview, onLogout }) {
 
         </div>
 
-        {/* COMPLETED */}
 
         <div className="stat-card">
 
@@ -994,6 +1069,7 @@ function Dashboard({ onStartInterview, onLogout }) {
 
       </section>
 
+
       {/* RECENT INTERVIEWS */}
 
       <section className="recent-section">
@@ -1010,6 +1086,7 @@ function Dashboard({ onStartInterview, onLogout }) {
 
         </div>
 
+
         {loading && (
 
           <div className="empty-interviews">
@@ -1021,6 +1098,7 @@ function Dashboard({ onStartInterview, onLogout }) {
           </div>
 
         )}
+
 
         {error && !loading && (
 
@@ -1037,6 +1115,7 @@ function Dashboard({ onStartInterview, onLogout }) {
           </div>
 
         )}
+
 
         {!loading &&
           !error &&
@@ -1070,90 +1149,248 @@ function Dashboard({ onStartInterview, onLogout }) {
 
           )}
 
+
         {!loading &&
           !error &&
           interviews.length > 0 && (
 
-            <div className="interview-history">
+            <div>
 
-              {interviews.map(
-                (interview) => (
+              {/* ================================= */}
+              {/* FILTER + SORT CONTROLS */}
+              {/* ================================= */}
 
-                  <div
-                    className="history-card"
-                    key={interview._id}
-                    onClick={() =>
-                      openInterviewHistory(
-                        interview
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: "15px",
+                  flexWrap: "wrap",
+                  marginBottom: "20px",
+                }}
+              >
+
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    flexWrap: "wrap",
+                  }}
+                >
+
+                  <label
+                    style={{
+                      fontWeight: "600",
+                      color: "#334155",
+                      fontSize: "14px",
+                    }}
+                  >
+                    Filter:
+                  </label>
+
+                  <select
+                    value={interviewTypeFilter}
+                    onChange={(e) =>
+                      setInterviewTypeFilter(
+                        e.target.value
                       )
                     }
                     style={{
+                      padding: "10px 14px",
+                      borderRadius: "8px",
+                      border: "1px solid #cbd5e1",
+                      background: "#ffffff",
+                      color: "#0f172a",
+                      fontSize: "14px",
                       cursor: "pointer",
+                      outline: "none",
                     }}
-                    title="Click to view interview history"
                   >
 
-                    <div className="history-info">
+                    <option value="All">
+                      All Interviews
+                    </option>
 
-                      <div className="history-icon">
+                    <option value="HR">
+                      HR
+                    </option>
 
-                        {interview.interviewType ===
-                        "HR"
-                          ? "👔"
-                          : interview.interviewType ===
-                            "Technical"
-                          ? "💻"
-                          : "⌨️"}
+                    <option value="Technical">
+                      Technical
+                    </option>
+
+                    <option value="Coding">
+                      Coding
+                    </option>
+
+                  </select>
+
+                </div>
+
+
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    flexWrap: "wrap",
+                  }}
+                >
+
+                  <label
+                    style={{
+                      fontWeight: "600",
+                      color: "#334155",
+                      fontSize: "14px",
+                    }}
+                  >
+                    Sort:
+                  </label>
+
+                  <select
+                    value={sortBy}
+                    onChange={(e) =>
+                      setSortBy(e.target.value)
+                    }
+                    style={{
+                      padding: "10px 14px",
+                      borderRadius: "8px",
+                      border: "1px solid #cbd5e1",
+                      background: "#ffffff",
+                      color: "#0f172a",
+                      fontSize: "14px",
+                      cursor: "pointer",
+                      outline: "none",
+                    }}
+                  >
+
+                    <option value="newest">
+                      Newest First
+                    </option>
+
+                    <option value="oldest">
+                      Oldest First
+                    </option>
+
+                    <option value="highest">
+                      Highest Score
+                    </option>
+
+                    <option value="lowest">
+                      Lowest Score
+                    </option>
+
+                  </select>
+
+                </div>
+
+              </div>
+
+
+              {filteredInterviews.length === 0 ? (
+
+                <div
+                  style={{
+                    padding: "30px",
+                    textAlign: "center",
+                    borderRadius: "12px",
+                    background: "#f8fafc",
+                    border: "1px solid #e2e8f0",
+                    color: "#64748b",
+                  }}
+                >
+                  No interviews found for this filter.
+                </div>
+
+              ) : (
+
+                <div className="interview-history">
+
+                  {filteredInterviews.map(
+                    (interview) => (
+
+                      <div
+                        className="history-card"
+                        key={interview._id}
+                        onClick={() =>
+                          openInterviewHistory(
+                            interview
+                          )
+                        }
+                        style={{
+                          cursor: "pointer",
+                        }}
+                        title="Click to view interview history"
+                      >
+
+                        <div className="history-info">
+
+                          <div className="history-icon">
+
+                            {interview.interviewType ===
+                            "HR"
+                              ? "👔"
+                              : interview.interviewType ===
+                                "Technical"
+                              ? "💻"
+                              : "⌨️"}
+
+                          </div>
+
+                          <div>
+
+                            <h3>
+                              {interview.interviewType}{" "}
+                              Interview
+                            </h3>
+
+                            <p>
+                              {interview.role}
+                            </p>
+
+                          </div>
+
+                        </div>
+
+
+                        <div className="history-details">
+
+                          <span>
+                            {interview.answers?.length ||
+                              0}
+                            /5 Answers
+                          </span>
+
+
+                          {/* SCORE */}
+
+                          <span>
+                            {interview.score !==
+                              null &&
+                            interview.score !==
+                              undefined
+                              ? `${interview.score}/10`
+                              : "Score --"}
+                          </span>
+
+
+                          <span>
+                            {new Date(
+                              interview.createdAt
+                            ).toLocaleDateString()}
+                          </span>
+
+                        </div>
 
                       </div>
 
-                      <div>
+                    )
+                  )}
 
-                        <h3>
-                          {interview.interviewType}{" "}
-                          Interview
-                        </h3>
+                </div>
 
-                        <p>
-                          {interview.role}
-                        </p>
-
-                      </div>
-
-                    </div>
-
-                    <div className="history-details">
-
-                      <span>
-                        {interview.answers?.length ||
-                          0}
-                        /5 Answers
-                      </span>
-
-                      {/* SCORE */}
-
-                      <span>
-
-                        {interview.score !==
-                          null &&
-                        interview.score !==
-                          undefined
-                          ? `${interview.score}/10`
-                          : "Score --"}
-
-                      </span>
-
-                      <span>
-                        {new Date(
-                          interview.createdAt
-                        ).toLocaleDateString()}
-                      </span>
-
-                    </div>
-
-                  </div>
-
-                )
               )}
 
             </div>
