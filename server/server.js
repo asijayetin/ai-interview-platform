@@ -55,10 +55,10 @@ const emailTransporter =
     ? nodemailer.createTransport({
         host: process.env.SMTP_HOST,
 
-        // Use SMTP port 587 with STARTTLS.
-        // This avoids the IPv6/port 465 connection issue on Render.
+        // Render IPv6 issue fix
         port: 587,
         secure: false,
+        family: 4,
 
         auth: {
           user:
@@ -863,6 +863,8 @@ app.post(
 
   }
 );
+
+
 // ========================================
 // SEND PHONE OTP
 // ========================================
@@ -1493,6 +1495,8 @@ app.get(
 
   }
 );
+
+
 // ========================================
 // GENERATE INTERVIEW QUESTIONS
 // ========================================
@@ -2254,7 +2258,6 @@ mongoose
     );
 
   })
-
 
   .catch((error) => {
 
