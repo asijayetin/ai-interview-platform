@@ -4,7 +4,6 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
-const nodemailer = require("nodemailer");
 const twilio = require("twilio");
 
 require("dotenv").config();
@@ -21,8 +20,8 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
-
 app.use(express.json());
+
 // ========================================
 // OTP / CONTACT VERIFICATION CONFIG
 // ========================================
@@ -51,35 +50,65 @@ const otpRecentlySent = (sentAt) => {
 };
 
 // ========================================
-// EMAIL TRANSPORT
+// EMAIL SERVICE - BREVO API
 // ========================================
 
-const emailTransporter =
-  process.env.SMTP_HOST &&
-  process.env.SMTP_USER &&
-  process.env.SMTP_PASS
-    ? nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
+const sendEmailWithBrevo = async ({
+  to,
+  subject,
+  text,
+  html,
+}) => {
+  if (
+    !process.env.BREVO_API_KEY ||
+    !process.env.BREVO_FROM_EMAIL
+  ) {
+    throw new Error(
+      "Brevo email service is not configured on the server"
+    );
+  }
 
-        // Render IPv6 issue fix
-        port: 587,
-        secure: false,
-        family: 4,
+  const response = await fetch(
+    "https://api.brevo.com/v3/smtp/email",
+    {
+      method: "POST",
 
-        auth: {
-          user:
-            process.env.SMTP_USER,
+      headers: {
+        "Content-Type": "application/json",
+        "api-key": process.env.BREVO_API_KEY,
+        Accept: "application/json",
+      },
 
-          pass:
-            process.env.SMTP_PASS,
+      body: JSON.stringify({
+        sender: {
+          name: "AI Interview Arena",
+          email: process.env.BREVO_FROM_EMAIL,
         },
+        to: [
+          {
+            email: to,
+          },
+        ],
+        subject,
+        textContent: text,
+        htmlContent: html,
+      }),
+    }
+  );
 
-        // Prevent the SMTP request from hanging forever.
-        connectionTimeout: 10000,
-        greetingTimeout: 10000,
-        socketTimeout: 15000,
-      })
-    : null;
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(
+      data?.message ||
+        data?.code ||
+        "Brevo email request failed"
+    );
+  }
+
+  return data;
+};
+
 
 // ========================================
 // TWILIO
@@ -607,7 +636,10 @@ app.post(
 
     try {
 
-      if (!emailTransporter) {
+      if (
+        !process.env.BREVO_API_KEY ||
+        !process.env.BREVO_FROM_EMAIL
+      ) {
 
         return res.status(500).json({
 
@@ -666,11 +698,7 @@ app.post(
       await user.save();
 
 
-      await emailTransporter.sendMail({
-
-        from:
-          process.env.SMTP_FROM ||
-          process.env.SMTP_USER,
+      await sendEmailWithBrevo({
 
         to:
           user.email,
@@ -734,8 +762,6 @@ app.post(
     }
   }
 );
-
-
 // ========================================
 // VERIFY EMAIL OTP
 // ========================================
@@ -760,6 +786,7 @@ app.post(
             "OTP is required",
 
         });
+
       }
 
 
@@ -777,6 +804,7 @@ app.post(
             "User not found",
 
         });
+
       }
 
 
@@ -791,6 +819,7 @@ app.post(
             "Please request a new OTP",
 
         });
+
       }
 
 
@@ -807,6 +836,7 @@ app.post(
             "OTP has expired. Please request a new one",
 
         });
+
       }
 
 
@@ -821,6 +851,7 @@ app.post(
             "Invalid OTP",
 
         });
+
       }
 
 
@@ -1194,34 +1225,25 @@ app.post(
 // ========================================
 // CREATE INTERVIEW
 // ========================================
-
 app.post(
   "/api/interviews",
   authMiddleware,
   async (req, res) => {
     try {
-
       const {
         interviewType,
         role,
       } = req.body;
 
-
       if (!interviewType || !role) {
-
         return res.status(400).json({
-
           message:
             "Interview type and role are required",
-
         });
-
       }
-
 
       const interview =
         await Interview.create({
-
           userId:
             req.user.userId,
 
@@ -1232,24 +1254,19 @@ app.post(
             role,
 
           answers: [],
-
         });
-
 
       console.log(
         "Interview created:",
         interview._id
       );
 
-
       res.status(201).json({
-
         message:
           "Interview created successfully",
 
         interview:
           interview,
-
       });
 
     } catch (error) {
@@ -1259,19 +1276,14 @@ app.post(
         error
       );
 
-
       res.status(500).json({
-
         message:
           "Failed to create interview",
 
         error:
           error.message,
-
       });
-
     }
-
   }
 );
 
@@ -1284,7 +1296,6 @@ app.post(
   "/api/interviews/:id/answer",
   authMiddleware,
   async (req, res) => {
-
     try {
 
       const {
@@ -1292,70 +1303,49 @@ app.post(
         answer,
       } = req.body;
 
-
       if (!question || !answer) {
-
         return res.status(400).json({
-
           message:
             "Question and answer are required",
-
         });
-
       }
-
 
       const interview =
         await Interview.findOne({
-
           _id:
             req.params.id,
 
           userId:
             req.user.userId,
-
         });
-
 
       if (!interview) {
-
         return res.status(404).json({
-
           message:
             "Interview not found",
-
         });
-
       }
 
-
       interview.answers.push({
-
         question:
           question,
 
         answer:
           answer,
-
       });
 
-
       await interview.save();
-
 
       console.log(
         "Answer saved successfully"
       );
 
-
       res.json({
-
         message:
           "Answer saved successfully",
 
         interview:
           interview,
-
       });
 
     } catch (error) {
@@ -1365,19 +1355,14 @@ app.post(
         error
       );
 
-
       res.status(500).json({
-
         message:
           "Failed to save answer",
 
         error:
           error.message,
-
       });
-
     }
-
   }
 );
 
@@ -1390,27 +1375,19 @@ app.get(
   "/api/interviews",
   authMiddleware,
   async (req, res) => {
-
     try {
 
       const interviews =
         await Interview.find({
-
           userId:
             req.user.userId,
-
         }).sort({
-
           createdAt: -1,
-
         });
 
-
       res.json({
-
         interviews:
           interviews,
-
       });
 
     } catch (error) {
@@ -1420,19 +1397,14 @@ app.get(
         error
       );
 
-
       res.status(500).json({
-
         message:
           "Failed to fetch interviews",
 
         error:
           error.message,
-
       });
-
     }
-
   }
 );
 
@@ -1445,38 +1417,27 @@ app.get(
   "/api/interviews/:id",
   authMiddleware,
   async (req, res) => {
-
     try {
 
       const interview =
         await Interview.findOne({
-
           _id:
             req.params.id,
 
           userId:
             req.user.userId,
-
         });
-
 
       if (!interview) {
-
         return res.status(404).json({
-
           message:
             "Interview not found",
-
         });
-
       }
 
-
       res.json({
-
         interview:
           interview,
-
       });
 
     } catch (error) {
@@ -1486,19 +1447,14 @@ app.get(
         error
       );
 
-
       res.status(500).json({
-
         message:
           "Failed to fetch interview",
 
         error:
           error.message,
-
       });
-
     }
-
   }
 );
 
@@ -1519,46 +1475,31 @@ app.post(
         role,
       } = req.body;
 
-
       const interview =
         await Interview.findOne({
-
           _id:
             req.params.id,
 
           userId:
             req.user.userId,
-
         });
-
 
       if (!interview) {
-
         return res.status(404).json({
-
           message:
             "Interview not found",
-
         });
-
       }
-
 
       const geminiKey =
         process.env.GEMINI_API_KEY;
 
-
       if (!geminiKey) {
-
         return res.status(500).json({
-
           message:
             "Gemini API key is missing",
-
         });
-
       }
-
 
       const prompt = `
 You are an expert professional interviewer.
@@ -1592,11 +1533,9 @@ Example:
 ]
 `;
 
-
       console.log(
         "Generating interview questions..."
       );
-
 
       const geminiResponse =
         await fetch(
@@ -1615,7 +1554,6 @@ Example:
 
             body:
               JSON.stringify({
-
                 model:
                   "gemini-3.6-flash",
 
@@ -1629,16 +1567,12 @@ Example:
                   mime_type:
                     "application/json",
                 },
-
               }),
-
           }
         );
 
-
       const geminiData =
         await geminiResponse.json();
-
 
       if (!geminiResponse.ok) {
 
@@ -1647,25 +1581,19 @@ Example:
           geminiData
         );
 
-
         return res.status(
           geminiResponse.status
         ).json({
-
           message:
             "Gemini API request failed",
 
           error:
             geminiData?.error?.message ||
             "Unknown Gemini API error",
-
         });
-
       }
 
-
       let aiText = "";
-
 
       if (
         geminiData?.output_text
@@ -1716,7 +1644,6 @@ Example:
 
       let questions;
 
-
       try {
 
         questions =
@@ -1731,17 +1658,13 @@ Example:
           parseError
         );
 
-
         return res.status(500).json({
-
           message:
             "AI returned invalid question format",
 
           error:
             aiText,
-
         });
-
       }
 
 
@@ -1752,12 +1675,9 @@ Example:
       ) {
 
         return res.status(500).json({
-
           message:
             "AI did not return a question array",
-
         });
-
       }
 
 
@@ -1767,12 +1687,9 @@ Example:
 
 
       res.json({
-
         questions:
           questions,
-
       });
-
 
     } catch (error) {
 
@@ -1781,19 +1698,14 @@ Example:
         error
       );
 
-
       res.status(500).json({
-
         message:
           "Failed to generate questions",
 
         error:
           error.message,
-
       });
-
     }
-
   }
 );
 
@@ -1813,52 +1725,41 @@ app.post(
         "================================"
       );
 
-
       console.log(
         "Starting Gemini evaluation..."
       );
 
-
       const geminiKey =
         process.env.GEMINI_API_KEY;
-
 
       if (!geminiKey) {
 
         return res.status(500).json({
-
           message:
             "Gemini API key is missing",
 
           error:
             "GEMINI_API_KEY was not found in .env",
-
         });
-
       }
 
 
       const interview =
         await Interview.findOne({
-
           _id:
             req.params.id,
 
           userId:
             req.user.userId,
-
         });
 
 
       if (!interview) {
 
         return res.status(404).json({
-
           message:
             "Interview not found",
-
         });
-
       }
 
 
@@ -1868,12 +1769,9 @@ app.post(
       ) {
 
         return res.status(400).json({
-
           message:
             "No answers found for this interview",
-
         });
-
       }
 
 
@@ -1988,7 +1886,6 @@ The output must follow the provided JSON schema.
             description:
               "Specific improvement suggestions",
           },
-
         },
 
         required: [
@@ -1999,7 +1896,6 @@ The output must follow the provided JSON schema.
           "feedback",
           "improvements",
         ],
-
       };
 
 
@@ -2022,7 +1918,6 @@ The output must follow the provided JSON schema.
 
               "x-goog-api-key":
                 geminiKey,
-
             },
 
             body:
@@ -2044,11 +1939,8 @@ The output must follow the provided JSON schema.
 
                   schema:
                     responseSchema,
-
                 },
-
               }),
-
           }
         );
 
@@ -2075,9 +1967,7 @@ The output must follow the provided JSON schema.
           error:
             geminiData?.error?.message ||
             "Unknown Gemini API error",
-
         });
-
       }
 
 
@@ -2148,7 +2038,6 @@ The output must follow the provided JSON schema.
           parseError
         );
 
-
         return res.status(500).json({
 
           message:
@@ -2156,9 +2045,7 @@ The output must follow the provided JSON schema.
 
           error:
             aiText,
-
         });
-
       }
 
 
@@ -2199,9 +2086,7 @@ The output must follow the provided JSON schema.
 
         interview:
           interview,
-
       });
-
 
     } catch (error) {
 
@@ -2210,7 +2095,6 @@ The output must follow the provided JSON schema.
         error
       );
 
-
       res.status(500).json({
 
         message:
@@ -2218,14 +2102,10 @@ The output must follow the provided JSON schema.
 
         error:
           error.message,
-
       });
-
     }
-
   }
 );
-
 
 // ========================================
 // SERVER START
