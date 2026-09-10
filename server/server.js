@@ -20,6 +20,7 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+
 app.use(express.json());
 
 // ========================================
@@ -84,19 +85,26 @@ const sendEmailWithBrevo = async ({
           name: "AI Interview Arena",
           email: process.env.BREVO_FROM_EMAIL,
         },
+
         to: [
           {
             email: to,
           },
         ],
+
         subject,
+
         textContent: text,
+
         htmlContent: html,
       }),
     }
   );
 
-  const data = await response.json().catch(() => ({}));
+  const data =
+    await response
+      .json()
+      .catch(() => ({}));
 
   if (!response.ok) {
     throw new Error(
@@ -108,7 +116,6 @@ const sendEmailWithBrevo = async ({
 
   return data;
 };
-
 
 // ========================================
 // TWILIO
@@ -123,6 +130,39 @@ const twilioClient =
       )
     : null;
 
+const twilioVerifyService =
+  twilioClient &&
+  process.env.TWILIO_VERIFY_SERVICE_SID
+    ? twilioClient.verify.v2.services(
+        process.env.TWILIO_VERIFY_SERVICE_SID
+      )
+    : null;
+
+const sendPhoneVerification = async (phone) => {
+  if (!twilioVerifyService) {
+    throw new Error(
+      "Twilio Verify service is not configured"
+    );
+  }
+
+  return twilioVerifyService.verifications.create({
+    to: phone,
+    channel: "sms",
+  });
+};
+
+const checkPhoneVerification = async (phone, code) => {
+  if (!twilioVerifyService) {
+    throw new Error(
+      "Twilio Verify service is not configured"
+    );
+  }
+
+  return twilioVerifyService.verificationChecks.create({
+    to: phone,
+    code: String(code),
+  });
+};
 
 // ========================================
 // GEMINI API KEY CHECK
@@ -137,7 +177,6 @@ if (!process.env.GEMINI_API_KEY) {
     "Gemini API key loaded successfully"
   );
 }
-
 
 // ========================================
 // INTERVIEW SCHEMA
@@ -217,13 +256,11 @@ const interviewSchema =
     }
   );
 
-
 const Interview =
   mongoose.model(
     "Interview",
     interviewSchema
   );
-
 
 // ========================================
 // HOME
@@ -236,7 +273,6 @@ app.get("/", (req, res) => {
   });
 });
 
-
 // ========================================
 // SIGNUP
 // ========================================
@@ -246,13 +282,11 @@ app.post(
 
   async (req, res) => {
     try {
-
       const {
         name,
         email,
         password,
       } = req.body;
-
 
       if (
         !name ||
@@ -265,7 +299,6 @@ app.post(
         });
       }
 
-
       const existingUser =
         await User.findOne({
           email:
@@ -274,7 +307,6 @@ app.post(
               .trim(),
         });
 
-
       if (existingUser) {
         return res.status(400).json({
           message:
@@ -282,17 +314,14 @@ app.post(
         });
       }
 
-
       const hashedPassword =
         await bcrypt.hash(
           password,
           10
         );
 
-
       const user =
         await User.create({
-
           name: name,
 
           email:
@@ -304,20 +333,16 @@ app.post(
             hashedPassword,
         });
 
-
       console.log(
         "User created:",
         user._id
       );
 
-
       res.status(201).json({
-
         message:
           "Signup successful",
 
         user: {
-
           id:
             user._id,
 
@@ -341,15 +366,12 @@ app.post(
       });
 
     } catch (error) {
-
       console.log(
         "Signup error:",
         error
       );
 
-
       res.status(500).json({
-
         message:
           "Signup failed",
 
@@ -360,7 +382,6 @@ app.post(
   }
 );
 
-
 // ========================================
 // LOGIN
 // ========================================
@@ -370,44 +391,35 @@ app.post(
 
   async (req, res) => {
     try {
-
       const {
         email,
         password,
       } = req.body;
-
 
       if (
         !email ||
         !password
       ) {
         return res.status(400).json({
-
           message:
             "Email and password are required",
         });
       }
 
-
       const user =
         await User.findOne({
-
           email:
             email
               .toLowerCase()
               .trim(),
         });
 
-
       if (!user) {
-
         return res.status(401).json({
-
           message:
             "Invalid email or password",
         });
       }
-
 
       const isPasswordCorrect =
         await bcrypt.compare(
@@ -415,20 +427,15 @@ app.post(
           user.password
         );
 
-
       if (!isPasswordCorrect) {
-
         return res.status(401).json({
-
           message:
             "Invalid email or password",
         });
       }
 
-
       const token =
         jwt.sign(
-
           {
             userId:
               user._id,
@@ -445,15 +452,12 @@ app.post(
           }
         );
 
-
       console.log(
         "User logged in:",
         user.email
       );
 
-
       res.json({
-
         message:
           "Login successful",
 
@@ -461,7 +465,6 @@ app.post(
           token,
 
         user: {
-
           id:
             user._id,
 
@@ -485,15 +488,12 @@ app.post(
       });
 
     } catch (error) {
-
       console.log(
         "Login error:",
         error
       );
 
-
       res.status(500).json({
-
         message:
           "Login failed",
 
@@ -503,7 +503,6 @@ app.post(
     }
   }
 );
-
 
 // ========================================
 // CHANGE PASSWORD
@@ -515,103 +514,76 @@ app.post(
   authMiddleware,
 
   async (req, res) => {
-
     try {
-
       const {
         currentPassword,
         newPassword,
       } = req.body;
 
-
       if (
         !currentPassword ||
         !newPassword
       ) {
-
         return res.status(400).json({
-
           message:
             "Current password and new password are required",
         });
       }
 
-
       if (
         newPassword.length < 6
       ) {
-
         return res.status(400).json({
-
           message:
             "New password must be at least 6 characters",
         });
       }
-
 
       const user =
         await User.findById(
           req.user.userId
         );
 
-
       if (!user) {
-
         return res.status(404).json({
-
           message:
             "User not found",
         });
       }
 
-
       const passwordCorrect =
         await bcrypt.compare(
-
           currentPassword,
-
           user.password
         );
 
-
       if (!passwordCorrect) {
-
         return res.status(401).json({
-
           message:
             "Current password is incorrect",
         });
       }
 
-
       user.password =
         await bcrypt.hash(
-
           newPassword,
-
           10
         );
 
-
       await user.save();
 
-
       res.json({
-
         message:
           "Password changed successfully",
       });
 
     } catch (error) {
-
       console.log(
         "Change password error:",
         error
       );
 
-
       res.status(500).json({
-
         message:
           "Failed to change password",
 
@@ -621,7 +593,6 @@ app.post(
     }
   }
 );
-
 
 // ========================================
 // SEND EMAIL OTP
@@ -633,126 +604,124 @@ app.post(
   authMiddleware,
 
   async (req, res) => {
-
     try {
-
       if (
         !process.env.BREVO_API_KEY ||
         !process.env.BREVO_FROM_EMAIL
       ) {
-
         return res.status(500).json({
-
           message:
-            "Email service is not configured on the server",
+            "Brevo email service is not configured",
         });
       }
 
+      const {
+        email,
+      } = req.body;
+
+      if (!email) {
+        return res.status(400).json({
+          message:
+            "Email is required",
+        });
+      }
 
       const user =
         await User.findById(
           req.user.userId
         );
 
-
       if (!user) {
-
         return res.status(404).json({
-
           message:
             "User not found",
         });
       }
-
 
       if (
         otpRecentlySent(
           user.emailOtpSentAt
         )
       ) {
-
         return res.status(429).json({
-
           message:
             "Please wait 60 seconds before requesting another OTP",
         });
       }
 
+      const normalizedEmail =
+        email
+          .toLowerCase()
+          .trim();
 
       const otp =
         createOtp();
 
+      user.email =
+        normalizedEmail;
+
+      user.emailVerified =
+        false;
 
       user.emailOtpHash =
         otpHash(otp);
 
-
       user.emailOtpExpires =
         otpExpiry();
-
 
       user.emailOtpSentAt =
         new Date();
 
-
       await user.save();
 
+      const text =
+        `Your AI Interview Arena verification code is ${otp}. This code will expire in 10 minutes.`;
+
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto;">
+          <h2>AI Interview Arena</h2>
+
+          <p>Your email verification code is:</p>
+
+          <div style="font-size: 32px; font-weight: bold; letter-spacing: 8px; margin: 20px 0;">
+            ${otp}
+          </div>
+
+          <p>This code will expire in 10 minutes.</p>
+
+          <p>If you did not request this code, you can safely ignore this email.</p>
+        </div>
+      `;
 
       await sendEmailWithBrevo({
-
         to:
-          user.email,
+          normalizedEmail,
 
         subject:
-          "AI Interview Arena - Email Verification OTP",
+          "Your AI Interview Arena OTP",
 
-        text:
-          `Your AI Interview Arena verification OTP is ${otp}. It expires in 10 minutes.`,
+        text,
 
-        html: `
-          <div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;padding:30px">
-
-            <h2>
-              AI Interview Arena
-            </h2>
-
-            <p>
-              Use the OTP below to verify your email address.
-            </p>
-
-            <div style="font-size:32px;font-weight:bold;letter-spacing:8px;padding:18px 0">
-              ${otp}
-            </div>
-
-            <p>
-              This OTP expires in 10 minutes.
-            </p>
-
-            <p>
-              If you did not request this, you can safely ignore this email.
-            </p>
-
-          </div>
-        `,
+        html,
       });
 
+      console.log(
+        "Email OTP sent to:",
+        normalizedEmail
+      );
 
       res.json({
-
         message:
-          "Email OTP sent successfully",
+          "OTP sent successfully",
       });
 
     } catch (error) {
-
       console.log(
         "Send email OTP error:",
         error
       );
 
-
       res.status(500).json({
-
         message:
           "Failed to send email OTP",
 
@@ -762,6 +731,7 @@ app.post(
     }
   }
 );
+
 // ========================================
 // VERIFY EMAIL OTP
 // ========================================
@@ -772,56 +742,55 @@ app.post(
   authMiddleware,
 
   async (req, res) => {
-
     try {
+      const {
+        email,
+        otp,
+      } = req.body;
 
-      const { otp } = req.body;
-
-
-      if (!otp) {
-
+      if (
+        !email ||
+        !otp
+      ) {
         return res.status(400).json({
-
           message:
-            "OTP is required",
-
+            "Email and OTP are required",
         });
-
       }
-
 
       const user =
         await User.findById(
           req.user.userId
         );
 
-
       if (!user) {
-
         return res.status(404).json({
-
           message:
             "User not found",
-
         });
-
       }
 
+      if (
+        user.email !==
+        email
+          .toLowerCase()
+          .trim()
+      ) {
+        return res.status(400).json({
+          message:
+            "Email does not match",
+        });
+      }
 
       if (
         !user.emailOtpHash ||
         !user.emailOtpExpires
       ) {
-
         return res.status(400).json({
-
           message:
-            "Please request a new OTP",
-
+            "No OTP found. Please request a new OTP.",
         });
-
       }
-
 
       if (
         new Date() >
@@ -829,78 +798,409 @@ app.post(
           user.emailOtpExpires
         )
       ) {
-
         return res.status(400).json({
-
           message:
-            "OTP has expired. Please request a new one",
-
+            "OTP has expired. Please request a new OTP.",
         });
-
       }
 
+      const hashedOtp =
+        otpHash(otp);
 
       if (
-        otpHash(otp) !==
+        hashedOtp !==
         user.emailOtpHash
       ) {
-
         return res.status(400).json({
-
           message:
             "Invalid OTP",
-
         });
-
       }
-
 
       user.emailVerified =
         true;
 
       user.emailOtpHash =
-        "";
+        undefined;
 
       user.emailOtpExpires =
-        null;
+        undefined;
 
       user.emailOtpSentAt =
-        null;
-
+        undefined;
 
       await user.save();
 
+      console.log(
+        "Email verified:",
+        user.email
+      );
 
       res.json({
-
         message:
           "Email verified successfully",
 
+        user: {
+          id:
+            user._id,
+
+          name:
+            user.name,
+
+          email:
+            user.email,
+
+          phone:
+            user.phone || "",
+
+          phoneVerified:
+            user.phoneVerified ||
+            false,
+
+          emailVerified:
+            true,
+        },
       });
 
     } catch (error) {
-
       console.log(
         "Verify email OTP error:",
         error
       );
 
-
       res.status(500).json({
-
         message:
-          "Failed to verify email",
+          "Failed to verify email OTP",
 
         error:
           error.message,
-
       });
-
     }
-
   }
 );
 
+// ========================================
+// PHONE SIGNUP - SEND OTP
+// ========================================
+
+app.post(
+  "/api/auth/phone-signup",
+
+  async (req, res) => {
+    try {
+      const {
+        name,
+        phone,
+      } = req.body;
+
+      if (
+        !name ||
+        !phone
+      ) {
+        return res.status(400).json({
+          message:
+            "Name and phone number are required",
+        });
+      }
+
+      const normalizedPhone =
+        phone
+          .replace(/\s+/g, "")
+          .trim();
+
+      if (
+        !/^\+[1-9]\d{7,14}$/.test(
+          normalizedPhone
+        )
+      ) {
+        return res.status(400).json({
+          message:
+            "Please enter a valid international phone number",
+        });
+      }
+
+      if (!twilioVerifyService) {
+        return res.status(500).json({
+          message:
+            "Phone OTP service is not configured",
+        });
+      }
+
+      let user =
+        await User.findOne({
+          phone:
+            normalizedPhone,
+        });
+
+      if (
+        user &&
+        user.phoneVerified
+      ) {
+        return res.status(400).json({
+          message:
+            "An account with this phone number already exists. Please login instead.",
+        });
+      }
+
+      if (
+        user &&
+        otpRecentlySent(
+          user.phoneOtpSentAt
+        )
+      ) {
+        return res.status(429).json({
+          message:
+            "Please wait 60 seconds before requesting another OTP",
+        });
+      }
+
+      if (!user) {
+        const digits =
+          normalizedPhone.replace(
+            /\D/g,
+            ""
+          );
+
+        const temporaryEmail =
+          `${digits}@phone.local`;
+
+        const temporaryPassword =
+          crypto.randomBytes(32).toString(
+            "hex"
+          );
+
+        const hashedPassword =
+          await bcrypt.hash(
+            temporaryPassword,
+            10
+          );
+
+        user =
+          await User.create({
+            name:
+              name.trim(),
+
+            email:
+              temporaryEmail,
+
+            password:
+              hashedPassword,
+
+            phone:
+              normalizedPhone,
+
+            phoneVerified:
+              false,
+          });
+
+      } else {
+        user.name =
+          name.trim();
+
+        user.phone =
+          normalizedPhone;
+
+        user.phoneVerified =
+          false;
+      }
+
+      user.phoneOtpSentAt =
+        new Date();
+
+      await user.save();
+
+      await sendPhoneVerification(
+        normalizedPhone
+      );
+
+      console.log(
+        "Phone signup OTP sent to:",
+        normalizedPhone
+      );
+
+      res.json({
+        message:
+          "OTP sent successfully",
+
+        userId:
+          user._id,
+      });
+
+    } catch (error) {
+      console.log(
+        "Phone signup error:",
+        error
+      );
+
+      res.status(500).json({
+        message:
+          "Failed to send phone OTP",
+
+        error:
+          error.message,
+      });
+    }
+  }
+);
+
+// ========================================
+// PHONE SIGNUP - VERIFY OTP
+// ========================================
+
+app.post(
+  "/api/auth/phone-signup-verify",
+
+  async (req, res) => {
+    try {
+      const {
+        userId,
+        phone,
+        otp,
+      } = req.body;
+
+      if (
+        !userId ||
+        !phone ||
+        !otp
+      ) {
+        return res.status(400).json({
+          message:
+            "User ID, phone number and OTP are required",
+        });
+      }
+
+      const normalizedPhone =
+        phone
+          .replace(/\s+/g, "")
+          .trim();
+
+      const user =
+        await User.findById(
+          userId
+        );
+
+      if (!user) {
+        return res.status(404).json({
+          message:
+            "User not found",
+        });
+      }
+
+      if (
+        user.phone !==
+        normalizedPhone
+      ) {
+        return res.status(400).json({
+          message:
+            "Phone number does not match",
+        });
+      }
+
+      let verificationCheck;
+
+      try {
+        verificationCheck =
+          await checkPhoneVerification(
+            normalizedPhone,
+            otp
+          );
+      } catch (verificationError) {
+        console.log(
+          "Twilio Verify check error:",
+          verificationError
+        );
+
+        return res.status(400).json({
+          message:
+            "Invalid or expired OTP",
+        });
+      }
+
+      if (
+        verificationCheck.status !==
+        "approved"
+      ) {
+        return res.status(400).json({
+          message:
+            "Invalid or expired OTP",
+        });
+      }
+
+      user.phoneVerified =
+        true;
+
+      user.phoneOtpSentAt =
+        undefined;
+
+      await user.save();
+
+      const token =
+        jwt.sign(
+          {
+            userId:
+              user._id,
+
+            email:
+              user.email,
+          },
+
+          process.env.JWT_SECRET,
+
+          {
+            expiresIn:
+              "7d",
+          }
+        );
+
+      console.log(
+        "Phone signup verified:",
+        normalizedPhone
+      );
+
+      res.json({
+        message:
+          "Phone number verified successfully",
+
+        token:        token,
+
+        user: {
+          id:
+            user._id,
+
+          name:
+            user.name,
+
+          email:
+            user.email,
+
+          phone:
+            user.phone || "",
+
+          phoneVerified:
+            true,
+
+          emailVerified:
+            user.emailVerified ||
+            false,
+        },
+      });
+
+    } catch (error) {
+      console.log(
+        "Verify phone signup OTP error:",
+        error
+      );
+
+      res.status(500).json({
+        message:
+          "Failed to verify phone OTP",
+
+        error:
+          error.message,
+      });
+    }
+  }
+);
 
 // ========================================
 // SEND PHONE OTP
@@ -912,154 +1212,105 @@ app.post(
   authMiddleware,
 
   async (req, res) => {
-
     try {
-
-      const { phone } =
-        req.body;
-
+      const {
+        phone,
+      } = req.body;
 
       if (!phone) {
-
         return res.status(400).json({
-
           message:
             "Phone number is required",
-
         });
-
       }
 
+      const normalizedPhone =
+        phone
+          .replace(/\s+/g, "")
+          .trim();
 
       if (
         !/^\+[1-9]\d{7,14}$/.test(
-          phone
+          normalizedPhone
         )
       ) {
-
         return res.status(400).json({
-
           message:
-            "Use international format, e.g. +919876543210",
-
+            "Please enter a valid international phone number",
         });
-
       }
 
-
-      if (!twilioClient) {
-
+      if (!twilioVerifyService) {
         return res.status(500).json({
-
           message:
-            "SMS service is not configured on the server",
-
+            "Phone OTP service is not configured",
         });
-
       }
-
 
       const user =
         await User.findById(
           req.user.userId
         );
 
-
       if (!user) {
-
         return res.status(404).json({
-
           message:
             "User not found",
-
         });
-
       }
-
 
       if (
         otpRecentlySent(
           user.phoneOtpSentAt
         )
       ) {
-
         return res.status(429).json({
-
           message:
             "Please wait 60 seconds before requesting another OTP",
-
         });
-
       }
 
-
-      const otp =
-        createOtp();
-
-
       user.phone =
-        phone;
+        normalizedPhone;
 
       user.phoneVerified =
         false;
 
-      user.phoneOtpHash =
-        otpHash(otp);
-
-      user.phoneOtpExpires =
-        otpExpiry();
-
       user.phoneOtpSentAt =
         new Date();
 
-
       await user.save();
 
+      await sendPhoneVerification(
+        normalizedPhone
+      );
 
-      await twilioClient.messages.create({
-
-        body:
-          `AI Interview Arena verification OTP: ${otp}. It expires in 10 minutes.`,
-
-        from:
-          process.env.TWILIO_PHONE_NUMBER,
-
-        to:
-          phone,
-
-      });
-
+      console.log(
+        "Phone OTP sent to:",
+        normalizedPhone
+      );
 
       res.json({
-
         message:
-          "Phone OTP sent successfully",
-
+          "OTP sent successfully",
       });
 
     } catch (error) {
-
       console.log(
         "Send phone OTP error:",
         error
       );
 
-
       res.status(500).json({
-
         message:
           "Failed to send phone OTP",
 
         error:
           error.message,
-
       });
-
     }
-
   }
 );
-
 
 // ========================================
 // VERIFY PHONE OTP
@@ -1071,176 +1322,304 @@ app.post(
   authMiddleware,
 
   async (req, res) => {
-
     try {
-
       const {
         phone,
         otp,
       } = req.body;
 
-
       if (
         !phone ||
         !otp
       ) {
-
         return res.status(400).json({
-
           message:
             "Phone number and OTP are required",
-
         });
-
       }
 
+      const normalizedPhone =
+        phone
+          .replace(/\s+/g, "")
+          .trim();
 
       const user =
         await User.findById(
           req.user.userId
         );
 
-
       if (!user) {
-
         return res.status(404).json({
-
           message:
             "User not found",
-
         });
-
       }
-
 
       if (
         user.phone !==
-        phone
+        normalizedPhone
       ) {
-
         return res.status(400).json({
-
           message:
-            "Phone number does not match the OTP request",
-
+            "Phone number does not match",
         });
-
       }
 
+      let verificationCheck;
+
+      try {
+        verificationCheck =
+          await checkPhoneVerification(
+            normalizedPhone,
+            otp
+          );
+      } catch (verificationError) {
+        console.log(
+          "Twilio Verify check error:",
+          verificationError
+        );
+
+        return res.status(400).json({
+          message:
+            "Invalid or expired OTP",
+        });
+      }
 
       if (
-        !user.phoneOtpHash ||
-        !user.phoneOtpExpires
+        verificationCheck.status !==
+        "approved"
       ) {
-
         return res.status(400).json({
-
           message:
-            "Please request a new OTP",
-
+            "Invalid or expired OTP",
         });
-
       }
-
-
-      if (
-        new Date() >
-        new Date(
-          user.phoneOtpExpires
-        )
-      ) {
-
-        return res.status(400).json({
-
-          message:
-            "OTP has expired. Please request a new one",
-
-        });
-
-      }
-
-
-      if (
-        otpHash(otp) !==
-        user.phoneOtpHash
-      ) {
-
-        return res.status(400).json({
-
-          message:
-            "Invalid OTP",
-
-        });
-
-      }
-
 
       user.phoneVerified =
         true;
 
-      user.phoneOtpHash =
-        "";
-
-      user.phoneOtpExpires =
-        null;
-
       user.phoneOtpSentAt =
-        null;
-
+        undefined;
 
       await user.save();
 
+      console.log(
+        "Phone verified:",
+        user.phone
+      );
 
       res.json({
-
         message:
-          "Phone verified successfully",
+          "Phone number verified successfully",
 
+        user: {
+          id:
+            user._id,
+
+          name:
+            user.name,
+
+          email:
+            user.email,
+
+          phone:
+            user.phone,
+
+          phoneVerified:
+            true,
+
+          emailVerified:
+            user.emailVerified ||
+            false,
+        },
       });
 
     } catch (error) {
-
       console.log(
         "Verify phone OTP error:",
         error
       );
 
-
       res.status(500).json({
-
         message:
-          "Failed to verify phone",
+          "Failed to verify phone OTP",
 
         error:
           error.message,
-
       });
-
     }
-
   }
 );
 
+// ========================================
+// GET CURRENT USER
+// ========================================
+
+app.get(
+  "/api/auth/me",
+
+  authMiddleware,
+
+  async (req, res) => {
+    try {
+      const user =
+        await User.findById(
+          req.user.userId
+        ).select(
+          "-password -emailOtpHash -phoneOtpHash"
+        );
+
+      if (!user) {
+        return res.status(404).json({
+          message:
+            "User not found",
+        });
+      }
+
+      res.json({
+        user: {
+          id:
+            user._id,
+
+          name:
+            user.name,
+
+          email:
+            user.email,
+
+          phone:
+            user.phone || "",
+
+          emailVerified:
+            user.emailVerified ||
+            false,
+
+          phoneVerified:
+            user.phoneVerified ||
+            false,
+        },
+      });
+
+    } catch (error) {
+      console.log(
+        "Get current user error:",
+        error
+      );
+
+      res.status(500).json({
+        message:
+          "Failed to get user",
+
+        error:
+          error.message,
+      });
+    }
+  }
+);
+
+// ========================================
+// UPDATE PROFILE
+// ========================================
+
+app.put(
+  "/api/auth/profile",
+
+  authMiddleware,
+
+  async (req, res) => {
+    try {
+      const {
+        name,
+      } = req.body;
+
+      const user =
+        await User.findById(
+          req.user.userId
+        );
+
+      if (!user) {
+        return res.status(404).json({
+          message:
+            "User not found",
+        });
+      }
+
+      if (
+        name &&
+        name.trim()
+      ) {
+        user.name =
+          name.trim();
+      }
+
+      await user.save();
+
+      res.json({
+        message:
+          "Profile updated successfully",
+
+        user: {
+          id:
+            user._id,
+
+          name:
+            user.name,
+
+          email:
+            user.email,
+
+          phone:
+            user.phone || "",
+
+          emailVerified:
+            user.emailVerified ||
+            false,
+
+          phoneVerified:
+            user.phoneVerified ||
+            false,
+        },
+      });
+
+    } catch (error) {
+      console.log(
+        "Update profile error:",
+        error
+      );
+
+      res.status(500).json({
+        message:
+          "Failed to update profile",
+
+        error:
+          error.message,
+      });
+    }
+  }
+);
 
 // ========================================
 // CREATE INTERVIEW
 // ========================================
+
 app.post(
   "/api/interviews",
+
   authMiddleware,
+
   async (req, res) => {
     try {
       const {
         interviewType,
         role,
+        answers,
+        score,
+        communicationScore,
+        relevanceScore,
+        clarityScore,
+        feedback,
+        improvements,
       } = req.body;
-
-      if (!interviewType || !role) {
-        return res.status(400).json({
-          message:
-            "Interview type and role are required",
-        });
-      }
 
       const interview =
         await Interview.create({
@@ -1248,31 +1627,48 @@ app.post(
             req.user.userId,
 
           interviewType:
-            interviewType,
+            interviewType ||
+            "Technical",
 
           role:
-            role,
+            role ||
+            "Software Developer",
 
-          answers: [],
+          answers:
+            answers || [],
+
+          score:
+            score ?? null,
+
+          communicationScore:
+            communicationScore ??
+            null,
+
+          relevanceScore:
+            relevanceScore ??
+            null,
+
+          clarityScore:
+            clarityScore ??
+            null,
+
+          feedback:
+            feedback || "",
+
+          improvements:
+            improvements || "",
         });
-
-      console.log(
-        "Interview created:",
-        interview._id
-      );
 
       res.status(201).json({
         message:
           "Interview created successfully",
 
-        interview:
-          interview,
+        interview,
       });
 
     } catch (error) {
-
       console.log(
-        "Error creating interview:",
+        "Create interview error:",
         error
       );
 
@@ -1287,119 +1683,39 @@ app.post(
   }
 );
 
-
-// ========================================
-// SAVE INTERVIEW ANSWER
-// ========================================
-
-app.post(
-  "/api/interviews/:id/answer",
-  authMiddleware,
-  async (req, res) => {
-    try {
-
-      const {
-        question,
-        answer,
-      } = req.body;
-
-      if (!question || !answer) {
-        return res.status(400).json({
-          message:
-            "Question and answer are required",
-        });
-      }
-
-      const interview =
-        await Interview.findOne({
-          _id:
-            req.params.id,
-
-          userId:
-            req.user.userId,
-        });
-
-      if (!interview) {
-        return res.status(404).json({
-          message:
-            "Interview not found",
-        });
-      }
-
-      interview.answers.push({
-        question:
-          question,
-
-        answer:
-          answer,
-      });
-
-      await interview.save();
-
-      console.log(
-        "Answer saved successfully"
-      );
-
-      res.json({
-        message:
-          "Answer saved successfully",
-
-        interview:
-          interview,
-      });
-
-    } catch (error) {
-
-      console.log(
-        "Error saving answer:",
-        error
-      );
-
-      res.status(500).json({
-        message:
-          "Failed to save answer",
-
-        error:
-          error.message,
-      });
-    }
-  }
-);
-
-
 // ========================================
 // GET ALL INTERVIEWS
 // ========================================
 
 app.get(
   "/api/interviews",
+
   authMiddleware,
+
   async (req, res) => {
     try {
-
       const interviews =
         await Interview.find({
           userId:
             req.user.userId,
         }).sort({
-          createdAt: -1,
+          createdAt:
+            -1,
         });
 
       res.json({
-        interviews:
-          interviews,
+        interviews,
       });
 
     } catch (error) {
-
       console.log(
-        "Error fetching interviews:",
+        "Get interviews error:",
         error
       );
 
       res.status(500).json({
         message:
-          "Failed to fetch interviews",
+          "Failed to get interviews",
 
         error:
           error.message,
@@ -1407,7 +1723,6 @@ app.get(
     }
   }
 );
-
 
 // ========================================
 // GET SINGLE INTERVIEW
@@ -1415,10 +1730,11 @@ app.get(
 
 app.get(
   "/api/interviews/:id",
+
   authMiddleware,
+
   async (req, res) => {
     try {
-
       const interview =
         await Interview.findOne({
           _id:
@@ -1436,20 +1752,18 @@ app.get(
       }
 
       res.json({
-        interview:
-          interview,
+        interview,
       });
 
     } catch (error) {
-
       console.log(
-        "Error fetching interview:",
+        "Get interview error:",
         error
       );
 
       res.status(500).json({
         message:
-          "Failed to fetch interview",
+          "Failed to get interview",
 
         error:
           error.message,
@@ -1458,25 +1772,19 @@ app.get(
   }
 );
 
-
 // ========================================
-// GENERATE INTERVIEW QUESTIONS
+// DELETE INTERVIEW
 // ========================================
 
-app.post(
-  "/api/interviews/:id/questions",
+app.delete(
+  "/api/interviews/:id",
+
   authMiddleware,
+
   async (req, res) => {
-
     try {
-
-      const {
-        interviewType,
-        role,
-      } = req.body;
-
       const interview =
-        await Interview.findOne({
+        await Interview.findOneAndDelete({
           _id:
             req.params.id,
 
@@ -1491,148 +1799,138 @@ app.post(
         });
       }
 
-      const geminiKey =
-        process.env.GEMINI_API_KEY;
+      res.json({
+        message:
+          "Interview deleted successfully",
+      });
 
-      if (!geminiKey) {
+    } catch (error) {
+      console.log(
+        "Delete interview error:",
+        error
+      );
+
+      res.status(500).json({
+        message:
+          "Failed to delete interview",
+
+        error:
+          error.message,
+      });
+    }
+  }
+);
+
+// ========================================
+// GEMINI INTERVIEW GENERATION
+// ========================================
+
+app.post(
+  "/api/gemini/generate",
+
+  authMiddleware,
+
+  async (req, res) => {
+    try {
+      const {
+        role,
+        interviewType,
+        difficulty,
+        count,
+      } = req.body;
+
+      if (
+        !process.env.GEMINI_API_KEY
+      ) {
         return res.status(500).json({
           message:
-            "Gemini API key is missing",
+            "Gemini API key is not configured",
         });
       }
 
+      const numberOfQuestions =
+        Number(count) || 5;
+
       const prompt = `
-You are an expert professional interviewer.
+Generate ${numberOfQuestions} interview questions.
 
-Generate interview questions for:
+Role: ${
+        role ||
+        "Software Developer"
+      }
 
-Interview Type:
-${interviewType || interview.interviewType}
+Interview Type: ${
+        interviewType ||
+        "Technical"
+      }
 
-Role:
-${role || interview.role}
+Difficulty: ${
+        difficulty ||
+        "Medium"
+      }
 
-Generate 5 relevant interview questions.
+Return ONLY a valid JSON array.
 
-Rules:
-
-- Questions should match the selected role.
-- Questions should be realistic.
-- Include a mixture of conceptual and practical questions.
-- Do not include answers.
-- Return ONLY a JSON array of strings.
-
-Example:
-
-[
-  "Question 1",
-  "Question 2",
-  "Question 3",
-  "Question 4",
-  "Question 5"
-]
+Each object should contain:
+{
+  "question": "question text",
+  "category": "category"
+}
 `;
 
-      console.log(
-        "Generating interview questions..."
-      );
-
-      const geminiResponse =
+      const response =
         await fetch(
-          "https://generativelanguage.googleapis.com/v1beta/interactions",
+          "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" +
+            process.env.GEMINI_API_KEY,
+
           {
-            method:
-              "POST",
+            method: "POST",
 
             headers: {
               "Content-Type":
                 "application/json",
-
-              "x-goog-api-key":
-                geminiKey,
             },
 
             body:
               JSON.stringify({
-                model:
-                  "gemini-3.6-flash",
-
-                input:
-                  prompt,
-
-                response_format: {
-                  type:
-                    "text",
-
-                  mime_type:
-                    "application/json",
-                },
+                contents: [
+                  {
+                    parts: [
+                      {
+                        text:
+                          prompt,
+                      },
+                    ],
+                  },
+                ],
               }),
           }
         );
 
-      const geminiData =
-        await geminiResponse.json();
+      const data =
+        await response
+          .json()
+          .catch(() => ({}));
 
-      if (!geminiResponse.ok) {
-
-        console.log(
-          "Gemini question error:",
-          geminiData
-        );
-
+      if (!response.ok) {
         return res.status(
-          geminiResponse.status
+          response.status
         ).json({
           message:
-            "Gemini API request failed",
-
-          error:
-            geminiData?.error?.message ||
-            "Unknown Gemini API error",
+            data?.error?.message ||
+            "Gemini request failed",
         });
       }
 
-      let aiText = "";
+      const generatedText =
+        data?.candidates?.[0]
+          ?.content?.parts?.[0]
+          ?.text || "";
 
-      if (
-        geminiData?.output_text
-      ) {
-
-        aiText =
-          geminiData.output_text;
-
-      } else if (
-        geminiData?.output
-      ) {
-
-        aiText =
-          typeof geminiData.output ===
-          "string"
-            ? geminiData.output
-            : JSON.stringify(
-                geminiData.output
-              );
-
-      } else if (
-        geminiData?.response
-      ) {
-
-        aiText =
-          typeof geminiData.response ===
-          "string"
-            ? geminiData.response
-            : JSON.stringify(
-                geminiData.response
-              );
-
-      }
-
-
-      aiText =
-        aiText
+      let cleanedText =
+        generatedText
           .replace(
-            /```json/gi,
+            /```json/g,
             ""
           )
           .replace(
@@ -1641,66 +1939,38 @@ Example:
           )
           .trim();
 
-
       let questions;
 
       try {
-
         questions =
           JSON.parse(
-            aiText
+            cleanedText
           );
-
       } catch (parseError) {
-
         console.log(
-          "Question JSON parse error:",
+          "Gemini JSON parse error:",
           parseError
         );
 
         return res.status(500).json({
           message:
-            "AI returned invalid question format",
-
-          error:
-            aiText,
+            "Gemini returned invalid question data",
         });
       }
-
-
-      if (
-        !Array.isArray(
-          questions
-        )
-      ) {
-
-        return res.status(500).json({
-          message:
-            "AI did not return a question array",
-        });
-      }
-
-
-      console.log(
-        "Questions generated successfully"
-      );
-
 
       res.json({
-        questions:
-          questions,
+        questions,
       });
 
     } catch (error) {
-
       console.log(
-        "Question generation error:",
+        "Gemini generation error:",
         error
       );
 
       res.status(500).json({
         message:
-          "Failed to generate questions",
+          "Failed to generate interview questions",
 
         error:
           error.message,
@@ -1709,309 +1979,119 @@ Example:
   }
 );
 
-
 // ========================================
-// GEMINI AI EVALUATION
+// GEMINI EVALUATION
 // ========================================
 
 app.post(
-  "/api/interviews/:id/evaluate",
+  "/api/gemini/evaluate",
+
   authMiddleware,
+
   async (req, res) => {
-
     try {
-
-      console.log(
-        "================================"
-      );
-
-      console.log(
-        "Starting Gemini evaluation..."
-      );
-
-      const geminiKey =
-        process.env.GEMINI_API_KEY;
-
-      if (!geminiKey) {
-
-        return res.status(500).json({
-          message:
-            "Gemini API key is missing",
-
-          error:
-            "GEMINI_API_KEY was not found in .env",
-        });
-      }
-
-
-      const interview =
-        await Interview.findOne({
-          _id:
-            req.params.id,
-
-          userId:
-            req.user.userId,
-        });
-
-
-      if (!interview) {
-
-        return res.status(404).json({
-          message:
-            "Interview not found",
-        });
-      }
-
+      const {
+        questions,
+        answers,
+        role,
+        interviewType,
+      } = req.body;
 
       if (
-        !interview.answers ||
-        interview.answers.length === 0
+        !process.env.GEMINI_API_KEY
       ) {
-
-        return res.status(400).json({
+        return res.status(500).json({
           message:
-            "No answers found for this interview",
+            "Gemini API key is not configured",
         });
       }
 
-
-      const answerText =
-        interview.answers
-          .map(
-            (item, index) =>
-              `Question ${
-                index + 1
-              }: ${item.question}\nAnswer: ${item.answer}`
-          )
-          .join("\n\n");
-
-
-      console.log(
-        "Interview answers prepared."
-      );
-
-
       const prompt = `
-You are an expert professional interview evaluator.
-
-Evaluate this candidate's interview.
-
-Interview Type:
-${interview.interviewType}
+Evaluate the following interview.
 
 Role:
-${interview.role}
+${role || "Software Developer"}
 
-Candidate Answers:
+Interview Type:
+${interviewType || "Technical"}
 
-${answerText}
+Questions and answers:
+${JSON.stringify(
+        {
+          questions,
+          answers,
+        },
+        null,
+        2
+      )}
 
-Evaluate the candidate based on the actual answers.
+Return ONLY valid JSON in this exact structure:
 
-Give these four scores:
+{
+  "score": 0,
+  "communicationScore": 0,
+  "relevanceScore": 0,
+  "clarityScore": 0,
+  "feedback": "",
+  "improvements": ""
+}
 
-1. Overall score
-2. Communication score
-3. Relevance score
-4. Clarity score
-
-Every score MUST be between 0 and 10.
-
-Use decimal scores when appropriate.
-
-Also provide:
-
-- Short overall feedback
-- Specific improvement suggestions
-
-Be realistic and fair.
-
-Do not give 10 unless the candidate is excellent.
-
-The output must follow the provided JSON schema.
+Scores must be from 0 to 100.
 `;
 
-
-      const responseSchema = {
-
-        type:
-          "object",
-
-        properties: {
-
-          score: {
-            type:
-              "number",
-
-            description:
-              "Overall interview score from 0 to 10",
-          },
-
-          communicationScore: {
-            type:
-              "number",
-
-            description:
-              "Communication score from 0 to 10",
-          },
-
-          relevanceScore: {
-            type:
-              "number",
-
-            description:
-              "Relevance score from 0 to 10",
-          },
-
-          clarityScore: {
-            type:
-              "number",
-
-            description:
-              "Clarity score from 0 to 10",
-          },
-
-          feedback: {
-            type:
-              "string",
-
-            description:
-              "Short overall feedback",
-          },
-
-          improvements: {
-            type:
-              "string",
-
-            description:
-              "Specific improvement suggestions",
-          },
-        },
-
-        required: [
-          "score",
-          "communicationScore",
-          "relevanceScore",
-          "clarityScore",
-          "feedback",
-          "improvements",
-        ],
-      };
-
-
-      console.log(
-        "Sending request to Gemini..."
-      );
-
-
-      const geminiResponse =
+      const response =
         await fetch(
-          "https://generativelanguage.googleapis.com/v1beta/interactions",
+          "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" +
+            process.env.GEMINI_API_KEY,
+
           {
-            method:
-              "POST",
+            method: "POST",
 
             headers: {
-
               "Content-Type":
                 "application/json",
-
-              "x-goog-api-key":
-                geminiKey,
             },
 
             body:
               JSON.stringify({
-
-                model:
-                  "gemini-3.6-flash",
-
-                input:
-                  prompt,
-
-                response_format: {
-
-                  type:
-                    "text",
-
-                  mime_type:
-                    "application/json",
-
-                  schema:
-                    responseSchema,
-                },
+                contents: [
+                  {
+                    parts: [
+                      {
+                        text:
+                          prompt,
+                      },
+                    ],
+                  },
+                ],
               }),
           }
         );
 
+      const data =
+        await response
+          .json()
+          .catch(() => ({}));
 
-      const geminiData =
-        await geminiResponse.json();
-
-
-      console.log(
-        "Gemini HTTP status:",
-        geminiResponse.status
-      );
-
-
-      if (!geminiResponse.ok) {
-
+      if (!response.ok) {
         return res.status(
-          geminiResponse.status
+          response.status
         ).json({
-
           message:
-            "Gemini API request failed",
-
-          error:
-            geminiData?.error?.message ||
-            "Unknown Gemini API error",
+            data?.error?.message ||
+            "Gemini evaluation failed",
         });
       }
 
+      const generatedText =
+        data?.candidates?.[0]
+          ?.content?.parts?.[0]
+          ?.text || "";
 
-      let aiText = "";
-
-
-      if (
-        geminiData?.output_text
-      ) {
-
-        aiText =
-          geminiData.output_text;
-
-      } else if (
-        geminiData?.output
-      ) {
-
-        aiText =
-          typeof geminiData.output ===
-          "string"
-            ? geminiData.output
-            : JSON.stringify(
-                geminiData.output
-              );
-
-      } else if (
-        geminiData?.response
-      ) {
-
-        aiText =
-          typeof geminiData.response ===
-          "string"
-            ? geminiData.response
-            : JSON.stringify(
-                geminiData.response
-              );
-
-      }
-
-
-      aiText =
-        aiText
+      const cleanedText =
+        generatedText
           .replace(
-            /```json/gi,
+            /```json/g,
             ""
           )
           .replace(
@@ -2020,83 +2100,36 @@ The output must follow the provided JSON schema.
           )
           .trim();
 
-
       let evaluation;
 
-
       try {
-
         evaluation =
           JSON.parse(
-            aiText
+            cleanedText
           );
-
       } catch (parseError) {
-
         console.log(
           "Evaluation JSON parse error:",
           parseError
         );
 
         return res.status(500).json({
-
           message:
-            "AI returned invalid evaluation format",
-
-          error:
-            aiText,
+            "Gemini returned invalid evaluation data",
         });
       }
 
-
-      interview.score =
-        evaluation.score;
-
-      interview.communicationScore =
-        evaluation.communicationScore;
-
-      interview.relevanceScore =
-        evaluation.relevanceScore;
-
-      interview.clarityScore =
-        evaluation.clarityScore;
-
-      interview.feedback =
-        evaluation.feedback;
-
-      interview.improvements =
-        evaluation.improvements;
-
-
-      await interview.save();
-
-
-      console.log(
-        "Evaluation saved successfully."
-      );
-
-
       res.json({
-
-        message:
-          "Interview evaluated successfully",
-
-        evaluation:
-          evaluation,
-
-        interview:
-          interview,
+        evaluation,
       });
 
     } catch (error) {
-
       console.log(
-        "Evaluation error:",
+        "Gemini evaluation error:",
         error
       );
 
       res.status(500).json({
-
         message:
           "Failed to evaluate interview",
 
@@ -2108,48 +2141,247 @@ The output must follow the provided JSON schema.
 );
 
 // ========================================
-// SERVER START
+// SAVE INTERVIEW RESULT
 // ========================================
 
-const PORT =
-  process.env.PORT || 5000;
+app.post(
+  "/api/interviews/save-result",
 
+  authMiddleware,
+
+  async (req, res) => {
+    try {
+      const {
+        interviewType,
+        role,
+        answers,
+        evaluation,
+      } = req.body;
+
+      const interview =
+        await Interview.create({
+          userId:
+            req.user.userId,
+
+          interviewType:
+            interviewType ||
+            "Technical",
+
+          role:
+            role ||
+            "Software Developer",
+
+          answers:
+            answers || [],
+
+          score:
+            evaluation?.score ??
+            null,
+
+          communicationScore:
+            evaluation?.communicationScore ??
+            null,
+
+          relevanceScore:
+            evaluation?.relevanceScore ??
+            null,
+
+          clarityScore:
+            evaluation?.clarityScore ??
+            null,
+
+          feedback:
+            evaluation?.feedback ||
+            "",
+
+          improvements:
+            evaluation?.improvements ||
+            "",
+        });
+
+      res.status(201).json({
+        message:
+          "Interview result saved successfully",
+
+        interview,
+      });
+
+    } catch (error) {
+      console.log(
+        "Save interview result error:",
+        error
+      );
+
+      res.status(500).json({
+        message:
+          "Failed to save interview result",
+
+        error:
+          error.message,
+      });
+    }
+  }
+);
+
+// ========================================
+// DASHBOARD STATS
+// ========================================
+
+app.get(
+  "/api/dashboard/stats",
+
+  authMiddleware,
+
+  async (req, res) => {
+    try {
+      const interviews =
+        await Interview.find({
+          userId:
+            req.user.userId,
+        });
+
+      const totalInterviews =
+        interviews.length;
+
+      const scores =
+        interviews
+          .map(
+            (item) =>
+              item.score
+          )
+          .filter(
+            (score) =>
+              typeof score ===
+                "number" &&
+              !Number.isNaN(score)
+          );
+
+      const averageScore =
+        scores.length
+          ? Math.round(
+              scores.reduce(
+                (
+                  sum,
+                  score
+                ) =>
+                  sum + score,
+                0
+              ) /
+                scores.length
+            )
+          : 0;
+
+      const bestScore =
+        scores.length
+          ? Math.max(
+              ...scores
+            )
+          : 0;
+
+      res.json({
+        totalInterviews,
+        averageScore,
+        bestScore,
+      });
+
+    } catch (error) {
+      console.log(
+        "Dashboard stats error:",
+        error
+      );
+
+      res.status(500).json({
+        message:
+          "Failed to get dashboard stats",
+
+        error:
+          error.message,
+      });
+    }
+  }
+);
+
+// ========================================
+// 404 HANDLER
+// ========================================
+
+app.use(
+  (req, res) => {
+    res.status(404).json({
+      message:
+        "Route not found",
+
+      path:
+        req.originalUrl,
+    });
+  }
+);
+
+// ========================================
+// GLOBAL ERROR HANDLER
+// ========================================
+
+app.use(
+  (
+    error,
+    req,
+    res,
+    next
+  ) => {
+    console.log(
+      "Global server error:",
+      error
+    );
+
+    res.status(500).json({
+      message:
+        "Internal server error",
+
+      error:
+        error.message,
+    });
+  }
+);
 
 // ========================================
 // MONGODB CONNECTION
 // ========================================
 
+const PORT =
+  process.env.PORT ||
+  8080;
+
+const MONGO_URI =
+  process.env.MONGO_URI;
+
+if (!MONGO_URI) {
+  console.log(
+    "WARNING: MONGO_URI is missing from .env"
+  );
+}
+
 mongoose
-  .connect(
-    process.env.MONGO_URI
-  )
-
+  .connect(MONGO_URI)
   .then(() => {
-
     console.log(
       "MongoDB connected successfully"
     );
 
-
     app.listen(
       PORT,
-
       () => {
-
         console.log(
-          `Server running on port ${PORT}`
+          `Server is running on port ${PORT}`
         );
-
       }
     );
-
   })
-
-  .catch((error) => {
-
-    console.log(
-      "MongoDB connection error:",
-      error
-    );
-
-  });
+  .catch(
+    (error) => {
+      console.log(
+        "MongoDB connection error:",
+        error
+      );
+    }
+  );
+  
