@@ -55,14 +55,10 @@ const emailTransporter =
     ? nodemailer.createTransport({
         host: process.env.SMTP_HOST,
 
-        port: Number(
-          process.env.SMTP_PORT || 465
-        ),
-
-        secure:
-          String(
-            process.env.SMTP_SECURE || "true"
-          ) === "true",
+        // Use SMTP port 587 with STARTTLS.
+        // This avoids the IPv6/port 465 connection issue on Render.
+        port: 587,
+        secure: false,
 
         auth: {
           user:
@@ -732,6 +728,8 @@ app.post(
     }
   }
 );
+
+
 // ========================================
 // VERIFY EMAIL OTP
 // ========================================
@@ -756,7 +754,6 @@ app.post(
             "OTP is required",
 
         });
-
       }
 
 
@@ -774,7 +771,6 @@ app.post(
             "User not found",
 
         });
-
       }
 
 
@@ -789,7 +785,6 @@ app.post(
             "Please request a new OTP",
 
         });
-
       }
 
 
@@ -806,7 +801,6 @@ app.post(
             "OTP has expired. Please request a new one",
 
         });
-
       }
 
 
@@ -821,7 +815,6 @@ app.post(
             "Invalid OTP",
 
         });
-
       }
 
 
@@ -870,8 +863,6 @@ app.post(
 
   }
 );
-
-
 // ========================================
 // SEND PHONE OTP
 // ========================================
@@ -1195,25 +1186,34 @@ app.post(
 // ========================================
 // CREATE INTERVIEW
 // ========================================
+
 app.post(
   "/api/interviews",
   authMiddleware,
   async (req, res) => {
     try {
+
       const {
         interviewType,
         role,
       } = req.body;
 
+
       if (!interviewType || !role) {
+
         return res.status(400).json({
+
           message:
             "Interview type and role are required",
+
         });
+
       }
+
 
       const interview =
         await Interview.create({
+
           userId:
             req.user.userId,
 
@@ -1224,19 +1224,24 @@ app.post(
             role,
 
           answers: [],
+
         });
+
 
       console.log(
         "Interview created:",
         interview._id
       );
 
+
       res.status(201).json({
+
         message:
           "Interview created successfully",
 
         interview:
           interview,
+
       });
 
     } catch (error) {
@@ -1246,14 +1251,19 @@ app.post(
         error
       );
 
+
       res.status(500).json({
+
         message:
           "Failed to create interview",
 
         error:
           error.message,
+
       });
+
     }
+
   }
 );
 
@@ -1266,6 +1276,7 @@ app.post(
   "/api/interviews/:id/answer",
   authMiddleware,
   async (req, res) => {
+
     try {
 
       const {
@@ -1273,49 +1284,70 @@ app.post(
         answer,
       } = req.body;
 
+
       if (!question || !answer) {
+
         return res.status(400).json({
+
           message:
             "Question and answer are required",
+
         });
+
       }
+
 
       const interview =
         await Interview.findOne({
+
           _id:
             req.params.id,
 
           userId:
             req.user.userId,
+
         });
+
 
       if (!interview) {
+
         return res.status(404).json({
+
           message:
             "Interview not found",
+
         });
+
       }
 
+
       interview.answers.push({
+
         question:
           question,
 
         answer:
           answer,
+
       });
 
+
       await interview.save();
+
 
       console.log(
         "Answer saved successfully"
       );
 
+
       res.json({
+
         message:
           "Answer saved successfully",
 
         interview:
           interview,
+
       });
 
     } catch (error) {
@@ -1325,14 +1357,19 @@ app.post(
         error
       );
 
+
       res.status(500).json({
+
         message:
           "Failed to save answer",
 
         error:
           error.message,
+
       });
+
     }
+
   }
 );
 
@@ -1345,19 +1382,27 @@ app.get(
   "/api/interviews",
   authMiddleware,
   async (req, res) => {
+
     try {
 
       const interviews =
         await Interview.find({
+
           userId:
             req.user.userId,
+
         }).sort({
+
           createdAt: -1,
+
         });
 
+
       res.json({
+
         interviews:
           interviews,
+
       });
 
     } catch (error) {
@@ -1367,14 +1412,19 @@ app.get(
         error
       );
 
+
       res.status(500).json({
+
         message:
           "Failed to fetch interviews",
 
         error:
           error.message,
+
       });
+
     }
+
   }
 );
 
@@ -1387,27 +1437,38 @@ app.get(
   "/api/interviews/:id",
   authMiddleware,
   async (req, res) => {
+
     try {
 
       const interview =
         await Interview.findOne({
+
           _id:
             req.params.id,
 
           userId:
             req.user.userId,
+
         });
+
 
       if (!interview) {
+
         return res.status(404).json({
+
           message:
             "Interview not found",
+
         });
+
       }
 
+
       res.json({
+
         interview:
           interview,
+
       });
 
     } catch (error) {
@@ -1417,18 +1478,21 @@ app.get(
         error
       );
 
+
       res.status(500).json({
+
         message:
           "Failed to fetch interview",
 
         error:
           error.message,
+
       });
+
     }
+
   }
 );
-
-
 // ========================================
 // GENERATE INTERVIEW QUESTIONS
 // ========================================
@@ -1445,31 +1509,46 @@ app.post(
         role,
       } = req.body;
 
+
       const interview =
         await Interview.findOne({
+
           _id:
             req.params.id,
 
           userId:
             req.user.userId,
+
         });
 
+
       if (!interview) {
+
         return res.status(404).json({
+
           message:
             "Interview not found",
+
         });
+
       }
+
 
       const geminiKey =
         process.env.GEMINI_API_KEY;
 
+
       if (!geminiKey) {
+
         return res.status(500).json({
+
           message:
             "Gemini API key is missing",
+
         });
+
       }
+
 
       const prompt = `
 You are an expert professional interviewer.
@@ -1503,9 +1582,11 @@ Example:
 ]
 `;
 
+
       console.log(
         "Generating interview questions..."
       );
+
 
       const geminiResponse =
         await fetch(
@@ -1524,6 +1605,7 @@ Example:
 
             body:
               JSON.stringify({
+
                 model:
                   "gemini-3.6-flash",
 
@@ -1537,12 +1619,16 @@ Example:
                   mime_type:
                     "application/json",
                 },
+
               }),
+
           }
         );
 
+
       const geminiData =
         await geminiResponse.json();
+
 
       if (!geminiResponse.ok) {
 
@@ -1551,19 +1637,25 @@ Example:
           geminiData
         );
 
+
         return res.status(
           geminiResponse.status
         ).json({
+
           message:
             "Gemini API request failed",
 
           error:
             geminiData?.error?.message ||
             "Unknown Gemini API error",
+
         });
+
       }
 
+
       let aiText = "";
+
 
       if (
         geminiData?.output_text
@@ -1614,6 +1706,7 @@ Example:
 
       let questions;
 
+
       try {
 
         questions =
@@ -1628,13 +1721,17 @@ Example:
           parseError
         );
 
+
         return res.status(500).json({
+
           message:
             "AI returned invalid question format",
 
           error:
             aiText,
+
         });
+
       }
 
 
@@ -1645,9 +1742,12 @@ Example:
       ) {
 
         return res.status(500).json({
+
           message:
             "AI did not return a question array",
+
         });
+
       }
 
 
@@ -1657,9 +1757,12 @@ Example:
 
 
       res.json({
+
         questions:
           questions,
+
       });
+
 
     } catch (error) {
 
@@ -1668,14 +1771,19 @@ Example:
         error
       );
 
+
       res.status(500).json({
+
         message:
           "Failed to generate questions",
 
         error:
           error.message,
+
       });
+
     }
+
   }
 );
 
@@ -1695,41 +1803,52 @@ app.post(
         "================================"
       );
 
+
       console.log(
         "Starting Gemini evaluation..."
       );
 
+
       const geminiKey =
         process.env.GEMINI_API_KEY;
+
 
       if (!geminiKey) {
 
         return res.status(500).json({
+
           message:
             "Gemini API key is missing",
 
           error:
             "GEMINI_API_KEY was not found in .env",
+
         });
+
       }
 
 
       const interview =
         await Interview.findOne({
+
           _id:
             req.params.id,
 
           userId:
             req.user.userId,
+
         });
 
 
       if (!interview) {
 
         return res.status(404).json({
+
           message:
             "Interview not found",
+
         });
+
       }
 
 
@@ -1739,9 +1858,12 @@ app.post(
       ) {
 
         return res.status(400).json({
+
           message:
             "No answers found for this interview",
+
         });
+
       }
 
 
@@ -1856,6 +1978,7 @@ The output must follow the provided JSON schema.
             description:
               "Specific improvement suggestions",
           },
+
         },
 
         required: [
@@ -1866,6 +1989,7 @@ The output must follow the provided JSON schema.
           "feedback",
           "improvements",
         ],
+
       };
 
 
@@ -1888,6 +2012,7 @@ The output must follow the provided JSON schema.
 
               "x-goog-api-key":
                 geminiKey,
+
             },
 
             body:
@@ -1909,8 +2034,11 @@ The output must follow the provided JSON schema.
 
                   schema:
                     responseSchema,
+
                 },
+
               }),
+
           }
         );
 
@@ -1937,7 +2065,9 @@ The output must follow the provided JSON schema.
           error:
             geminiData?.error?.message ||
             "Unknown Gemini API error",
+
         });
+
       }
 
 
@@ -2008,6 +2138,7 @@ The output must follow the provided JSON schema.
           parseError
         );
 
+
         return res.status(500).json({
 
           message:
@@ -2015,7 +2146,9 @@ The output must follow the provided JSON schema.
 
           error:
             aiText,
+
         });
+
       }
 
 
@@ -2056,7 +2189,9 @@ The output must follow the provided JSON schema.
 
         interview:
           interview,
+
       });
+
 
     } catch (error) {
 
@@ -2065,6 +2200,7 @@ The output must follow the provided JSON schema.
         error
       );
 
+
       res.status(500).json({
 
         message:
@@ -2072,10 +2208,14 @@ The output must follow the provided JSON schema.
 
         error:
           error.message,
+
       });
+
     }
+
   }
 );
+
 
 // ========================================
 // SERVER START
@@ -2114,6 +2254,7 @@ mongoose
     );
 
   })
+
 
   .catch((error) => {
 

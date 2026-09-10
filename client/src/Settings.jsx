@@ -151,13 +151,23 @@ function Settings({ onBackToProfile }) {
     setOtpLoading(true);
 
     try {
-      const response = await fetch(
-        `${API_URL}/api/auth/send-email-otp`,
-        {
-          method: "POST",
-          headers: authHeaders,
-        }
-      );
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000);
+
+      let response;
+
+      try {
+        response = await fetch(
+          `${API_URL}/api/auth/send-email-otp`,
+          {
+            method: "POST",
+            headers: authHeaders,
+            signal: controller.signal,
+          }
+        );
+      } finally {
+        clearTimeout(timeoutId);
+      }
 
       const data = await response.json();
 
@@ -173,9 +183,16 @@ function Settings({ onBackToProfile }) {
       );
     } catch (error) {
       console.log("Email OTP error:", error);
-      setOtpError(
-        error?.message || "Server error. Please try again."
-      );
+
+      if (error?.name === "AbortError") {
+        setOtpError(
+          "Email server is taking too long to respond. Please try again."
+        );
+      } else {
+        setOtpError(
+          error?.message || "Server error. Please try again."
+        );
+      }
     } finally {
       setOtpLoading(false);
     }
