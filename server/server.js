@@ -256,6 +256,11 @@ const interviewSchema =
         default: "",
       },
 
+      codingTopics: {
+        type: [String],
+        default: [],
+      },
+
       answers: [
         {
           question: String,
@@ -1456,19 +1461,49 @@ app.post(
       } = req.body;
       const isCodingInterview = interviewType === "Coding";
       const codingLanguage = String(req.body.codingLanguage || "Java").slice(0, 30);
+      let selectedCodingTopics = [];
+      let recentCodingQuestions = [];
       if (isCodingInterview) {
         const codingRoles = ["Software Developer", "Java Developer", "C++ Developer", "Python Developer", "Frontend Developer", "Backend Developer", "Full Stack Developer"];
         const codingLanguages = ["Java", "C++", "Python", "JavaScript", "C#"];
         if (!codingRoles.includes(role) || !codingLanguages.includes(codingLanguage)) {
           return res.status(400).json({ message: "Choose a supported software role and coding language for a coding interview." });
         }
+        if (!mongoose.Types.ObjectId.isValid(req.body.interviewId)) {
+          return res.status(400).json({ message: "Start a new interview before generating coding problems." });
+        }
+        const ownedInterview = await Interview.findOne({
+          _id: req.body.interviewId,
+          userId: req.user.userId,
+          interviewType: "Coding",
+        }).select("_id");
+        if (!ownedInterview) return res.status(404).json({ message: "Coding interview not found. Start a new interview and try again." });
+
+        const topics = ["arrays", "strings", "linked lists", "stacks", "queues", "binary trees", "hash maps", "recursion and backtracking", "sorting and searching"];
+        const previous = await Interview.find({ userId: req.user.userId, interviewType: "Coding" })
+          .sort({ createdAt: -1 }).limit(12).select("codingTopics answers").lean();
+        const counts = new Map(topics.map((topic) => [topic, 0]));
+        previous.forEach((record) => (record.codingTopics || []).forEach((topic) => {
+          const normalized = String(topic).toLowerCase();
+          if (counts.has(normalized)) counts.set(normalized, counts.get(normalized) + 1);
+        }));
+        selectedCodingTopics = [...topics]
+          .map((topic) => ({ topic, used: counts.get(topic), tieBreaker: Math.random() }))
+          .sort((a, b) => a.used - b.used || a.tieBreaker - b.tieBreaker)
+          .slice(0, 3)
+          .map(({ topic }) => topic);
+        recentCodingQuestions = previous.slice(0, 3)
+          .flatMap((record) => record.answers || [])
+          .map((entry) => String(entry.question || "").trim().slice(0, 450))
+          .filter(Boolean)
+          .slice(0, 9);
       }
       const numberOfQuestions = isCodingInterview
         ? 3
         : Math.max(1, Math.min(Number(count) || 5, 10));
 
       const prompt = isCodingInterview
-        ? `Create exactly 3 original coding interview problems for a ${role || "Software Developer"} candidate using ${codingLanguage}. Use medium difficulty suitable for a typical entry to mid-level interview. Select three distinct fundamentals from arrays, strings, stacks, linked lists, and binary trees. Each problem must be a concise, self-contained coding task with a clear goal and any essential examples or constraints. Do not include solutions, pseudocode, or the answer. Avoid obscure tricks and overly difficult problems. Return ONLY a valid JSON array of exactly 3 objects, each with "question" (string) and "category" (short topic label).`
+        ? `Create exactly 3 distinct, medium-difficulty coding interview problems for a ${role} candidate using ${codingLanguage}. Use these exact three topics in order, one per problem: ${selectedCodingTopics.join(", ")}. Do not substitute, repeat, or combine the topics. Problems should suit entry to mid-level candidates, use clear constraints, and avoid obscure tricks. Do not repeat or lightly reword these recent problems: ${JSON.stringify(recentCodingQuestions)}. For every problem return: "question" (plain-language statement), "category" (the exact topic string above), "functionName" (a short valid identifier), "starterCode" (a complete, runnable ${codingLanguage} program containing imports, one clearly marked TODO solution function with a placeholder body only, plus a main entry point that reads stdin, calls that function with the parsed input, and prints its result; do not include the solution), "exampleInput" (a short valid stdin string matching the problem input format), and "exampleOutput" (the expected stdout for that input). The starterCode must read the exampleInput from stdin, and its sample output must match exampleOutput. Do not provide a solution, pseudocode, or completed algorithm. Keep each starterCode compact and compilable. Return ONLY a valid JSON array of exactly 3 objects.`
         : `Generate ${numberOfQuestions} ${difficulty || "Medium"} interview questions for the role ${role || "Software Developer"}. Interview type: ${interviewType || "Technical"}. Return ONLY a valid JSON array. Each object must contain "question" and "category".`;
 
       const generatedText =
@@ -1503,6 +1538,27 @@ app.post(
           message:
             "Azure AI Foundry returned invalid question data",
         });
+      }
+
+      if (isCodingInterview) {
+        if (!Array.isArray(questions) || questions.length !== 3 || questions.some((item) =>
+          !item || typeof item.question !== "string" || !item.question.trim() ||
+          typeof item.starterCode !== "string" || !item.starterCode.trim()
+        )) {
+          return res.status(502).json({ message: "AI could not prepare three complete coding problems with runnable function templates. Please try again." });
+        }
+        questions = questions.map((item, index) => ({
+          question: String(item.question).slice(0, 5000),
+          category: selectedCodingTopics[index],
+          functionName: String(item.functionName || "solution").replace(/[^A-Za-z0-9_]/g, "").slice(0, 50) || "solution",
+          starterCode: typeof item.starterCode === "string" ? item.starterCode.slice(0, 30000) : "",
+          exampleInput: typeof item.exampleInput === "string" ? item.exampleInput.slice(0, 4000) : "",
+          exampleOutput: typeof item.exampleOutput === "string" ? item.exampleOutput.slice(0, 2000) : "",
+        }));
+        await Interview.updateOne(
+          { _id: req.body.interviewId, userId: req.user.userId },
+          { $set: { codingTopics: selectedCodingTopics } }
+        );
       }
 
       res.json({

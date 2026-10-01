@@ -23,6 +23,9 @@ const CODING_ROLE_OPTIONS = ROLE_OPTIONS.filter((roleOption) =>
   ["Software Developer", "Java Developer", "C++ Developer", "Python Developer", "Frontend Developer", "Backend Developer", "Full Stack Developer"].includes(roleOption)
 );
 const CODING_LANGUAGES = ["Java", "C++", "Python", "JavaScript", "C#"];
+const RUNNER_LANGUAGE_IDS = { Java: "java", "C++": "cpp", Python: "python", JavaScript: "javascript", "C#": "csharp" };
+const getQuestionText = (item) => typeof item === "string" ? item : item?.question || "";
+const getCodingStarter = (item) => item?.starterCode || "";
 
 const getSavedInterviewSession = () => {
   try {
@@ -79,14 +82,21 @@ function Interview({ onBackToDashboard }) {
   };
 
   const handleAnswerEditorKeyDown = (event) => {
-    if (interviewType !== "Coding" || event.key !== "Tab") return;
-    event.preventDefault();
-    const editor = event.currentTarget;
-    const start = editor.selectionStart;
-    const end = editor.selectionEnd;
-    const nextAnswer = `${answer.slice(0, start)}    ${answer.slice(end)}`;
-    setAnswer(nextAnswer);
-    requestAnimationFrame(() => editor.setSelectionRange(start + 4, start + 4));
+    if (interviewType !== "Coding") return;
+    if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+      event.preventDefault();
+      runCodingCode();
+      return;
+    }
+    if (event.key === "Tab") {
+      event.preventDefault();
+      const editor = event.currentTarget;
+      const start = editor.selectionStart;
+      const end = editor.selectionEnd;
+      const nextAnswer = `${answer.slice(0, start)}    ${answer.slice(end)}`;
+      setAnswer(nextAnswer);
+      requestAnimationFrame(() => editor.setSelectionRange(start + 4, start + 4));
+    }
   };
 
   const [started, setStarted] =
@@ -129,6 +139,10 @@ function Interview({ onBackToDashboard }) {
     useState(
       savedSession?.answer || ""
     );
+  const [codingStdin, setCodingStdin] = useState(savedSession?.codingStdin || "");
+  const [codingOutput, setCodingOutput] = useState(null);
+  const [codingRunError, setCodingRunError] = useState("");
+  const [codingRunning, setCodingRunning] = useState(false);
 
   // ==========================================
   // EVALUATION
@@ -217,6 +231,7 @@ function Interview({ onBackToDashboard }) {
       questions,
       currentQuestion,
       answer,
+      codingStdin,
       completed,
       evaluation,
       answers: answersRef.current,
@@ -248,6 +263,7 @@ function Interview({ onBackToDashboard }) {
     questions,
     currentQuestion,
     answer,
+    codingStdin,
     completed,
     evaluation,
   ]);
@@ -925,6 +941,7 @@ function Interview({ onBackToDashboard }) {
               role,
               interviewType,
               codingLanguage,
+              interviewId,
               difficulty: "Medium",
               count: interviewType === "Coding" ? 3 : 5,
             }),
@@ -971,13 +988,16 @@ function Interview({ onBackToDashboard }) {
 
       const generatedQuestions = data.questions
         .map((item) => {
-          if (typeof item === "string") return item;
-          if (interviewType === "Coding" && item?.category && item?.question) {
-            return `${item.category.toUpperCase()}\n\n${item.question}`;
+          if (interviewType === "Coding") {
+            if (typeof item === "string") return { question: item, category: "Coding challenge", starterCode: "" };
+            return { ...item, question: item?.question || "", category: item?.category || "Coding challenge" };
           }
+          if (typeof item === "string") return item;
           return item?.question;
         })
-        .filter((question) => typeof question === "string" && question.trim());
+        .filter((item) => interviewType === "Coding"
+          ? typeof item?.question === "string" && item.question.trim()
+          : typeof item === "string" && item.trim());
 
       if (interviewType === "Coding" && generatedQuestions.length !== 3) {
         setError("The AI could not prepare all 3 coding problems. Please try again.");
@@ -994,6 +1014,12 @@ function Interview({ onBackToDashboard }) {
       setQuestions(generatedQuestions);
 
       setCurrentQuestion(0);
+      if (interviewType === "Coding") {
+        setAnswer(getCodingStarter(generatedQuestions[0]));
+        setCodingStdin(generatedQuestions[0]?.exampleInput || "");
+        setCodingOutput(null);
+        setCodingRunError("");
+      }
 
       console.log(
         "AI questions generated:",
@@ -1137,6 +1163,41 @@ function Interview({ onBackToDashboard }) {
 
   };
 
+  const runCodingCode = async () => {
+    if (!API_URL) {
+      setCodingRunError("The app server is not configured.");
+      return;
+    }
+    if (!answer.trim()) {
+      setCodingRunError("Write your function first, then run it.");
+      return;
+    }
+    setCodingRunError("");
+    setCodingOutput(null);
+    setCodingRunning(true);
+    try {
+      const response = await fetch(`${API_URL}/api/code/run`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify({
+          language: RUNNER_LANGUAGE_IDS[codingLanguage],
+          code: answer,
+          stdin: codingStdin,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.message || "Could not run this code.");
+      setCodingOutput(data);
+    } catch (runError) {
+      setCodingRunError(runError.message || "Could not run this code.");
+    } finally {
+      setCodingRunning(false);
+    }
+  };
+
   // ==========================================
   // CONTINUE TO QUESTIONS
   // ==========================================
@@ -1164,7 +1225,7 @@ function Interview({ onBackToDashboard }) {
 
       setCurrentQuestion(0);
 
-      setAnswer("");
+      if (interviewType !== "Coding") setAnswer("");
 
     }
 
@@ -1248,10 +1309,7 @@ function Interview({ onBackToDashboard }) {
             },
 
             body: JSON.stringify({
-              question:
-                questions[
-                  currentQuestion
-                ],
+              question: getQuestionText(questions[currentQuestion]),
 
               answer:
                 answer,
@@ -1308,7 +1366,11 @@ function Interview({ onBackToDashboard }) {
           currentQuestion + 1
         );
 
-        setAnswer("");
+        const nextQuestion = questions[currentQuestion + 1];
+        setAnswer(interviewType === "Coding" ? getCodingStarter(nextQuestion) : "");
+        setCodingStdin(interviewType === "Coding" ? nextQuestion?.exampleInput || "" : "");
+        setCodingOutput(null);
+        setCodingRunError("");
 
         setSpeechError("");
 
@@ -1388,7 +1450,7 @@ function Interview({ onBackToDashboard }) {
                 `Bearer ${token}`,
             },
             body: JSON.stringify({
-              questions,
+              questions: questions.map(getQuestionText),
               answers: answersRef.current,
               role,
               interviewType,
@@ -1490,6 +1552,9 @@ function Interview({ onBackToDashboard }) {
     answersRef.current = [];
     setCurrentQuestion(0);
     setAnswer("");
+    setCodingStdin("");
+    setCodingOutput(null);
+    setCodingRunError("");
     setCompleted(false);
     setEvaluation(null);
     setError("");
@@ -1670,7 +1735,7 @@ function Interview({ onBackToDashboard }) {
                   </select>
                   <div className="coding-session-note">
                     <strong>3 coding problems</strong>
-                    <span>Arrays, strings, stacks, linked lists, or trees · Medium difficulty</span>
+                    <span>Fresh topic mix each round: arrays, strings, linked lists, stacks, queues, trees, and more · Medium difficulty</span>
                   </div>
                 </div>
               )}
@@ -2104,13 +2169,24 @@ function Interview({ onBackToDashboard }) {
                   {currentQuestion + 1}
                 </p>
 
+                {interviewType === "Coding" && (
+                  <div className="coding-challenge-meta">
+                    <span className="coding-topic-tag">{questions[currentQuestion]?.category || "Coding challenge"}</span>
+                    <span className="coding-progress-tag">Problem {currentQuestion + 1} of {questions.length}</span>
+                    {questions[currentQuestion]?.functionName && <span className="coding-function-tag">{questions[currentQuestion].functionName}()</span>}
+                  </div>
+                )}
+
                 <h2>
-                  {
-                    questions[
-                      currentQuestion
-                    ]
-                  }
+                  {getQuestionText(questions[currentQuestion])}
                 </h2>
+
+                {interviewType === "Coding" && (questions[currentQuestion]?.exampleInput || questions[currentQuestion]?.exampleOutput) && (
+                  <div className="coding-example-grid">
+                    <div><span>Example input</span><pre>{questions[currentQuestion]?.exampleInput || "(no input)"}</pre></div>
+                    <div><span>Expected output</span><pre>{questions[currentQuestion]?.exampleOutput || "(not provided)"}</pre></div>
+                  </div>
+                )}
 
               </div>
 
@@ -2120,11 +2196,19 @@ function Interview({ onBackToDashboard }) {
 
               <div className={`answer-section${interviewType === "Coding" ? " coding-answer-section" : ""}`}>
 
-                <label>
-                  {interviewType === "Coding" ? `Your solution · ${codingLanguage}` : "Your Answer"}
-                </label>
+                {interviewType === "Coding" && (
+                  <div className="coding-editor-toolbar">
+                    <div><label htmlFor="coding-solution-editor">Your solution</label><span className="coding-language-pill">{codingLanguage}</span></div>
+                    <button type="button" className="coding-run-button" onClick={runCodingCode} disabled={codingRunning || loading}>
+                      {codingRunning ? "Running…" : "▶ Run code"}<kbd>Ctrl ↵</kbd>
+                    </button>
+                  </div>
+                )}
+
+                {interviewType !== "Coding" && <label>Your Answer</label>}
 
                 <textarea
+                  id={interviewType === "Coding" ? "coding-solution-editor" : undefined}
                   className={interviewType === "Coding" ? "code-answer-editor" : ""}
                   onKeyDown={handleAnswerEditorKeyDown}
                   value={answer}
@@ -2148,7 +2232,18 @@ function Interview({ onBackToDashboard }) {
                   spellCheck={interviewType !== "Coding"}
                   autoCapitalize={interviewType === "Coding" ? "off" : undefined}
                 />
-                {interviewType === "Coding" && <p className="coding-review-note">AI will review your approach, code clarity, edge cases, and complexity. This interview does not compile or execute code.</p>}
+                {interviewType === "Coding" && (
+                  <div className="coding-compiler-grid">
+                    <label className="coding-console-panel"><span>Sample / custom input <small>stdin</small></span>
+                      <textarea value={codingStdin} onChange={(event) => setCodingStdin(event.target.value)} placeholder="Input passed to your program" />
+                    </label>
+                    <div className="coding-console-panel coding-output-panel"><span>Compiler output <small>{codingOutput?.runtime ? `${codingLanguage} · ${codingOutput.runtime}` : "run result"}</small></span>
+                      <pre>{codingRunning ? "Compiling and running…" : codingRunError || (codingOutput ? [codingOutput.compileOutput, codingOutput.stdout, codingOutput.stderr].filter(Boolean).join("\n") || "Program finished with no output." : "Run your solution to see its output here.")}</pre>
+                      {codingOutput && !codingRunError && <em className={codingOutput.exitCode === 0 ? "compiler-success" : "compiler-failure"}>{codingOutput.exitCode === 0 ? "Run completed" : codingOutput.message || `Exited with code ${codingOutput.exitCode ?? "unknown"}`}</em>}
+                    </div>
+                  </div>
+                )}
+                {interviewType === "Coding" && <p className="coding-review-note">Use Run code with the sample or your own input. AI scores your submitted code and approach; it does not run hidden test cases.</p>}
 
               </div>
 
@@ -2369,8 +2464,8 @@ function Interview({ onBackToDashboard }) {
                   ? "Processing..."
                   : currentQuestion ===
                     questions.length - 1
-                  ? "Finish & Get AI Score 🤖"
-                  : "Submit Answer →"}
+                  ? interviewType === "Coding" ? "Submit solution & finish →" : "Finish & Get AI Score 🤖"
+                  : interviewType === "Coding" ? "Submit solution →" : "Submit Answer →"}
               </button>
 
             </div>
