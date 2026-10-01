@@ -1823,37 +1823,23 @@ app.get(
 );
 
 // ========================================
-// AUTHENTICATED CODING PLAYGROUND (Piston-compatible runner)
+// AUTHENTICATED CODING PLAYGROUND (Wandbox-hosted compiler)
 // ========================================
 
 const CODE_RUNNER_LANGUAGES = {
-  javascript: { aliases: ["javascript", "js", "node"], filename: "main.js" },
-  python: { aliases: ["python", "py"], filename: "main.py" },
-  java: { aliases: ["java"], filename: "Main.java" },
-  cpp: { aliases: ["c++", "cpp", "g++"], filename: "main.cpp" },
-  csharp: { aliases: ["c#", "csharp", "dotnet", "cs"], filename: "Main.cs" },
+  javascript: { name: "JavaScript", languageAliases: ["javascript", "javascript-c"], compilerPrefixes: ["nodejs", "javascript"] },
+  python: { name: "Python", languageAliases: ["python", "python3"], compilerPrefixes: ["cpython", "python"] },
+  java: { name: "Java", languageAliases: ["java"], compilerPrefixes: ["openjdk", "javac", "java"] },
+  cpp: { name: "C++", languageAliases: ["c++"], compilerPrefixes: ["gcc", "clang", "g++", "clang++"] },
+  csharp: { name: "C#", languageAliases: ["c#", "csharp"], compilerPrefixes: ["dotnet", "mono", "csharp"] },
 };
 const codeRunnerRecentRuns = new Map();
+const WANDBOX_API = "https://wandbox.org/api";
+let wandboxCompilerCache = { expiresAt: 0, compilers: null, pending: null };
 
-const getCodeRunnerBaseUrl = () => {
-  const configured = process.env.PISTON_API_URL?.trim();
-  if (!configured) return null;
-  const parsed = new URL(configured);
-  if (parsed.protocol !== "https:" && parsed.hostname !== "localhost" && parsed.hostname !== "127.0.0.1") {
-    throw new Error("PISTON_API_URL must use HTTPS outside local development.");
-  }
-  return parsed.toString().replace(/\/+$/, "").replace(/\/(?:api\/v2\/piston|api\/v2)$/i, (path) => path);
-};
-
-const resolveCodeRunnerUrl = (base, endpoint) => {
-  if (/\/api\/v2\/piston$/i.test(base)) return `${base}/${endpoint}`;
-  if (/\/api\/v2$/i.test(base)) return `${base}/${endpoint}`;
-  return `${base}/api/v2/${endpoint}`;
-};
-
-const fetchCodeRunner = async (url, options = {}) => {
+const fetchWandbox = async (url, options = {}) => {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
+  const timeout = setTimeout(() => controller.abort(), 60000);
   try {
     return await fetch(url, { ...options, signal: controller.signal });
   } finally {
@@ -1861,27 +1847,57 @@ const fetchCodeRunner = async (url, options = {}) => {
   }
 };
 
+const getWandboxCompilers = async () => {
+  if (wandboxCompilerCache.compilers && wandboxCompilerCache.expiresAt > Date.now()) return wandboxCompilerCache.compilers;
+  if (wandboxCompilerCache.pending) return wandboxCompilerCache.pending;
+  wandboxCompilerCache.pending = fetchWandbox(`${WANDBOX_API}/list.json`)
+    .then(async (response) => {
+      if (!response.ok) throw new Error(`Hosted compiler catalog returned HTTP ${response.status}.`);
+      const compilers = await response.json();
+      if (!Array.isArray(compilers)) throw new Error("Hosted compiler returned an invalid compiler catalog.");
+      wandboxCompilerCache = { compilers, expiresAt: Date.now() + 5 * 60_000, pending: null };
+      return compilers;
+    })
+    .catch((error) => {
+      wandboxCompilerCache.pending = null;
+      throw error;
+    });
+  return wandboxCompilerCache.pending;
+};
+
+const chooseWandboxCompiler = (compilers, languageId) => {
+  const config = CODE_RUNNER_LANGUAGES[languageId];
+  if (!config) return null;
+  const candidates = compilers.filter((item) => {
+    const languageName = String(item.language || "").toLowerCase();
+    const compilerName = String(item.name || "").toLowerCase();
+    return config.languageAliases.includes(languageName) || config.compilerPrefixes.some((prefix) => compilerName.startsWith(prefix));
+  });
+  if (!candidates.length) return null;
+  const score = (item) => {
+    const name = String(item.name || "").toLowerCase();
+    let value = name.includes("head") ? -100 : 0;
+    if (languageId === "cpp" && name.startsWith("gcc-")) value += 20;
+    if (languageId === "java" && name.startsWith("openjdk-")) value += 20;
+    if (languageId === "javascript" && name.startsWith("nodejs-")) value += 20;
+    if (languageId === "python" && name.startsWith("cpython-")) value += 20;
+    if (languageId === "csharp" && name.startsWith("dotnet-")) value += 20;
+    return value;
+  };
+  return candidates.sort((a, b) => score(b) - score(a))[0];
+};
+
 app.get("/api/code/runtimes", authMiddleware, async (req, res) => {
   try {
-    const base = getCodeRunnerBaseUrl();
-    if (!base) {
-      return res.status(503).json({
-        configured: false,
-        message: "The code runner is not connected yet. Add PISTON_API_URL to the backend environment to enable execution.",
-      });
-    }
-    const response = await fetchCodeRunner(resolveCodeRunnerUrl(base, "runtimes"));
-    if (!response.ok) throw new Error(`Code runner returned HTTP ${response.status}.`);
-    const runtimes = await response.json();
+    const compilers = await getWandboxCompilers();
     const languages = Object.entries(CODE_RUNNER_LANGUAGES).map(([id, config]) => {
-      const runtime = runtimes.find((item) => config.aliases.includes(String(item.language).toLowerCase()) ||
-        (item.aliases || []).some((alias) => config.aliases.includes(String(alias).toLowerCase())));
-      return { id, name: id === "cpp" ? "C++" : id === "csharp" ? "C#" : id[0].toUpperCase() + id.slice(1), available: Boolean(runtime), version: runtime?.version || null };
+      const compiler = chooseWandboxCompiler(compilers, id);
+      return { id, name: config.name, available: Boolean(compiler), version: compiler?.version || null };
     });
     res.json({ configured: true, languages });
   } catch (error) {
-    console.error("Code runner runtimes error:", error.message);
-    res.status(502).json({ configured: false, message: "Could not connect to the code runner. Check PISTON_API_URL and try again." });
+    console.error("Hosted compiler catalog error:", error.message);
+    res.status(502).json({ configured: false, message: "The hosted compiler is temporarily unavailable. Please try again shortly." });
   }
 });
 
@@ -1905,46 +1921,35 @@ app.post("/api/code/run", authMiddleware, async (req, res) => {
     if (typeof stdin !== "string" || stdin.length > 10000) {
       return res.status(400).json({ message: "Input must be under 10,000 characters." });
     }
-    const base = getCodeRunnerBaseUrl();
-    if (!base) return res.status(503).json({ message: "The code runner is not connected yet. Add PISTON_API_URL to the backend environment to enable execution." });
+    const compilers = await getWandboxCompilers();
+    const compiler = chooseWandboxCompiler(compilers, language);
+    if (!compiler) return res.status(400).json({ message: "That language is temporarily unavailable in the hosted compiler." });
 
-    const runtimesResponse = await fetchCodeRunner(resolveCodeRunnerUrl(base, "runtimes"));
-    if (!runtimesResponse.ok) throw new Error(`Code runner returned HTTP ${runtimesResponse.status}.`);
-    const runtimes = await runtimesResponse.json();
-    const runtime = runtimes.find((item) => languageConfig.aliases.includes(String(item.language).toLowerCase()) ||
-      (item.aliases || []).some((alias) => languageConfig.aliases.includes(String(alias).toLowerCase())));
-    if (!runtime) return res.status(400).json({ message: "That language is not installed on the code runner yet." });
-
-    const response = await fetchCodeRunner(resolveCodeRunnerUrl(base, "execute"), {
+    const response = await fetchWandbox(`${WANDBOX_API}/compile.json`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        language: runtime.language,
-        version: runtime.version,
-        files: [{ name: languageConfig.filename, content: code }],
+        compiler: compiler.name,
+        code,
         stdin,
-        compile_timeout: 10000,
-        run_timeout: 3000,
-        compile_cpu_time: 10000,
-        run_cpu_time: 3000,
-        compile_memory_limit: 268435456,
-        run_memory_limit: 67108864,
+        save: false,
       }),
     });
     const result = await response.json().catch(() => ({}));
-    if (!response.ok) return res.status(502).json({ message: result.message || `Code runner returned HTTP ${response.status}.` });
+    if (!response.ok) return res.status(502).json({ message: result.message || `Hosted compiler returned HTTP ${response.status}.` });
+    const exitCode = Number(result.status);
     res.json({
-      stdout: result.run?.stdout || "",
-      stderr: [result.compile?.stderr, result.run?.stderr].filter(Boolean).join("\n"),
-      compileOutput: result.compile?.output || "",
-      status: result.run?.status || result.compile?.status || null,
-      message: result.run?.message || result.compile?.message || null,
-      exitCode: result.run?.code ?? result.compile?.code ?? null,
-      runtime: result.version,
+      stdout: result.program_output || result.program_stdout || "",
+      stderr: result.program_error || result.program_stderr || "",
+      compileOutput: [result.compiler_error, result.compiler_output].filter(Boolean).join("\n"),
+      status: result.status ?? null,
+      message: result.program_message || result.compiler_message || null,
+      exitCode: Number.isFinite(exitCode) ? exitCode : null,
+      runtime: `${compiler.display_name || compiler.name} · ${compiler.version}`,
     });
   } catch (error) {
-    console.error("Code execution error:", error.message);
-    res.status(error.name === "TypeError" ? 503 : 502).json({ message: "Could not reach the code runner. Check its URL and availability." });
+    console.error("Hosted code execution error:", error.message);
+    res.status(error.name === "TypeError" ? 503 : 502).json({ message: "Could not reach the hosted compiler. Please try again shortly." });
   }
 });
 

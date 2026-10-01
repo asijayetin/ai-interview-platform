@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import CodeEditor from "./CodeEditor";
 import "./CodingPractice.css";
 
 const API_URL = (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:5000" : ""))
@@ -26,7 +27,6 @@ function CodingPractice() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [running, setRunning] = useState(false);
-  const lineCount = useMemo(() => Math.max(code.split("\n").length, 12), [code]);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -50,7 +50,7 @@ function CodingPractice() {
     setError("");
     setResult(null);
     if (!runtimeInfo.configured) {
-      setError("Code runner is not connected yet. Set PISTON_API_URL on your backend and redeploy to run code in all selected languages.");
+      setError("The hosted compiler is temporarily unavailable. Please try again shortly.");
       return;
     }
     setRunning(true);
@@ -70,23 +70,6 @@ function CodingPractice() {
     }
   };
 
-  const handleEditorKeyDown = (event) => {
-    if (event.key === "Tab") {
-      event.preventDefault();
-      const textarea = event.currentTarget;
-      const { selectionStart, selectionEnd } = textarea;
-      const nextCode = `${code.slice(0, selectionStart)}    ${code.slice(selectionEnd)}`;
-      setCode(nextCode);
-      localStorage.setItem(`practiceCode:${language}`, nextCode);
-      requestAnimationFrame(() => {
-        textarea.selectionStart = textarea.selectionEnd = selectionStart + 4;
-      });
-    } else if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
-      event.preventDefault();
-      runCode();
-    }
-  };
-
   const available = runtimeInfo.languages.filter((item) => item.available).map((item) => item.id);
 
   return (
@@ -98,7 +81,7 @@ function CodingPractice() {
           <p>Write code, provide input, and see the output in one place.</p>
         </div>
         <span className={`runner-status ${runtimeInfo.configured ? "is-ready" : "is-pending"}`}>
-          <i />{runtimeInfo.loading ? "Connecting runner" : runtimeInfo.configured ? "Runner connected" : "Runner setup needed"}
+          <i />{runtimeInfo.loading ? "Connecting compiler" : runtimeInfo.configured ? "Compiler ready" : "Compiler unavailable"}
         </span>
       </header>
 
@@ -108,7 +91,7 @@ function CodingPractice() {
             <select value={language} onChange={(event) => changeLanguage(event.target.value)}>
               {Object.entries(LANGUAGE_INFO).map(([id, info]) => {
                 const isAvailable = available.includes(id);
-                return <option key={id} value={id}>{info.label}{runtimeInfo.configured && !isAvailable ? " — not installed" : ""}</option>;
+                return <option key={id} value={id} disabled={runtimeInfo.configured && !isAvailable}>{info.label}{runtimeInfo.configured && !isAvailable ? " — unavailable" : ""}</option>;
               })}
             </select>
           </label>
@@ -123,16 +106,13 @@ function CodingPractice() {
         <div className="practice-editor-shell">
           <div className="practice-editor-title"><span className="practice-file-dot" />{language === "java" || language === "csharp" ? "Main" : "main"}.{LANGUAGE_INFO[language].ext}<span>Starter playground</span></div>
           <div className="practice-editor">
-            <div className="practice-line-numbers" aria-hidden="true">{Array.from({ length: lineCount }, (_, index) => <span key={index}>{index + 1}</span>)}</div>
-            <textarea
-              aria-label={`${LANGUAGE_INFO[language].label} code editor`}
-              spellCheck="false"
-              autoCapitalize="off"
-              autoComplete="off"
-              autoCorrect="off"
+            <CodeEditor
+              language={language}
               value={code}
-              onChange={(event) => { setCode(event.target.value); localStorage.setItem(`practiceCode:${language}`, event.target.value); }}
-              onKeyDown={handleEditorKeyDown}
+              onChange={(nextCode) => { setCode(nextCode); localStorage.setItem(`practiceCode:${language}`, nextCode); }}
+              onRun={runCode}
+              ariaLabel={`${LANGUAGE_INFO[language].label} coding workspace`}
+              className="practice-code-mirror"
             />
           </div>
         </div>
@@ -146,10 +126,10 @@ function CodingPractice() {
             {result && !error && <em className={result.exitCode === 0 ? "output-success" : "output-failure"}>{result.exitCode === 0 ? "Finished successfully" : result.message || `Exited with code ${result.exitCode ?? "unknown"}`}</em>}
           </div>
         </div>
-        {!runtimeInfo.loading && !runtimeInfo.configured && <div className="practice-setup-note"><strong>One-time runner setup</strong><span>Connect a self-hosted Piston-compatible runner by setting <code>PISTON_API_URL</code> in the backend environment, then redeploy. Your editor and code will be ready here.</span></div>}
-        {runtimeInfo.configured && available.length < Object.keys(LANGUAGE_INFO).length && <div className="practice-setup-note"><strong>Some languages are not installed</strong><span>Install the missing language runtimes on your Piston service. Available languages remain selectable in the menu.</span></div>}
+        {!runtimeInfo.loading && !runtimeInfo.configured && <div className="practice-setup-note"><strong>Online compiler unavailable</strong><span>{runtimeInfo.message || "The hosted compiler service did not respond. Try again in a moment."}</span></div>}
+        {runtimeInfo.configured && available.length < Object.keys(LANGUAGE_INFO).length && <div className="practice-setup-note"><strong>Some languages are temporarily unavailable</strong><span>Choose one of the available languages above or try again later.</span></div>}
       </div>
-      <p className="practice-shortcut-hint">Code is saved in this browser as you work. Use <kbd>Tab</kbd> to indent and <kbd>Ctrl + Enter</kbd> to run.</p>
+      <p className="practice-shortcut-hint">Code is saved in this browser as you work. Use <kbd>Tab</kbd> to indent and <kbd>Ctrl + Enter</kbd> to run. Code runs on Wandbox’s hosted compiler; runs are submitted with saving disabled.</p>
     </section>
   );
 }

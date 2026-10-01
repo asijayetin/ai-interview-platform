@@ -1,0 +1,21 @@
+.arena-code-editor { min-width: 0; overflow: hidden; color: #abb2bf; background: #171d2b; }
+.arena-code-editor .cm-editor { width: 100%; min-height: 100%; color: #abb2bf; background: #171d2b; font: 12px/1.65 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.arena-code-editor .cm-editor.cm-focused { outline: 0; }
+.arena-code-editor .cm-scroller { min-height: inherit; overflow: auto; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.arena-code-editor .cm-gutters { border: 0; border-right: 1px solid #2b3447; color: #69758b; background: #171d2b; }
+.arena-code-editor .cm-activeLineGutter { color: #b6abff; background: #202737; }
+.arena-code-editor .cm-activeLine { background: rgba(129, 119, 238, .055); }
+.arena-code-editor .cm-cursor { border-left-color: #b9adff; }
+.arena-code-editor .cm-selectionBackground, .arena-code-editor.cm-focused .cm-selectionBackground { background: #38415b !important; }
+.arena-code-editor .cm-matchingBracket { color: #fff !important; background: #6156c2; outline: 1px solid #a79cfb; }
+.arena-code-editor .cm-tooltip { border: 1px solid #39445a; color: #e8edf7; background: #242d40; }
+.arena-code-editor .cm-tooltip-autocomplete ul li[aria-selected] { color: #fff; background: #5148a8; }
+.arena-code-editor .cm-content { padding: 0 15px 12px 0; caret-color: #b9adff; }
+.arena-code-editor .cm-line { padding: 0; }
+.coding-interview-code .cm-editor { min-height: 370px; }
+.coding-interview-code .cm-scroller { min-height: 370px; max-height: 54vh; }
+.practice-code-mirror .cm-editor { min-height: 330px; }
+.practice-code-mirror .cm-scroller { min-height: 330px; max-height: 58vh; }
+@media (max-width: 760px) {
+  .coding-interview-code .cm-editor, .coding-interview-code .cm-scroller { min-height: 320px; max-height: 48vh; }
+}

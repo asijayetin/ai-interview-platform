@@ -23,9 +23,7 @@
 .practice-editor-title { height: 38px; display: flex; align-items: center; gap: 8px; padding: 0 13px; border-bottom: 1px solid #2b3342; color: #dce1ed; background: #202737; font: 11px ui-monospace, SFMono-Regular, Consolas, monospace; }
 .practice-file-dot { width: 7px; height: 7px; border-radius: 50%; background: #8a7ef2; }
 .practice-editor-title > span:last-child { margin-left: auto; color: #8994a9; font-family: Inter, Arial, sans-serif; font-size: 10px; }
-.practice-editor { display: grid; grid-template-columns: 48px minmax(0, 1fr); min-height: 360px; max-height: 58vh; overflow: auto; padding: 15px 0; color: #e6eaf2; background: #171d2b; }
-.practice-line-numbers { display: flex; flex-direction: column; padding-right: 13px; color: #667188; text-align: right; user-select: none; font: 13px/21px ui-monospace, SFMono-Regular, Consolas, monospace; }
-.practice-editor textarea { width: 100%; min-height: 330px; resize: vertical; padding: 0 17px 0 0; border: 0; outline: 0; color: #e6eaf2; background: transparent; caret-color: #a99eff; white-space: pre; tab-size: 4; font: 13px/21px ui-monospace, SFMono-Regular, Consolas, monospace; }
+.practice-editor { display: block; min-height: 330px; max-height: 58vh; padding: 0; overflow: auto; background: #171d2b; }
 .practice-io-grid { display: grid; grid-template-columns: .85fr 1.15fr; gap: 13px; margin: 0 16px 16px; }
 .practice-io-panel { min-width: 0; overflow: hidden; border: 1px solid #e3e7ef; border-radius: 10px; background: #fff; }
 .practice-io-panel > span { display: flex; justify-content: space-between; align-items: center; padding: 11px 13px; border-bottom: 1px solid #e9ecf2; color: #354057; font-size: 11px; font-weight: 750; }
@@ -50,4 +48,10 @@
   .practice-toolbar-actions { justify-content: space-between; }
   .practice-io-grid { grid-template-columns: 1fr; }
   .practice-editor { min-height: 300px; max-height: 50vh; }
+}
+
+.practice-code-mirror { min-height: 330px; }
+.practice-code-mirror .cm-editor, .practice-code-mirror .cm-scroller { min-height: 330px; max-height: 58vh; }
+@media (max-width: 720px) {
+  .practice-editor, .practice-code-mirror, .practice-code-mirror .cm-editor, .practice-code-mirror .cm-scroller { min-height: 300px; max-height: 50vh; }
 }

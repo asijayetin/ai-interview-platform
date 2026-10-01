@@ -29,11 +29,8 @@
 .coding-file-dots i { width: 7px; height: 7px; border-radius: 50%; background: #ef7779; }
 .coding-file-dots i:nth-child(2) { background: #eab95d; }
 .coding-file-dots i:nth-child(3) { background: #61bd91; }
-.coding-source-editor { display: grid; grid-template-columns: 39px minmax(0, 1fr); min-height: min(45vh, 470px); max-height: min(54vh, 590px); padding: 13px 0; overflow: auto; color: #e8edf7; background: #171d2b; }
-.coding-line-gutter { display: flex; flex-direction: column; padding-right: 10px; color: #707c92; text-align: right; user-select: none; font: 11px/20px ui-monospace, SFMono-Regular, Consolas, monospace; }
-.coding-line-gutter span { min-height: 20px; }
-.coding-answer-section textarea.code-answer-editor { width: 100%; min-width: 0; min-height: max(45vh, 370px); max-height: none; margin: 0; padding: 0 16px 12px 0; border: 0; border-radius: 0; outline: 0; color: #e8edf7; background: transparent; caret-color: #b5aaff; white-space: pre; font: 11px/20px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; tab-size: 4; }
-.coding-answer-section textarea.code-answer-editor:focus { border: 0; outline: 0; box-shadow: none; }
+.coding-source-editor { display: block; min-height: min(45vh, 470px); max-height: min(54vh, 590px); overflow: auto; color: #e8edf7; background: #171d2b; }
+.coding-interview-card .coding-source-editor .arena-code-editor { min-height: min(45vh, 470px); }
 .coding-interview-card .coding-compiler-grid { grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 0; margin: 0; border-top: 1px solid #e3e6ee; background: #fff; }
 .coding-interview-card .coding-console-panel { border: 0; border-right: 1px solid #e3e6ee; border-radius: 0; }
 .coding-interview-card .coding-console-panel:last-child { border-right: 0; }
@@ -56,6 +53,7 @@
   .coding-interview-card .coding-example-grid { grid-template-columns: 1fr 1fr; }
   .workspace-main .coding-interview-card .coding-answer-section { border-top: 1px solid #e3e6ee; }
   .coding-interview-card .coding-source-editor { min-height: 330px; max-height: 48vh; }
+  .coding-interview-card .coding-source-editor .arena-code-editor { min-height: 320px; }
   .coding-interview-card .coding-answer-section textarea.code-answer-editor { min-height: 320px; }
   .coding-interview-card > .interview-error { margin: 10px 14px 0; }
   .coding-interview-card > .start-interview-btn { align-self: flex-end; margin: 12px 14px 14px; }

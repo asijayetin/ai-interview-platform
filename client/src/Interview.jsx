@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import "./CodingInterview.css";
+import CodeEditor from "./CodeEditor";
 
 const API_URL = (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:5000" : ""))
   .trim()
@@ -144,7 +145,6 @@ function Interview({ onBackToDashboard }) {
   const [codingOutput, setCodingOutput] = useState(null);
   const [codingRunError, setCodingRunError] = useState("");
   const [codingRunning, setCodingRunning] = useState(false);
-  const codeEditorLineCount = Math.max(answer.split("\n").length, 18);
 
   // ==========================================
   // EVALUATION
@@ -2213,19 +2213,13 @@ function Interview({ onBackToDashboard }) {
                   <div className="coding-editor-window">
                     <div className="coding-file-bar"><span className="coding-file-dots"><i /><i /><i /></span><code>{codingLanguage === "Java" || codingLanguage === "C#" ? "Solution" : "solution"}.{({ Java: "java", "C++": "cpp", Python: "py", JavaScript: "js", "C#": "cs" })[codingLanguage]}</code><span>Auto-saved</span></div>
                     <div className="coding-source-editor">
-                      <div className="coding-line-gutter" aria-hidden="true">{Array.from({ length: codeEditorLineCount }, (_, index) => <span key={index}>{index + 1}</span>)}</div>
-                      <textarea
-                        id="coding-solution-editor"
-                        className="code-answer-editor"
-                        onKeyDown={handleAnswerEditorKeyDown}
+                      <CodeEditor
+                        language={RUNNER_LANGUAGE_IDS[codingLanguage]}
                         value={answer}
-                        onChange={(event) => setAnswer(event.target.value)}
-                        placeholder={`Write your ${codingLanguage} solution here…`}
-                        wrap="off"
-                        spellCheck={false}
-                        autoCapitalize="off"
-                        autoComplete="off"
-                        autoCorrect="off"
+                        onChange={setAnswer}
+                        onRun={runCodingCode}
+                        ariaLabel={`${codingLanguage} coding interview editor`}
+                        className="coding-interview-code"
                       />
                     </div>
                   </div>
@@ -2249,7 +2243,7 @@ function Interview({ onBackToDashboard }) {
                     </div>
                   </div>
                 )}
-                {interviewType === "Coding" && <p className="coding-review-note">Use Run code with the sample or your own input. AI scores your submitted code and approach; it does not run hidden test cases.</p>}
+                {interviewType === "Coding" && <p className="coding-review-note">Run your code with sample or custom input. Execution uses a hosted compiler; AI feedback is separate and does not run hidden test cases.</p>}
 
               </div>
 
