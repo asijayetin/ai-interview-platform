@@ -42,7 +42,6 @@ a {
 }
 
 /* Resume reviewer */
-.resume-review-card,
 .resume-review-panel,
 .resume-result-card,
 .resume-score-card {
@@ -52,31 +51,9 @@ a {
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
 }
 
-.resume-review-card {
-  margin: 22px 0;
-  padding: 24px 28px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-}
-
-.resume-review-copy { display: flex; align-items: center; gap: 16px; }
-.resume-review-copy h3 { margin-bottom: 6px; }
-.resume-review-copy p { color: #64748b; line-height: 1.55; }
-
 .resume-review-page {
   width: min(100% - 32px, 980px);
   margin: 28px auto 64px;
-}
-
-.resume-back-button {
-  border: 0;
-  background: transparent;
-  color: #475569;
-  padding: 8px 0;
-  margin-bottom: 14px;
-  font-weight: 600;
 }
 
 .resume-review-panel { padding: clamp(22px, 5vw, 44px); }
@@ -122,10 +99,165 @@ a {
 .resume-keywords span { background: #eef2ff; color: #3730a3; border-radius: 999px; padding: 6px 10px; font-size: 13px; }
 
 @media (max-width: 640px) {
-  .resume-review-card { align-items: flex-start; flex-direction: column; padding: 20px; }
-  .resume-review-copy { align-items: flex-start; }
   .resume-result-grid, .resume-rewrites > div { grid-template-columns: 1fr; }
   .resume-score-card { align-items: flex-start; flex-direction: column; }
+}
+
+/* Authenticated product workspace */
+.workspace-layout {
+  min-height: 100vh;
+  display: flex;
+  background: #f8fafc;
+}
+
+.workspace-sidebar {
+  width: 252px;
+  flex: 0 0 252px;
+  min-height: 100vh;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
+  padding: 22px 14px 16px;
+  background: #fff;
+  border-right: 1px solid #e2e8f0;
+}
+
+.workspace-brand,
+.workspace-mobile-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  background: transparent;
+  color: #111827;
+  font-size: 16px;
+  font-weight: 750;
+  letter-spacing: -0.3px;
+  text-align: left;
+}
+
+.workspace-brand { padding: 3px 7px 23px; }
+.workspace-brand-mark {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: #111827;
+  color: #fff;
+  font-size: 17px;
+}
+
+.workspace-navigation { overflow-y: auto; flex: 1; padding-top: 5px; }
+.workspace-nav-group + .workspace-nav-group { margin-top: 24px; }
+.workspace-nav-label {
+  padding: 0 10px;
+  margin: 0 0 8px;
+  color: #94a3b8;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 1.1px;
+}
+
+.workspace-nav-item {
+  width: 100%;
+  min-height: 43px;
+  padding: 0 10px;
+  margin: 3px 0;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  transition: background .16s ease, color .16s ease;
+}
+.workspace-nav-item:hover { background: #f1f5f9; color: #111827; }
+.workspace-nav-item.is-active { background: #eef2ff; color: #4338ca; }
+.workspace-nav-icon {
+  width: 22px;
+  display: inline-flex;
+  justify-content: center;
+  color: currentColor;
+  font-size: 17px;
+  font-weight: 700;
+}
+.workspace-soon-dot { width: 6px; height: 6px; margin-left: auto; border-radius: 50%; background: #cbd5e1; }
+
+.workspace-sidebar-bottom { border-top: 1px solid #e2e8f0; padding-top: 13px; }
+.workspace-profile-button {
+  width: 100%;
+  padding: 8px 7px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #334155;
+  text-align: left;
+}
+.workspace-profile-button:hover { background: #f8fafc; }
+.workspace-user-avatar { width: 34px; height: 34px; display: grid; place-items: center; flex: 0 0 34px; border-radius: 50%; background: #e0e7ff; color: #4338ca; font-weight: 750; }
+.workspace-user-details { display: grid; gap: 3px; flex: 1; min-width: 0; }
+.workspace-user-details strong { overflow: hidden; color: #1e293b; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.workspace-user-details small { color: #94a3b8; font-size: 10px; }
+.workspace-logout-button { width: 100%; padding: 9px 12px; display: flex; gap: 11px; border: 0; border-radius: 8px; background: transparent; color: #64748b; font-size: 12px; font-weight: 600; text-align: left; }
+.workspace-logout-button:hover { background: #fff1f2; color: #be123c; }
+
+.workspace-main { min-width: 0; flex: 1; }
+.workspace-main > .dashboard { min-height: 100vh; padding: 38px clamp(24px, 5vw, 72px) 64px; background: transparent; }
+.workspace-main .welcome-section { padding: 40px 0 34px; }
+.workspace-main .welcome-section h2 { font-size: clamp(30px, 3.5vw, 40px); }
+.workspace-main .dashboard-stats { margin-bottom: 38px; }
+.workspace-main .interview-page { min-height: 100vh; padding: 42px clamp(22px, 5vw, 70px) 72px; }
+.workspace-main .interview-container { max-width: 1120px; }
+.workspace-main .resume-review-page { width: min(100% - 40px, 980px); margin: 40px auto 64px; }
+
+.workspace-placeholder-page { min-height: 100vh; padding: clamp(28px, 7vw, 84px); display: grid; align-items: start; }
+.workspace-placeholder-card { width: min(100%, 770px); padding: clamp(28px, 5vw, 54px); border: 1px solid #e2e8f0; border-radius: 18px; background: #fff; box-shadow: 0 15px 45px rgba(15, 23, 42, .05); }
+.workspace-placeholder-icon { width: 52px; height: 52px; margin-bottom: 26px; display: grid; place-items: center; border-radius: 14px; background: #eef2ff; color: #4338ca; font-size: 20px; font-weight: 750; }
+.workspace-placeholder-card .small-heading { margin-bottom: 10px; }
+.workspace-placeholder-card h1 { margin-bottom: 12px; font-size: clamp(27px, 4vw, 38px); letter-spacing: -1px; }
+.workspace-placeholder-description, .workspace-placeholder-next { max-width: 590px; color: #64748b; line-height: 1.7; }
+.workspace-status-pill { display: inline-flex; margin: 24px 0 12px; padding: 7px 11px; border-radius: 999px; background: #f1f5f9; color: #475569; font-size: 12px; font-weight: 700; }
+.workspace-placeholder-next { font-size: 13px; }
+.workspace-mobile-bar, .workspace-sidebar-scrim { display: none; }
+
+@media (max-width: 760px) {
+  .workspace-mobile-bar {
+    position: sticky;
+    top: 0;
+    z-index: 125;
+    min-height: 58px;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid #e2e8f0;
+    background: rgba(255,255,255,.96);
+    backdrop-filter: blur(10px);
+  }
+  .workspace-menu-toggle { width: 34px; height: 34px; border: 0; border-radius: 7px; background: #f1f5f9; color: #1e293b; font-size: 19px; }
+  .workspace-mobile-brand { padding: 0; font-size: 14px; white-space: nowrap; }
+  .workspace-mobile-current { overflow: hidden; margin-left: auto; color: #64748b; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+  .workspace-sidebar { position: fixed; top: 58px; bottom: 0; left: 0; width: min(285px, 84vw); height: calc(100dvh - 58px); min-height: 0; transform: translateX(-105%); transition: transform .2s ease; box-shadow: 12px 0 35px rgba(15,23,42,.08); }
+  .workspace-sidebar.is-open { transform: translateX(0); }
+  .workspace-sidebar-scrim { position: fixed; inset: 58px 0 0; z-index: 115; display: block; border: 0; background: rgba(15,23,42,.28); }
+  .workspace-brand { padding-bottom: 15px; }
+  .workspace-main > .dashboard { min-height: calc(100vh - 58px); padding: 28px 20px 48px; }
+  .workspace-main .welcome-section { padding: 32px 0 28px; }
+  .workspace-main .interview-page { min-height: calc(100vh - 58px); padding: 28px 18px 54px; }
+  .workspace-main .interview-top h1 { font-size: 32px; }
+  .workspace-main .resume-review-page { width: min(100% - 24px, 980px); margin: 24px auto 44px; }
+  .workspace-placeholder-page { min-height: calc(100vh - 58px); padding: 24px 14px; }
 }
 
 

@@ -8,7 +8,7 @@ const API_URL = (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://
 const SELECTED_INTERVIEW_KEY =
   "selectedInterviewId";
 
-function Dashboard({ onStartInterview, onProfile, onLogout, onReviewResume }) {
+function Dashboard({ onStartInterview }) {
   const [interviews, setInterviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -292,13 +292,6 @@ function Dashboard({ onStartInterview, onProfile, onLogout, onReviewResume }) {
             </p>
 
           </div>
-
-          <button
-            className="logout-btn"
-            onClick={onLogout}
-          >
-            Logout
-          </button>
 
         </div>
 
@@ -920,29 +913,13 @@ function Dashboard({ onStartInterview, onProfile, onLogout, onReviewResume }) {
         <div>
 
           <h1>
-            AI Interview Arena
+            Your Progress
           </h1>
 
           <p>
-            Your personal interview preparation dashboard
+            Track your interview practice and results.
           </p>
 
-        </div>
-
-        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-          <button
-            className="secondary-btn"
-            onClick={onProfile}
-          >
-            Profile
-          </button>
-
-          <button
-            className="logout-btn"
-            onClick={onLogout}
-          >
-            Logout
-          </button>
         </div>
 
       </div>
@@ -965,51 +942,6 @@ function Dashboard({ onStartInterview, onProfile, onLogout, onReviewResume }) {
         </p>
 
       </section>
-
-      <section className="resume-review-card">
-        <div className="resume-review-copy">
-          <span className="dashboard-icon">📄</span>
-          <div>
-            <h3>Get your resume reviewed</h3>
-            <p>See how well it fits your target role, find skill gaps, and get specific improvements.</p>
-          </div>
-        </div>
-        <button className="secondary-btn" onClick={onReviewResume}>
-          Review Resume →
-        </button>
-      </section>
-
-
-      {/* START INTERVIEW */}
-
-      <section className="start-interview-card">
-
-        <div>
-
-          <span className="dashboard-icon">
-            🎤
-          </span>
-
-          <h3>
-            Start a New Interview
-          </h3>
-
-          <p>
-            Practice HR, Technical, or Coding interviews
-            with our AI-powered platform.
-          </p>
-
-        </div>
-
-        <button
-          className="primary-btn"
-          onClick={onStartInterview}
-        >
-          Start Interview →
-        </button>
-
-      </section>
-
 
       {/* STATS */}
 

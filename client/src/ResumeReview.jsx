@@ -5,7 +5,7 @@ const API_URL = (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://
   .replace(/\/+$/, "")
   .replace(/\/api$/i, "");
 
-function ResumeReview({ onBackToDashboard }) {
+function ResumeReview() {
   const [file, setFile] = useState(null);
   const [targetRole, setTargetRole] = useState("");
   const [review, setReview] = useState(null);
@@ -61,7 +61,6 @@ function ResumeReview({ onBackToDashboard }) {
 
   return (
     <main className="resume-review-page">
-      <button className="resume-back-button" onClick={onBackToDashboard}>← Back to dashboard</button>
       <section className="resume-review-panel">
         <p className="small-heading">CAREER TOOL</p>
         <h1>Resume Reviewer</h1>

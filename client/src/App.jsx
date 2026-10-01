@@ -8,6 +8,8 @@ import Interview from "./Interview";
 import Profile from "./Profile";
 import Settings from "./Settings";
 import ResumeReview from "./ResumeReview";
+import WorkspaceSidebar from "./WorkspaceSidebar";
+import WorkspacePlaceholder from "./WorkspacePlaceholder";
 
 function App() {
 
@@ -55,6 +57,9 @@ function App() {
 
   const [profileMenuOpen, setProfileMenuOpen] =
     useState(false);
+
+  const workspacePages = ["dashboard", "interview", "resume-review", "practice", "tutor"];
+  const isWorkspacePage = workspacePages.includes(page);
 
 
   // ========================================
@@ -263,6 +268,8 @@ function App() {
       {page !== "dashboard" &&
         page !== "interview" &&
         page !== "resume-review" &&
+        page !== "practice" &&
+        page !== "tutor" &&
         page !== "settings" && (
 
         <header className="navbar">
@@ -457,24 +464,28 @@ function App() {
       )}
 
 
-      {/* ====================================
-          DASHBOARD
-      ==================================== */}
-
-      {page === "dashboard" && (
-
-        <Dashboard
-
-          onStartInterview={() =>
-            setPage("interview")
-          }
-
-          onLogout={handleLogout}
-          onProfile={() => setPage("profile")}
-          onReviewResume={() => setPage("resume-review")}
-
-        />
-
+      {isWorkspacePage && (
+        <div className="workspace-layout">
+          <WorkspaceSidebar
+            currentPage={page}
+            onNavigate={setPage}
+            onProfile={() => setPage("profile")}
+            onLogout={handleLogout}
+          />
+          <div className="workspace-main">
+            {page === "dashboard" && (
+              <Dashboard
+                onStartInterview={() => setPage("interview")}
+              />
+            )}
+            {page === "resume-review" && <ResumeReview />}
+            {page === "interview" && (
+              <Interview onBackToDashboard={() => setPage("dashboard")} />
+            )}
+            {page === "practice" && <WorkspacePlaceholder feature="practice" />}
+            {page === "tutor" && <WorkspacePlaceholder feature="tutor" />}
+          </div>
+        </div>
       )}
 
 
@@ -506,30 +517,6 @@ function App() {
         />
 
       )}
-
-      {page === "resume-review" && (
-        <ResumeReview
-          onBackToDashboard={() => setPage("dashboard")}
-        />
-      )}
-
-
-      {/* ====================================
-          INTERVIEW
-      ==================================== */}
-
-      {page === "interview" && (
-
-        <Interview
-
-          onBackToDashboard={() =>
-            setPage("dashboard")
-          }
-
-        />
-
-      )}
-
 
       {/* ====================================
           HOME

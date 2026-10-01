@@ -795,6 +795,22 @@ function Interview({ onBackToDashboard }) {
 
   };
 
+  useEffect(() => () => {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch {
+        // Recognition may already have stopped as the page unmounts.
+      }
+      recognitionRef.current = null;
+    }
+
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+  }, []);
+
   // ==========================================
   // GENERATE AI QUESTIONS
   // ==========================================
