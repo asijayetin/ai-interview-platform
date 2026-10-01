@@ -211,7 +211,9 @@ const getAzureFoundryChatCompletion = async (prompt) => {
     throw new Error("AZURE_FOUNDRY_ENDPOINT must be a valid HTTPS URL copied from Foundry.");
   }
 
-  const response = await fetch(`${baseEndpoint}/openai/v1/chat/completions`, {
+  const messages = [{ role: "user", content: prompt }];
+  let requestUrl = `${baseEndpoint}/openai/v1/chat/completions`;
+  let response = await fetch(requestUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -219,10 +221,24 @@ const getAzureFoundryChatCompletion = async (prompt) => {
     },
     body: JSON.stringify({
       model: deployment,
-      messages: [{ role: "user", content: prompt }],
+      messages,
       temperature: 0.2,
     }),
   });
+
+  // Some Azure OpenAI resources still require the deployment-specific
+  // REST route, even though the OpenAI-compatible v1 route is preferred.
+  if (response.status === 404) {
+    requestUrl = `${baseEndpoint}/openai/deployments/${encodeURIComponent(deployment)}/chat/completions?api-version=2024-10-21`;
+    response = await fetch(requestUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "api-key": apiKey,
+      },
+      body: JSON.stringify({ messages, temperature: 0.2 }),
+    });
+  }
 
   const responseText = await response.text();
   let data = {};
@@ -238,7 +254,7 @@ const getAzureFoundryChatCompletion = async (prompt) => {
       responseText.slice(0, 400) ||
       "No error details returned";
     const error = new Error(
-      `Azure AI Foundry HTTP ${response.status}: ${azureMessage} (deployment: ${deployment}; URL: ${baseEndpoint}/openai/v1/chat/completions)`
+      `Azure AI Foundry HTTP ${response.status}: ${azureMessage} (deployment: ${deployment}; URL: ${requestUrl})`
     );
     error.statusCode = response.status;
     throw error;
