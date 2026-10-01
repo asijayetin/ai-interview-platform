@@ -852,7 +852,7 @@ function Interview({ onBackToDashboard }) {
 
       const response =
         await fetch(
-          `${API_URL}/api/gemini/generate`,
+          `${API_URL}/api/ai/generate`,
           {
             method: "POST",
 
@@ -1305,7 +1305,7 @@ function Interview({ onBackToDashboard }) {
 
       const response =
         await fetch(
-          `${API_URL}/api/gemini/evaluate`,
+          `${API_URL}/api/ai/evaluate`,
           {
             method: "POST",
 

@@ -167,18 +167,69 @@ const checkPhoneVerification = async (phone, code) => {
 };
 
 // ========================================
-// GEMINI API KEY CHECK
+// AZURE AI FOUNDRY CONFIG CHECK
 // ========================================
 
-if (!process.env.GEMINI_API_KEY) {
+if (
+  !process.env.AZURE_FOUNDRY_ENDPOINT ||
+  !process.env.AZURE_FOUNDRY_API_KEY ||
+  !process.env.AZURE_FOUNDRY_DEPLOYMENT
+) {
   console.log(
-    "WARNING: GEMINI_API_KEY is missing from .env"
+    "WARNING: Set AZURE_FOUNDRY_ENDPOINT, AZURE_FOUNDRY_API_KEY, and AZURE_FOUNDRY_DEPLOYMENT."
   );
 } else {
   console.log(
-    "Gemini API key loaded successfully"
+    "Azure AI Foundry configuration loaded successfully"
   );
 }
+
+const getAzureFoundryChatCompletion = async (prompt) => {
+  const endpoint = process.env.AZURE_FOUNDRY_ENDPOINT?.trim();
+  const apiKey = process.env.AZURE_FOUNDRY_API_KEY?.trim();
+  const deployment = process.env.AZURE_FOUNDRY_DEPLOYMENT?.trim();
+
+  if (!endpoint || !apiKey || !deployment) {
+    const error = new Error(
+      "Azure AI Foundry is not configured. Set AZURE_FOUNDRY_ENDPOINT, AZURE_FOUNDRY_API_KEY, and AZURE_FOUNDRY_DEPLOYMENT."
+    );
+    error.statusCode = 503;
+    throw error;
+  }
+
+  const baseEndpoint = endpoint
+    .replace(/\/+$/, "")
+    .replace(/\/openai\/v1$/i, "");
+
+  const response = await fetch(`${baseEndpoint}/openai/v1/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "api-key": apiKey,
+    },
+    body: JSON.stringify({
+      model: deployment,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.2,
+    }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(
+      data?.error?.message || `Azure AI Foundry returned HTTP ${response.status}`
+    );
+    error.statusCode = response.status;
+    throw error;
+  }
+
+  const content = data?.choices?.[0]?.message?.content;
+  if (typeof content !== "string" || !content.trim()) {
+    throw new Error("Azure AI Foundry returned an empty response");
+  }
+
+  return content.trim();
+};
 
 // ========================================
 // INTERVIEW SCHEMA
@@ -1824,7 +1875,7 @@ app.delete(
 );
 
 // ========================================
-// GEMINI INTERVIEW GENERATION
+// AI INTERVIEW GENERATION
 // ========================================
 
 // Save each answer to the interview currently in progress.
@@ -1886,7 +1937,7 @@ app.put(
 );
 
 app.post(
-  "/api/gemini/generate",
+  ["/api/ai/generate", "/api/gemini/generate"],
 
   authMiddleware,
 
@@ -1898,15 +1949,6 @@ app.post(
         difficulty,
         count,
       } = req.body;
-
-      if (
-        !process.env.GEMINI_API_KEY
-      ) {
-        return res.status(500).json({
-          message:
-            "Gemini API key is not configured",
-        });
-      }
 
       const numberOfQuestions =
         Number(count) || 5;
@@ -1938,54 +1980,8 @@ Each object should contain:
 }
 `;
 
-      const response =
-        await fetch(
-          "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" +
-            process.env.GEMINI_API_KEY,
-
-          {
-            method: "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-
-            body:
-              JSON.stringify({
-                contents: [
-                  {
-                    parts: [
-                      {
-                        text:
-                          prompt,
-                      },
-                    ],
-                  },
-                ],
-              }),
-          }
-        );
-
-      const data =
-        await response
-          .json()
-          .catch(() => ({}));
-
-      if (!response.ok) {
-        return res.status(
-          response.status
-        ).json({
-          message:
-            data?.error?.message ||
-            "Gemini request failed",
-        });
-      }
-
       const generatedText =
-        data?.candidates?.[0]
-          ?.content?.parts?.[0]
-          ?.text || "";
+        await getAzureFoundryChatCompletion(prompt);
 
       let cleanedText =
         generatedText
@@ -2008,13 +2004,13 @@ Each object should contain:
           );
       } catch (parseError) {
         console.log(
-          "Gemini JSON parse error:",
+          "AI question JSON parse error:",
           parseError
         );
 
         return res.status(500).json({
           message:
-            "Gemini returned invalid question data",
+            "Azure AI Foundry returned invalid question data",
         });
       }
 
@@ -2024,13 +2020,13 @@ Each object should contain:
 
     } catch (error) {
       console.log(
-        "Gemini generation error:",
+        "Azure AI Foundry generation error:",
         error
       );
 
-      res.status(500).json({
+      res.status(error.statusCode || 500).json({
         message:
-          "Failed to generate interview questions",
+          error.message || "Failed to generate interview questions",
 
         error:
           error.message,
@@ -2040,11 +2036,11 @@ Each object should contain:
 );
 
 // ========================================
-// GEMINI EVALUATION
+// AI EVALUATION
 // ========================================
 
 app.post(
-  "/api/gemini/evaluate",
+  ["/api/ai/evaluate", "/api/gemini/evaluate"],
 
   authMiddleware,
 
@@ -2056,15 +2052,6 @@ app.post(
         role,
         interviewType,
       } = req.body;
-
-      if (
-        !process.env.GEMINI_API_KEY
-      ) {
-        return res.status(500).json({
-          message:
-            "Gemini API key is not configured",
-        });
-      }
 
       const prompt = `
 Evaluate the following interview.
@@ -2099,54 +2086,8 @@ Return ONLY valid JSON in this exact structure:
 Scores must be from 0 to 10.
 `;
 
-      const response =
-        await fetch(
-          "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" +
-            process.env.GEMINI_API_KEY,
-
-          {
-            method: "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-
-            body:
-              JSON.stringify({
-                contents: [
-                  {
-                    parts: [
-                      {
-                        text:
-                          prompt,
-                      },
-                    ],
-                  },
-                ],
-              }),
-          }
-        );
-
-      const data =
-        await response
-          .json()
-          .catch(() => ({}));
-
-      if (!response.ok) {
-        return res.status(
-          response.status
-        ).json({
-          message:
-            data?.error?.message ||
-            "Gemini evaluation failed",
-        });
-      }
-
       const generatedText =
-        data?.candidates?.[0]
-          ?.content?.parts?.[0]
-          ?.text || "";
+        await getAzureFoundryChatCompletion(prompt);
 
       const cleanedText =
         generatedText
@@ -2175,7 +2116,7 @@ Scores must be from 0 to 10.
 
         return res.status(500).json({
           message:
-            "Gemini returned invalid evaluation data",
+            "Azure AI Foundry returned invalid evaluation data",
         });
       }
 
@@ -2185,13 +2126,13 @@ Scores must be from 0 to 10.
 
     } catch (error) {
       console.log(
-        "Gemini evaluation error:",
+        "Azure AI Foundry evaluation error:",
         error
       );
 
-      res.status(500).json({
+      res.status(error.statusCode || 500).json({
         message:
-          "Failed to evaluate interview",
+          error.message || "Failed to evaluate interview",
 
         error:
           error.message,
