@@ -36,6 +36,17 @@
 .coding-interview-card .coding-console-panel:last-child { border-right: 0; }
 .coding-interview-card .coding-console-panel > span { min-height: 34px; padding: 7px 11px; background: #fafbfe; font-size: 9px; }
 .coding-interview-card .coding-console-panel textarea, .coding-interview-card .coding-console-panel pre { min-height: 86px; max-height: 145px; padding: 10px 11px; background: #fff; font-size: 10px; }
+.coding-interview-card .coding-testcase-tabs { display: flex; gap: 5px; padding: 7px 9px 0; }
+.coding-interview-card .coding-testcase-tabs button { display: inline-flex; align-items: center; gap: 5px; padding: 5px 7px; border: 1px solid #e5e8f0; border-radius: 6px; color: #68748a; background: #fff; font-size: 9px; }
+.coding-interview-card .coding-testcase-tabs button.is-active { border-color: #c8c3f6; color: #5148b6; background: #f5f4ff; }
+.coding-interview-card .coding-testcase-tabs i { width: 13px; height: 13px; display: inline-grid; place-items: center; border-radius: 50%; font-size: 8px; font-style: normal; }
+.coding-interview-card .coding-testcase-tabs .is-pass { color: #188766; background: #e5f7f0; }
+.coding-interview-card .coding-testcase-tabs .is-fail { color: #bc4d55; background: #fff0f0; }
+.coding-interview-card .coding-test-input { display: block; padding: 8px 11px 0; color: #667187; font-size: 9px; font-weight: 700; }
+.coding-interview-card .coding-test-input small { margin-left: 6px; color: #929bad; font-size: 8px; font-weight: 500; }
+.coding-interview-card .coding-test-input textarea { display: block; width: 100%; min-height: 56px; max-height: 110px; margin-top: 6px; padding: 8px; border: 1px solid #e7eaf1; border-radius: 6px; color: #334057; background: #fbfcfe; font: 9px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.coding-interview-card .coding-expected-output { display: grid; gap: 4px; margin: 0; padding: 7px 11px 9px; color: #7a8598; font-size: 8px; }
+.coding-interview-card .coding-expected-output code { color: #344056; font: 9px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
 .coding-interview-card .coding-output-panel em { padding: 0 11px 8px; font-size: 9px; }
 .coding-interview-card .coding-review-note { margin: 0; padding: 8px 12px; border-top: 1px solid #e8eaf0; background: #fafbfe; font-size: 9px; }
 .coding-interview-card > .interview-error { grid-column: 2; grid-row: 5; margin: 10px 14px 0; }
@@ -54,7 +65,6 @@
   .workspace-main .coding-interview-card .coding-answer-section { border-top: 1px solid #e3e6ee; }
   .coding-interview-card .coding-source-editor { min-height: 330px; max-height: 48vh; }
   .coding-interview-card .coding-source-editor .arena-code-editor { min-height: 320px; }
-  .coding-interview-card .coding-answer-section textarea.code-answer-editor { min-height: 320px; }
   .coding-interview-card > .interview-error { margin: 10px 14px 0; }
   .coding-interview-card > .start-interview-btn { align-self: flex-end; margin: 12px 14px 14px; }
 }

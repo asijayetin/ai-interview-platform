@@ -1503,7 +1503,7 @@ app.post(
         : Math.max(1, Math.min(Number(count) || 5, 10));
 
       const prompt = isCodingInterview
-        ? `Create exactly 3 distinct, medium-difficulty coding interview problems for a ${role} candidate using ${codingLanguage}. Use these exact three topics in order, one per problem: ${selectedCodingTopics.join(", ")}. Do not substitute, repeat, or combine the topics. Problems should suit entry to mid-level candidates, use clear constraints, and avoid obscure tricks. Do not repeat or lightly reword these recent problems: ${JSON.stringify(recentCodingQuestions)}. For every problem return: "question" (plain-language statement), "category" (the exact topic string above), "functionName" (a short valid identifier), "starterCode" (a complete, runnable ${codingLanguage} program containing imports, one clearly marked TODO solution function with a placeholder body only, plus a main entry point that reads stdin, calls that function with the parsed input, and prints its result; do not include the solution), "exampleInput" (a short valid stdin string matching the problem input format), and "exampleOutput" (the expected stdout for that input). The starterCode must read the exampleInput from stdin, and its sample output must match exampleOutput. For Java, declare Main as a package-private class, not a public class, because the hosted compiler uses a generated source filename. Do not provide a solution, pseudocode, or completed algorithm. Keep each starterCode compact and compilable. Return ONLY a valid JSON array of exactly 3 objects.`
+        ? `Create exactly 3 distinct, medium-difficulty coding interview problems for a ${role} candidate using ${codingLanguage}. Use these exact three topics in order, one per problem: ${selectedCodingTopics.join(", ")}. Do not substitute, repeat, or combine the topics. Problems should suit entry to mid-level candidates, use clear constraints, and avoid obscure tricks. Do not repeat or lightly reword these recent problems: ${JSON.stringify(recentCodingQuestions)}. For every problem return: "question", "category", "functionName", "starterCode", "exampleInput", "exampleOutput", and "testCases". Each starterCode must be a complete runnable program with imports, one TODO solution function, and a main entry point that reads stdin, calls the solution function, and prints its result. Put the editable function body between exact comment lines BEGIN SOLUTION and END SOLUTION (use # comments for Python, // comments for the other languages); all signatures, imports, and main/driver code stay outside those markers. Leave a compilable placeholder inside the markers, but do not write the solution. For Java, use package-private class Main, never public class Main. Include exactly three testCases, each an object with string fields input and output; testCases[0] must exactly match exampleInput/exampleOutput, while the other two must cover meaningful edge cases. The driver must handle all three inputs and print output matching each expected output. Do not provide a solution or pseudocode. Return ONLY a valid JSON array of exactly 3 objects.`
         : `Generate ${numberOfQuestions} ${difficulty || "Medium"} interview questions for the role ${role || "Software Developer"}. Interview type: ${interviewType || "Technical"}. Return ONLY a valid JSON array. Each object must contain "question" and "category".`;
 
       const generatedText =
@@ -1543,9 +1543,16 @@ app.post(
       if (isCodingInterview) {
         if (!Array.isArray(questions) || questions.length !== 3 || questions.some((item) =>
           !item || typeof item.question !== "string" || !item.question.trim() ||
-          typeof item.starterCode !== "string" || !item.starterCode.trim()
+          typeof item.starterCode !== "string" || !item.starterCode.trim() ||
+          !/^[ \t]*(?:\/\/|#)[ \t]*BEGIN SOLUTION[ \t]*$/m.test(item.starterCode) ||
+          !/^[ \t]*(?:\/\/|#)[ \t]*END SOLUTION[ \t]*$/m.test(item.starterCode) ||
+          item.starterCode.indexOf("END SOLUTION") <= item.starterCode.indexOf("BEGIN SOLUTION") ||
+          !Array.isArray(item.testCases) || item.testCases.length !== 3 ||
+          typeof item.exampleInput !== "string" || typeof item.exampleOutput !== "string" ||
+          item.testCases.some((testCase) => !testCase || typeof testCase.input !== "string" || typeof testCase.output !== "string") ||
+          item.testCases[0]?.input !== item.exampleInput || item.testCases[0]?.output !== item.exampleOutput
         )) {
-          return res.status(502).json({ message: "AI could not prepare three complete coding problems with runnable function templates. Please try again." });
+          return res.status(502).json({ message: "AI could not prepare coding problems with a locked function template and three runnable test cases. Please try again." });
         }
         questions = questions.map((item, index) => ({
           question: String(item.question).slice(0, 5000),
@@ -1554,6 +1561,10 @@ app.post(
           starterCode: typeof item.starterCode === "string" ? item.starterCode.slice(0, 30000) : "",
           exampleInput: typeof item.exampleInput === "string" ? item.exampleInput.slice(0, 4000) : "",
           exampleOutput: typeof item.exampleOutput === "string" ? item.exampleOutput.slice(0, 2000) : "",
+          testCases: item.testCases.slice(0, 3).map((testCase) => ({
+            input: testCase.input.slice(0, 4000),
+            output: testCase.output.slice(0, 2000),
+          })),
         }));
         await Interview.updateOne(
           { _id: req.body.interviewId, userId: req.user.userId },
@@ -1887,6 +1898,32 @@ const chooseWandboxCompiler = (compilers, languageId) => {
   return candidates.sort((a, b) => score(b) - score(a))[0];
 };
 
+const normalizeWandboxOutput = (value) => String(value ?? "").replace(/\r\n/g, "\n").trim();
+const compileWandboxCode = async (compiler, language, code, stdin) => {
+  // Wandbox compiles Java source from prog.java, so a public Main class fails
+  // Java's public-type/file-name rule. Keep Main launchable but package-private.
+  const sourceCode = language === "java"
+    ? code.replace(/^([ \t]*)public[ \t]+(?=class[ \t]+Main\b)/gm, "$1")
+    : code;
+  const response = await fetchWandbox(`${WANDBOX_API}/compile.json`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ compiler: compiler.name, code: sourceCode, stdin, save: false }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.message || `Hosted compiler returned HTTP ${response.status}.`);
+  const exitCode = result.status == null || result.status === "" ? null : Number(result.status);
+  return {
+    stdout: result.program_output || result.program_stdout || "",
+    stderr: result.program_error || result.program_stderr || "",
+    compileOutput: [result.compiler_error, result.compiler_output].filter(Boolean).join("\n"),
+    status: result.status ?? null,
+    message: result.program_message || result.compiler_message || null,
+    exitCode: Number.isFinite(exitCode) ? exitCode : null,
+    runtime: `${compiler.display_name || compiler.name} · ${compiler.version}`,
+  };
+};
+
 app.get("/api/code/runtimes", authMiddleware, async (req, res) => {
   try {
     const compilers = await getWandboxCompilers();
@@ -1925,36 +1962,57 @@ app.post("/api/code/run", authMiddleware, async (req, res) => {
     const compiler = chooseWandboxCompiler(compilers, language);
     if (!compiler) return res.status(400).json({ message: "That language is temporarily unavailable in the hosted compiler." });
 
-    // Wandbox compiles Java source from prog.java, so a public Main class fails
-    // Java's public-type/file-name rule. Keep Main launchable but package-private.
-    const sourceCode = language === "java"
-      ? code.replace(/^([ \t]*)public[ \t]+(?=class[ \t]+Main\b)/gm, "$1")
-      : code;
-    const response = await fetchWandbox(`${WANDBOX_API}/compile.json`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        compiler: compiler.name,
-        code: sourceCode,
-        stdin,
-        save: false,
-      }),
-    });
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok) return res.status(502).json({ message: result.message || `Hosted compiler returned HTTP ${response.status}.` });
-    const exitCode = Number(result.status);
-    res.json({
-      stdout: result.program_output || result.program_stdout || "",
-      stderr: result.program_error || result.program_stderr || "",
-      compileOutput: [result.compiler_error, result.compiler_output].filter(Boolean).join("\n"),
-      status: result.status ?? null,
-      message: result.program_message || result.compiler_message || null,
-      exitCode: Number.isFinite(exitCode) ? exitCode : null,
-      runtime: `${compiler.display_name || compiler.name} · ${compiler.version}`,
-    });
+    const result = await compileWandboxCode(compiler, language, code, stdin);
+    res.json(result);
   } catch (error) {
     console.error("Hosted code execution error:", error.message);
     res.status(error.name === "TypeError" ? 503 : 502).json({ message: "Could not reach the hosted compiler. Please try again shortly." });
+  }
+});
+
+app.post("/api/code/run-tests", authMiddleware, async (req, res) => {
+  try {
+    const userId = String(req.user.userId);
+    const recentRuns = (codeRunnerRecentRuns.get(userId) || []).filter((time) => Date.now() - time < 60_000);
+    if (recentRuns.length >= 10) {
+      codeRunnerRecentRuns.set(userId, recentRuns);
+      return res.status(429).json({ message: "You have reached the run limit. Wait a minute, then try again." });
+    }
+    recentRuns.push(Date.now());
+    codeRunnerRecentRuns.set(userId, recentRuns);
+
+    const { language, code, testCases } = req.body || {};
+    if (!CODE_RUNNER_LANGUAGES[language]) return res.status(400).json({ message: "Choose a supported language." });
+    if (typeof code !== "string" || !code.trim() || code.length > 50000) {
+      return res.status(400).json({ message: "Enter code under 50,000 characters." });
+    }
+    if (!Array.isArray(testCases) || testCases.length < 1 || testCases.length > 3 || testCases.some((item) =>
+      !item || typeof item.input !== "string" || item.input.length > 10000 || typeof item.output !== "string" || item.output.length > 2000
+    )) return res.status(400).json({ message: "Provide one to three valid test cases." });
+
+    const compilers = await getWandboxCompilers();
+    const compiler = chooseWandboxCompiler(compilers, language);
+    if (!compiler) return res.status(400).json({ message: "That language is temporarily unavailable in the hosted compiler." });
+
+    const results = await Promise.all(testCases.map(async (testCase, index) => {
+      const execution = await compileWandboxCode(compiler, language, code, testCase.input);
+      const accepted = execution.exitCode === 0 && normalizeWandboxOutput(execution.stdout) === normalizeWandboxOutput(testCase.output);
+      const compileFailed = execution.exitCode !== 0 && Boolean(execution.compileOutput);
+      return {
+        caseNumber: index + 1,
+        accepted,
+        status: accepted ? "Accepted" : compileFailed ? "Compile Error" : execution.exitCode !== 0 ? "Runtime Error" : "Wrong Answer",
+        actualOutput: execution.stdout,
+        expectedOutput: testCase.output,
+        compileOutput: execution.compileOutput,
+        stderr: execution.stderr,
+      };
+    }));
+    const passedCount = results.filter((item) => item.accepted).length;
+    res.json({ accepted: passedCount === results.length, passedCount, runtime: `${compiler.display_name || compiler.name} · ${compiler.version}`, results });
+  } catch (error) {
+    console.error("Hosted code tests error:", error.message);
+    res.status(error.name === "TypeError" ? 503 : 502).json({ message: "Could not run all test cases on the hosted compiler. Please try again shortly." });
   }
 });
 

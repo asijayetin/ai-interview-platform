@@ -28,6 +28,9 @@ const CODING_LANGUAGES = ["Java", "C++", "Python", "JavaScript", "C#"];
 const RUNNER_LANGUAGE_IDS = { Java: "java", "C++": "cpp", Python: "python", JavaScript: "javascript", "C#": "csharp" };
 const getQuestionText = (item) => typeof item === "string" ? item : item?.question || "";
 const getCodingStarter = (item) => item?.starterCode || "";
+const getCodingTestCases = (item) => Array.isArray(item?.testCases) && item.testCases.length
+  ? item.testCases
+  : item?.exampleInput != null ? [{ input: item.exampleInput, output: item.exampleOutput || "" }] : [];
 
 const getSavedInterviewSession = () => {
   try {
@@ -142,6 +145,7 @@ function Interview({ onBackToDashboard }) {
       savedSession?.answer || ""
     );
   const [codingStdin, setCodingStdin] = useState(savedSession?.codingStdin || "");
+  const [codingTestIndex, setCodingTestIndex] = useState(0);
   const [codingOutput, setCodingOutput] = useState(null);
   const [codingRunError, setCodingRunError] = useState("");
   const [codingRunning, setCodingRunning] = useState(false);
@@ -1018,7 +1022,9 @@ function Interview({ onBackToDashboard }) {
       setCurrentQuestion(0);
       if (interviewType === "Coding") {
         setAnswer(getCodingStarter(generatedQuestions[0]));
-        setCodingStdin(generatedQuestions[0]?.exampleInput || "");
+        const firstTestCase = getCodingTestCases(generatedQuestions[0])[0];
+        setCodingStdin(firstTestCase?.input ?? generatedQuestions[0]?.exampleInput ?? "");
+        setCodingTestIndex(0);
         setCodingOutput(null);
         setCodingRunError("");
       }
@@ -1166,19 +1172,31 @@ function Interview({ onBackToDashboard }) {
   };
 
   const runCodingCode = async () => {
+    setCodingRunError("");
+    setCodingOutput(null);
     if (!API_URL) {
       setCodingRunError("The app server is not configured.");
-      return;
+      return null;
+    }
+    const testCases = getCodingTestCases(questions[currentQuestion]).map((testCase) => ({
+      input: String(testCase.input ?? ""),
+      output: String(testCase.output ?? ""),
+    }));
+    if (!testCases.length) {
+      setCodingRunError("This problem has no test cases. Generate the interview again.");
+      return null;
     }
     if (!answer.trim()) {
       setCodingRunError("Write your function first, then run it.");
-      return;
+      return null;
     }
+    const activeIndex = Math.min(codingTestIndex, testCases.length - 1);
+    testCases[activeIndex] = { ...testCases[activeIndex], input: codingStdin };
     setCodingRunError("");
     setCodingOutput(null);
     setCodingRunning(true);
     try {
-      const response = await fetch(`${API_URL}/api/code/run`, {
+      const response = await fetch(`${API_URL}/api/code/run-tests`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1187,14 +1205,16 @@ function Interview({ onBackToDashboard }) {
         body: JSON.stringify({
           language: RUNNER_LANGUAGE_IDS[codingLanguage],
           code: answer,
-          stdin: codingStdin,
+          testCases,
         }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.message || "Could not run this code.");
       setCodingOutput(data);
+      return data;
     } catch (runError) {
       setCodingRunError(runError.message || "Could not run this code.");
+      return null;
     } finally {
       setCodingRunning(false);
     }
@@ -1292,6 +1312,16 @@ function Interview({ onBackToDashboard }) {
 
     }
 
+    if (interviewType === "Coding") {
+      const testRun = await runCodingCode();
+      if (!testRun?.accepted) {
+        const passed = testRun?.passedCount || 0;
+        const total = testRun?.results?.length || getCodingTestCases(questions[currentQuestion]).length;
+        setError(testRun ? `Fix the failing test cases before submitting (${passed}/${total} passed).` : "The solution could not be verified. Fix the error and run the tests again.");
+        return;
+      }
+    }
+
     setLoading(true);
 
     try {
@@ -1370,7 +1400,8 @@ function Interview({ onBackToDashboard }) {
 
         const nextQuestion = questions[currentQuestion + 1];
         setAnswer(interviewType === "Coding" ? getCodingStarter(nextQuestion) : "");
-        setCodingStdin(interviewType === "Coding" ? nextQuestion?.exampleInput || "" : "");
+        setCodingStdin(interviewType === "Coding" ? getCodingTestCases(nextQuestion)[0]?.input ?? nextQuestion?.exampleInput ?? "" : "");
+        setCodingTestIndex(0);
         setCodingOutput(null);
         setCodingRunError("");
 
@@ -1580,6 +1611,9 @@ function Interview({ onBackToDashboard }) {
 
     onBackToDashboard();
   };
+
+  const currentCodingTests = interviewType === "Coding" ? getCodingTestCases(questions[currentQuestion]) : [];
+  const selectedCodingTest = currentCodingTests[Math.min(codingTestIndex, Math.max(0, currentCodingTests.length - 1))];
 
   // ==========================================
   // UI
@@ -2202,7 +2236,7 @@ function Interview({ onBackToDashboard }) {
                   <div className="coding-editor-toolbar">
                     <div><label htmlFor="coding-solution-editor">Your solution</label><span className="coding-language-pill">{codingLanguage}</span></div>
                     <button type="button" className="coding-run-button" onClick={runCodingCode} disabled={codingRunning || loading}>
-                      {codingRunning ? "Running…" : "▶ Run code"}<kbd>Ctrl ↵</kbd>
+                      {codingRunning ? "Running tests…" : "▶ Run tests"}<kbd>Ctrl ↵</kbd>
                     </button>
                   </div>
                 )}
@@ -2216,8 +2250,9 @@ function Interview({ onBackToDashboard }) {
                       <CodeEditor
                         language={RUNNER_LANGUAGE_IDS[codingLanguage]}
                         value={answer}
-                        onChange={setAnswer}
+                        onChange={(nextAnswer) => { setAnswer(nextAnswer); setCodingOutput(null); setCodingRunError(""); }}
                         onRun={runCodingCode}
+                        lockOutsideSolution
                         ariaLabel={`${codingLanguage} coding interview editor`}
                         className="coding-interview-code"
                       />
@@ -2234,16 +2269,31 @@ function Interview({ onBackToDashboard }) {
                 )}
                 {interviewType === "Coding" && (
                   <div className="coding-compiler-grid">
-                    <label className="coding-console-panel"><span>Sample / custom input <small>stdin</small></span>
-                      <textarea value={codingStdin} onChange={(event) => setCodingStdin(event.target.value)} placeholder="Input passed to your program" />
-                    </label>
-                    <div className="coding-console-panel coding-output-panel"><span>Compiler output <small>{codingOutput?.runtime ? `${codingLanguage} · ${codingOutput.runtime}` : "run result"}</small></span>
-                      <pre>{codingRunning ? "Compiling and running…" : codingRunError || (codingOutput ? [codingOutput.compileOutput, codingOutput.stdout, codingOutput.stderr].filter(Boolean).join("\n") || "Program finished with no output." : "Run your solution to see its output here.")}</pre>
-                      {codingOutput && !codingRunError && <em className={codingOutput.exitCode === 0 ? "compiler-success" : "compiler-failure"}>{codingOutput.exitCode === 0 ? "Run completed" : codingOutput.message || `Exited with code ${codingOutput.exitCode ?? "unknown"}`}</em>}
+                    <div className="coding-console-panel coding-testcase-panel">
+                      <span>Test cases <small>{currentCodingTests.length} cases</small></span>
+                      <div className="coding-testcase-tabs">
+                        {currentCodingTests.map((testCase, index) => {
+                          const result = codingOutput?.results?.[index];
+                          return <button type="button" key={index} className={index === codingTestIndex ? "is-active" : ""} onClick={() => { setCodingTestIndex(index); setCodingStdin(testCase.input ?? ""); }}>
+                            Case {index + 1}{result ? <i className={result.accepted ? "is-pass" : "is-fail"}>{result.accepted ? "✓" : "×"}</i> : null}
+                          </button>;
+                        })}
+                      </div>
+                      <label className="coding-test-input">Input <small>stdin</small>
+                        <textarea value={codingStdin} readOnly placeholder="Input passed to your program" />
+                      </label>
+                      <p className="coding-expected-output"><strong>Expected</strong><code>{selectedCodingTest?.output || "(empty output)"}</code></p>
+                    </div>
+                    <div className="coding-console-panel coding-output-panel"><span>Test results <small>{codingOutput?.runtime || "run all cases"}</small></span>
+                      <pre>{codingRunning ? "Compiling and running test cases…" : codingRunError || (codingOutput ? codingOutput.results.map((testCase) => testCase.accepted
+                        ? `Case ${testCase.caseNumber}: Accepted`
+                        : `Case ${testCase.caseNumber}: ${testCase.status}\nExpected: ${testCase.expectedOutput || "(empty)"}\nReceived: ${testCase.actualOutput || "(empty)"}${testCase.compileOutput ? `\n${testCase.compileOutput}` : ""}${testCase.stderr ? `\n${testCase.stderr}` : ""}`
+                      ).join("\n\n") : "Run tests to see Accepted or the failing case details.")}</pre>
+                      {codingOutput && !codingRunError && <em className={codingOutput.accepted ? "compiler-success" : "compiler-failure"}>{codingOutput.accepted ? `Accepted · ${codingOutput.passedCount}/${codingOutput.results.length} test cases` : `Not accepted · ${codingOutput.passedCount}/${codingOutput.results.length} passed`}</em>}
                     </div>
                   </div>
                 )}
-                {interviewType === "Coding" && <p className="coding-review-note">Run your code with sample or custom input. Execution uses a hosted compiler; AI feedback is separate and does not run hidden test cases.</p>}
+                {interviewType === "Coding" && <p className="coding-review-note">Only the marked function body is editable. Run checks all visible cases; Submit saves your answer and advances only after every case passes.</p>}
 
               </div>
 
@@ -2458,7 +2508,7 @@ function Interview({ onBackToDashboard }) {
                   submitAnswer
                 }
 
-                disabled={loading}
+                disabled={loading || codingRunning}
               >
                 {loading
                   ? "Processing..."

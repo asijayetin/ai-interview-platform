@@ -12,6 +12,8 @@
 .arena-code-editor .cm-tooltip-autocomplete ul li[aria-selected] { color: #fff; background: #5148a8; }
 .arena-code-editor .cm-content { padding: 0 15px 12px 0; caret-color: #b9adff; }
 .arena-code-editor .cm-line { padding: 0; }
+.arena-code-editor .cm-scaffold-line { color: #8490a5; background: rgba(255, 255, 255, .025); }
+.arena-code-editor .cm-scaffold-line .cm-keyword, .arena-code-editor .cm-scaffold-line .cm-def, .arena-code-editor .cm-scaffold-line .cm-variableName { color: #9ca7bb; }
 .coding-interview-code .cm-editor { min-height: 370px; }
 .coding-interview-code .cm-scroller { min-height: 370px; max-height: 54vh; }
 .practice-code-mirror .cm-editor { min-height: 330px; }
