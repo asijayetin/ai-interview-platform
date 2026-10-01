@@ -55,7 +55,18 @@ function Signup({ onLoginClick }) {
 
   return (
     <div className="auth-page">
-      <div className="auth-card">
+      <div className="auth-layout">
+        <aside className="auth-showcase">
+          <div className="auth-brand-lockup"><span className="auth-brand-mark">A</span><span>AI Interview Arena</span></div>
+          <div className="auth-showcase-copy">
+            <p className="auth-kicker">YOUR CAREER, YOUR NEXT MOVE</p>
+            <h2>Build skills that show up in the interview.</h2>
+            <p>Create an account to practice interviews and get structured feedback for your target role.</p>
+            <div className="auth-benefit-list"><span><i>✓</i> Start with a mock interview</span><span><i>✓</i> Review your resume against a role</span><span><i>✓</i> See your practice history</span></div>
+          </div>
+          <p className="auth-showcase-footer">Small, focused practice adds up.</p>
+        </aside>
+      <section className="auth-card">
         <h1>Create Account</h1>
         <p>Create your account to start practicing interviews.</p>
 
@@ -108,10 +119,8 @@ function Signup({ onLoginClick }) {
         {error && <p className="error-message">{error}</p>}
         {message && <p className="success-message">{message}</p>}
 
-        <p className="auth-switch">
-          Already have an account?
-          <span onClick={onLoginClick}>Login</span>
-        </p>
+        <p className="auth-switch">Already have an account? <button type="button" onClick={onLoginClick}>Sign in</button></p>
+      </section>
       </div>
     </div>
   );

@@ -67,8 +67,19 @@ function Login({ onSignupClick, onLoginSuccess }) {
 
   return (
     <div className="auth-page">
+      <div className="auth-layout">
+        <aside className="auth-showcase">
+          <div className="auth-brand-lockup"><span className="auth-brand-mark">A</span><span>AI Interview Arena</span></div>
+          <div className="auth-showcase-copy">
+            <p className="auth-kicker">PREPARE WITH PURPOSE</p>
+            <h2>Walk into your next interview with confidence.</h2>
+            <p>Practice by role, get useful feedback, and keep building your skills one session at a time.</p>
+            <div className="auth-benefit-list"><span><i>✓</i> Role-focused mock interviews</span><span><i>✓</i> Clear, actionable feedback</span><span><i>✓</i> Progress saved to your account</span></div>
+          </div>
+          <p className="auth-showcase-footer">A calmer way to prepare for what’s next.</p>
+        </aside>
 
-      <div className="auth-card">
+      <section className="auth-card">
 
         <h1>Welcome Back</h1>
 
@@ -78,21 +89,23 @@ function Login({ onSignupClick, onLoginSuccess }) {
 
         <form onSubmit={handleLogin}>
 
-          <label>Email</label>
+          <label htmlFor="login-email">Email address</label>
 
           <input
+            id="login-email"
             type="email"
-            placeholder="Enter your email"
+            placeholder="you@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
           />
 
-          <label>Password</label>
+          <label htmlFor="login-password">Password</label>
 
           <input
+            id="login-password"
             type="password"
-            placeholder="Enter password"
+            placeholder="Enter your password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
@@ -110,14 +123,9 @@ function Login({ onSignupClick, onLoginSuccess }) {
           </p>
         )}
 
-        <p className="auth-switch">
-          Don't have an account?
+        <p className="auth-switch">Don’t have an account? <button type="button" onClick={onSignupClick}>Create an account</button></p>
 
-          <span onClick={onSignupClick}>
-            Sign Up
-          </span>
-        </p>
-
+      </section>
       </div>
 
     </div>

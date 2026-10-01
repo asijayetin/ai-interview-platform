@@ -611,14 +611,15 @@ function App() {
                   </h3>
 
 
-                  <div className="fake-input">
-                    Type your answer...
+                  <div className="preview-response">
+                    <span className="preview-response-label">A STRONG RESPONSE INCLUDES</span>
+                    <div><i>01</i><span>A clear, relevant example</span></div>
+                    <div><i>02</i><span>Your actions and decisions</span></div>
+                    <div><i>03</i><span>A measurable result</span></div>
                   </div>
 
 
-                  <button className="card-btn">
-                    Submit Answer
-                  </button>
+                  <div className="preview-footer"><span>Personalized feedback</span><strong>After every practice round</strong></div>
 
                 </div>
 
@@ -663,8 +664,8 @@ function App() {
 
                 <div className="feature-card">
 
-                  <div className="feature-icon">
-                    🤖
+                <div className="feature-icon">
+                    AI
                   </div>
 
 
@@ -686,8 +687,8 @@ function App() {
 
                 <div className="feature-card">
 
-                  <div className="feature-icon">
-                    🎯
+                <div className="feature-icon">
+                    ◎
                   </div>
 
 
@@ -709,8 +710,8 @@ function App() {
 
                 <div className="feature-card">
 
-                  <div className="feature-icon">
-                    📊
+                <div className="feature-icon">
+                    ↗
                   </div>
 
 

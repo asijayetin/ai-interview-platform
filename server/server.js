@@ -251,6 +251,11 @@ const interviewSchema =
         required: true,
       },
 
+      codingLanguage: {
+        type: String,
+        default: "",
+      },
+
       answers: [
         {
           question: String,
@@ -1050,6 +1055,7 @@ app.post(
       const {
         interviewType,
         role,
+        codingLanguage,
         answers,
         score,
         communicationScore,
@@ -1058,6 +1064,14 @@ app.post(
         feedback,
         improvements,
       } = req.body;
+
+      if (interviewType === "Coding") {
+        const codingRoles = ["Software Developer", "Java Developer", "C++ Developer", "Python Developer", "Frontend Developer", "Backend Developer", "Full Stack Developer"];
+        const codingLanguages = ["Java", "C++", "Python", "JavaScript", "C#"];
+        if (!codingRoles.includes(role) || !codingLanguages.includes(codingLanguage)) {
+          return res.status(400).json({ message: "Choose a supported software role and coding language for a coding interview." });
+        }
+      }
 
       const interview =
         await Interview.create({
@@ -1071,6 +1085,9 @@ app.post(
           role:
             role ||
             "Software Developer",
+
+          codingLanguage:
+            codingLanguage || "",
 
           answers:
             answers || [],
@@ -1437,36 +1454,22 @@ app.post(
         difficulty,
         count,
       } = req.body;
-
-      const numberOfQuestions =
-        Number(count) || 5;
-
-      const prompt = `
-Generate ${numberOfQuestions} interview questions.
-
-Role: ${
-        role ||
-        "Software Developer"
+      const isCodingInterview = interviewType === "Coding";
+      const codingLanguage = String(req.body.codingLanguage || "Java").slice(0, 30);
+      if (isCodingInterview) {
+        const codingRoles = ["Software Developer", "Java Developer", "C++ Developer", "Python Developer", "Frontend Developer", "Backend Developer", "Full Stack Developer"];
+        const codingLanguages = ["Java", "C++", "Python", "JavaScript", "C#"];
+        if (!codingRoles.includes(role) || !codingLanguages.includes(codingLanguage)) {
+          return res.status(400).json({ message: "Choose a supported software role and coding language for a coding interview." });
+        }
       }
+      const numberOfQuestions = isCodingInterview
+        ? 3
+        : Math.max(1, Math.min(Number(count) || 5, 10));
 
-Interview Type: ${
-        interviewType ||
-        "Technical"
-      }
-
-Difficulty: ${
-        difficulty ||
-        "Medium"
-      }
-
-Return ONLY a valid JSON array.
-
-Each object should contain:
-{
-  "question": "question text",
-  "category": "category"
-}
-`;
+      const prompt = isCodingInterview
+        ? `Create exactly 3 original coding interview problems for a ${role || "Software Developer"} candidate using ${codingLanguage}. Use medium difficulty suitable for a typical entry to mid-level interview. Select three distinct fundamentals from arrays, strings, stacks, linked lists, and binary trees. Each problem must be a concise, self-contained coding task with a clear goal and any essential examples or constraints. Do not include solutions, pseudocode, or the answer. Avoid obscure tricks and overly difficult problems. Return ONLY a valid JSON array of exactly 3 objects, each with "question" (string) and "category" (short topic label).`
+        : `Generate ${numberOfQuestions} ${difficulty || "Medium"} interview questions for the role ${role || "Software Developer"}. Interview type: ${interviewType || "Technical"}. Return ONLY a valid JSON array. Each object must contain "question" and "category".`;
 
       const generatedText =
         await getAzureFoundryChatCompletion(prompt);
@@ -1539,40 +1542,13 @@ app.post(
         answers,
         role,
         interviewType,
+        codingLanguage,
       } = req.body;
 
-      const prompt = `
-Evaluate the following interview.
-
-Role:
-${role || "Software Developer"}
-
-Interview Type:
-${interviewType || "Technical"}
-
-Questions and answers:
-${JSON.stringify(
-        {
-          questions,
-          answers,
-        },
-        null,
-        2
-      )}
-
-Return ONLY valid JSON in this exact structure:
-
-{
-  "score": 0,
-  "communicationScore": 0,
-  "relevanceScore": 0,
-  "clarityScore": 0,
-  "feedback": "",
-  "improvements": ""
-}
-
-Scores must be from 0 to 10.
-`;
+      const interviewData = JSON.stringify({ questions, answers }, null, 2);
+      const prompt = interviewType === "Coding"
+        ? `Evaluate this coding interview statically for a ${role || "Software Developer"} using ${codingLanguage || "Java"}. Do not claim that code was compiled or executed. Judge the submitted solution for algorithmic correctness, reasoning, time and space complexity, edge cases, and code clarity. Give partial credit fairly and explain any uncertainty. Communication is not relevant for this coding-only round; use the communicationScore field to represent code clarity/readability.\n\nQuestions and submitted code:\n${interviewData}\n\nReturn ONLY valid JSON in this exact structure: {"score":0,"communicationScore":0,"relevanceScore":0,"clarityScore":0,"feedback":"","improvements":""}. Scores must be from 0 to 10. relevanceScore means solution correctness; clarityScore means complexity analysis and edge-case handling.`
+        : `Evaluate the following interview.\n\nRole: ${role || "Software Developer"}\nInterview Type: ${interviewType || "Technical"}\n\nQuestions and answers:\n${interviewData}\n\nReturn ONLY valid JSON in this exact structure: {"score":0,"communicationScore":0,"relevanceScore":0,"clarityScore":0,"feedback":"","improvements":""}. Scores must be from 0 to 10.`;
 
       const generatedText =
         await getAzureFoundryChatCompletion(prompt);

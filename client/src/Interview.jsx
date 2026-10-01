@@ -8,6 +8,22 @@ const API_URL = (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://
 const INTERVIEW_SESSION_KEY =
   "activeInterviewSession";
 
+const ROLE_OPTIONS = [
+  "Software Developer",
+  "Java Developer",
+  "C++ Developer",
+  "Python Developer",
+  "Frontend Developer",
+  "Backend Developer",
+  "Full Stack Developer",
+  "Data Analyst",
+  "Data Scientist",
+];
+const CODING_ROLE_OPTIONS = ROLE_OPTIONS.filter((roleOption) =>
+  ["Software Developer", "Java Developer", "C++ Developer", "Python Developer", "Frontend Developer", "Backend Developer", "Full Stack Developer"].includes(roleOption)
+);
+const CODING_LANGUAGES = ["Java", "C++", "Python", "JavaScript", "C#"];
+
 const getSavedInterviewSession = () => {
   try {
     const savedSession =
@@ -48,6 +64,30 @@ function Interview({ onBackToDashboard }) {
     useState(
       savedSession?.role || ""
     );
+
+  const [codingLanguage, setCodingLanguage] = useState(
+    savedSession?.codingLanguage || "Java"
+  );
+
+  const availableRoles = interviewType === "Coding" ? CODING_ROLE_OPTIONS : ROLE_OPTIONS;
+
+  const selectInterviewType = (type) => {
+    setInterviewType(type);
+    if (type === "Coding" && !CODING_ROLE_OPTIONS.includes(role)) {
+      setRole("");
+    }
+  };
+
+  const handleAnswerEditorKeyDown = (event) => {
+    if (interviewType !== "Coding" || event.key !== "Tab") return;
+    event.preventDefault();
+    const editor = event.currentTarget;
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const nextAnswer = `${answer.slice(0, start)}    ${answer.slice(end)}`;
+    setAnswer(nextAnswer);
+    requestAnimationFrame(() => editor.setSelectionRange(start + 4, start + 4));
+  };
 
   const [started, setStarted] =
     useState(
@@ -169,6 +209,7 @@ function Interview({ onBackToDashboard }) {
 
     const session = {
       interviewType,
+      codingLanguage,
       role,
       started,
       showQuestions,
@@ -199,6 +240,7 @@ function Interview({ onBackToDashboard }) {
 
   }, [
     interviewType,
+    codingLanguage,
     role,
     started,
     showQuestions,
@@ -882,8 +924,9 @@ function Interview({ onBackToDashboard }) {
             body: JSON.stringify({
               role,
               interviewType,
+              codingLanguage,
               difficulty: "Medium",
-              count: 5,
+              count: interviewType === "Coding" ? 3 : 5,
             }),
           }
         );
@@ -927,8 +970,20 @@ function Interview({ onBackToDashboard }) {
       }
 
       const generatedQuestions = data.questions
-        .map((item) => typeof item === "string" ? item : item?.question)
+        .map((item) => {
+          if (typeof item === "string") return item;
+          if (interviewType === "Coding" && item?.category && item?.question) {
+            return `${item.category.toUpperCase()}\n\n${item.question}`;
+          }
+          return item?.question;
+        })
         .filter((question) => typeof question === "string" && question.trim());
+
+      if (interviewType === "Coding" && generatedQuestions.length !== 3) {
+        setError("The AI could not prepare all 3 coding problems. Please try again.");
+        setQuestionsLoading(false);
+        return false;
+      }
 
       if (generatedQuestions.length === 0) {
         setError("AI did not return any usable questions. Please try again.");
@@ -978,12 +1033,11 @@ function Interview({ onBackToDashboard }) {
 
     if (
       !interviewType ||
-      !role
+      !role ||
+      (interviewType === "Coding" && !codingLanguage)
     ) {
 
-      setError(
-        "Please select interview type and role."
-      );
+      setError("Choose an interview type and role. For coding, also choose a language.");
 
       return;
 
@@ -1034,6 +1088,7 @@ function Interview({ onBackToDashboard }) {
             body: JSON.stringify({
               interviewType,
               role,
+              codingLanguage: interviewType === "Coding" ? codingLanguage : "",
             }),
           }
         );
@@ -1094,7 +1149,9 @@ function Interview({ onBackToDashboard }) {
 
     // Start camera + microphone
 
-    await startCamera();
+    if (interviewType !== "Coding") {
+      await startCamera();
+    }
 
     // Generate AI questions
 
@@ -1335,6 +1392,7 @@ function Interview({ onBackToDashboard }) {
               answers: answersRef.current,
               role,
               interviewType,
+              codingLanguage,
             }),
           }
         );
@@ -1500,9 +1558,8 @@ function Interview({ onBackToDashboard }) {
 
             <div className="setup-card">
 
-              <h2>
-                Choose Interview Type
-              </h2>
+              <p className="setup-eyebrow">YOUR PRACTICE SESSION</p>
+              <h2>Choose your interview format</h2>
 
               <p>
                 Select the type of interview
@@ -1520,25 +1577,13 @@ function Interview({ onBackToDashboard }) {
                       ? "type-card selected"
                       : "type-card"
                   }
-
-                  onClick={() =>
-                    setInterviewType(
-                      "HR"
-                    )
-                  }
+                  type="button"
+                  aria-pressed={interviewType === "HR"}
+                  onClick={() => selectInterviewType("HR")}
                 >
-                  <span>
-                    👔
-                  </span>
-
-                  <h3>
-                    HR Interview
-                  </h3>
-
-                  <p>
-                    Behavioral and personality
-                    questions.
-                  </p>
+                  <span className="type-icon type-icon-hr">HR</span>
+                  <div className="type-card-copy"><h3>HR Interview</h3><p>Behavioral questions, communication, and workplace scenarios.</p></div>
+                  {interviewType === "HR" && <span className="type-selected-check">✓</span>}
 
                 </button>
 
@@ -1551,25 +1596,13 @@ function Interview({ onBackToDashboard }) {
                       ? "type-card selected"
                       : "type-card"
                   }
-
-                  onClick={() =>
-                    setInterviewType(
-                      "Technical"
-                    )
-                  }
+                  type="button"
+                  aria-pressed={interviewType === "Technical"}
+                  onClick={() => selectInterviewType("Technical")}
                 >
-                  <span>
-                    💻
-                  </span>
-
-                  <h3>
-                    Technical Interview
-                  </h3>
-
-                  <p>
-                    Technical and
-                    concept-based questions.
-                  </p>
+                  <span className="type-icon type-icon-technical">T</span>
+                  <div className="type-card-copy"><h3>Technical Interview</h3><p>Concepts, system knowledge, and role-specific questions.</p></div>
+                  {interviewType === "Technical" && <span className="type-selected-check">✓</span>}
 
                 </button>
 
@@ -1582,25 +1615,13 @@ function Interview({ onBackToDashboard }) {
                       ? "type-card selected"
                       : "type-card"
                   }
-
-                  onClick={() =>
-                    setInterviewType(
-                      "Coding"
-                    )
-                  }
+                  type="button"
+                  aria-pressed={interviewType === "Coding"}
+                  onClick={() => selectInterviewType("Coding")}
                 >
-                  <span>
-                    ⌨️
-                  </span>
-
-                  <h3>
-                    Coding Interview
-                  </h3>
-
-                  <p>
-                    Programming and
-                    problem-solving questions.
-                  </p>
+                  <span className="type-icon type-icon-coding">{`</>`}</span>
+                  <div className="type-card-copy"><h3>Coding Interview</h3><p>Three focused data-structure and algorithm challenges.</p></div>
+                  {interviewType === "Coding" && <span className="type-selected-check">✓</span>}
 
                 </button>
 
@@ -1610,16 +1631,17 @@ function Interview({ onBackToDashboard }) {
 
               <div className="role-section">
 
-                <h2>
-                  Select Your Role
-                </h2>
+                <h2>Select your role</h2>
 
                 <p>
-                  Choose the role you are
-                  preparing for.
+                  {interviewType === "Coding"
+                    ? "Choose a software role to get coding problems matched to your interview."
+                    : "Choose the role you are preparing for."}
                 </p>
 
                 <select
+                  id="interview-role"
+                  aria-label="Select your role"
                   value={role}
                   onChange={(e) =>
                     setRole(
@@ -1632,37 +1654,26 @@ function Interview({ onBackToDashboard }) {
                     Select a role
                   </option>
 
-                  <option value="Software Developer">
-                    Software Developer
-                  </option>
-
-                  <option value="Java Developer">
-                    Java Developer
-                  </option>
-
-                  <option value="Frontend Developer">
-                    Frontend Developer
-                  </option>
-
-                  <option value="Backend Developer">
-                    Backend Developer
-                  </option>
-
-                  <option value="Full Stack Developer">
-                    Full Stack Developer
-                  </option>
-
-                  <option value="Data Analyst">
-                    Data Analyst
-                  </option>
-
-                  <option value="Data Scientist">
-                    Data Scientist
-                  </option>
-
+                  {availableRoles.map((roleOption) => (
+                    <option key={roleOption} value={roleOption}>{roleOption}</option>
+                  ))}
                 </select>
 
               </div>
+
+              {interviewType === "Coding" && (
+                <div className="role-section coding-language-section">
+                  <label htmlFor="coding-language">Choose your coding language</label>
+                  <p>Challenges and AI feedback will use this language.</p>
+                  <select id="coding-language" value={codingLanguage} onChange={(event) => setCodingLanguage(event.target.value)}>
+                    {CODING_LANGUAGES.map((language) => <option key={language} value={language}>{language}</option>)}
+                  </select>
+                  <div className="coding-session-note">
+                    <strong>3 coding problems</strong>
+                    <span>Arrays, strings, stacks, linked lists, or trees · Medium difficulty</span>
+                  </div>
+                </div>
+              )}
 
               {/* ERROR */}
 
@@ -1776,6 +1787,8 @@ function Interview({ onBackToDashboard }) {
                     {role}
                   </h2>
 
+                  {interviewType === "Coding" && <span className="coding-language-chip">{codingLanguage}</span>}
+
                 </div>
 
                 <div className="question-count">
@@ -1792,7 +1805,8 @@ function Interview({ onBackToDashboard }) {
               {/* FLOATING CAMERA */}
               {/* ================================= */}
 
-              <div
+              {interviewType !== "Coding" && (<div
+                className="interview-camera-preview"
                 style={{
                   position: "fixed",
                   top: "80px",
@@ -1908,7 +1922,7 @@ function Interview({ onBackToDashboard }) {
 
                 )}
 
-              </div>
+              </div>)}
 
               {/* ================================= */}
               {/* ERRORS */}
@@ -2083,10 +2097,10 @@ function Interview({ onBackToDashboard }) {
               {/* QUESTION */}
               {/* ================================= */}
 
-              <div className="question-content">
+              <div className={`question-content${interviewType === "Coding" ? " coding-question-content" : ""}`}>
 
                 <p className="question-label">
-                  QUESTION{" "}
+                  {interviewType === "Coding" ? "CODING PROBLEM" : "QUESTION"}{" "}
                   {currentQuestion + 1}
                 </p>
 
@@ -2104,13 +2118,15 @@ function Interview({ onBackToDashboard }) {
               {/* ANSWER */}
               {/* ================================= */}
 
-              <div className="answer-section">
+              <div className={`answer-section${interviewType === "Coding" ? " coding-answer-section" : ""}`}>
 
                 <label>
-                  Your Answer
+                  {interviewType === "Coding" ? `Your solution · ${codingLanguage}` : "Your Answer"}
                 </label>
 
                 <textarea
+                  className={interviewType === "Coding" ? "code-answer-editor" : ""}
+                  onKeyDown={handleAnswerEditorKeyDown}
                   value={answer}
 
                   onChange={(e) =>
@@ -2120,13 +2136,19 @@ function Interview({ onBackToDashboard }) {
                   }
 
                   placeholder={
-                    isListening
+                    interviewType === "Coding"
+                      ? `Write your ${codingLanguage} solution here...`
+                      : isListening
                       ? "🔴 Listening... Speak your answer."
                       : "Type your answer or click Start Answer and speak..."
                   }
 
                   rows="8"
+                  wrap={interviewType === "Coding" ? "off" : "soft"}
+                  spellCheck={interviewType !== "Coding"}
+                  autoCapitalize={interviewType === "Coding" ? "off" : undefined}
                 />
+                {interviewType === "Coding" && <p className="coding-review-note">AI will review your approach, code clarity, edge cases, and complexity. This interview does not compile or execute code.</p>}
 
               </div>
 
@@ -2134,7 +2156,7 @@ function Interview({ onBackToDashboard }) {
               {/* SPEECH CONTROLS */}
               {/* ================================= */}
 
-              {speechSupported ? (
+              {interviewType !== "Coding" && (speechSupported ? (
 
                 <div
                   style={{
@@ -2316,7 +2338,7 @@ function Interview({ onBackToDashboard }) {
                   or Microsoft Edge.
                 </div>
 
-              )}
+              ))}
 
               {/* ================================= */}
               {/* ERROR */}
@@ -2403,6 +2425,8 @@ function Interview({ onBackToDashboard }) {
                   {role}
                 </span>
 
+                {interviewType === "Coding" && <span>{codingLanguage}</span>}
+
               </div>
 
               <div className="overall-score">
@@ -2425,7 +2449,7 @@ function Interview({ onBackToDashboard }) {
                 <div className="score-box">
 
                   <span>
-                    Communication
+                    {interviewType === "Coding" ? "Code Quality" : "Communication"}
                   </span>
 
                   <strong>
@@ -2438,7 +2462,7 @@ function Interview({ onBackToDashboard }) {
                 <div className="score-box">
 
                   <span>
-                    Relevance
+                    {interviewType === "Coding" ? "Correctness" : "Relevance"}
                   </span>
 
                   <strong>
@@ -2451,7 +2475,7 @@ function Interview({ onBackToDashboard }) {
                 <div className="score-box">
 
                   <span>
-                    Clarity
+                    {interviewType === "Coding" ? "Complexity & edge cases" : "Clarity"}
                   </span>
 
                   <strong>

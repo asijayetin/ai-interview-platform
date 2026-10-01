@@ -949,7 +949,7 @@ function Dashboard({ onStartInterview }) {
 
         <div className="stat-card">
 
-          <span>📝</span>
+          <span className="stat-glyph stat-glyph-interviews">I</span>
 
           <div>
 
@@ -968,7 +968,7 @@ function Dashboard({ onStartInterview }) {
 
         <div className="stat-card">
 
-          <span>📊</span>
+          <span className="stat-glyph stat-glyph-average">↗</span>
 
           <div>
 
@@ -987,7 +987,7 @@ function Dashboard({ onStartInterview }) {
 
         <div className="stat-card">
 
-          <span>🏆</span>
+          <span className="stat-glyph stat-glyph-best">★</span>
 
           <div>
 
@@ -1006,7 +1006,7 @@ function Dashboard({ onStartInterview }) {
 
         <div className="stat-card">
 
-          <span>✅</span>
+          <span className="stat-glyph stat-glyph-completed">✓</span>
 
           <div>
 
@@ -1282,16 +1282,8 @@ function Dashboard({ onStartInterview }) {
 
                         <div className="history-info">
 
-                          <div className="history-icon">
-
-                            {interview.interviewType ===
-                            "HR"
-                              ? "👔"
-                              : interview.interviewType ===
-                                "Technical"
-                              ? "💻"
-                              : "⌨️"}
-
+                          <div className={`history-icon history-icon-${String(interview.interviewType || "technical").toLowerCase()}`}>
+                            {interview.interviewType === "HR" ? "HR" : interview.interviewType === "Technical" ? "T" : "</>"}
                           </div>
 
                           <div>
@@ -1313,9 +1305,8 @@ function Dashboard({ onStartInterview }) {
                         <div className="history-details">
 
                           <span>
-                            {interview.answers?.length ||
-                              0}
-                            /5 Answers
+                            {interview.answers?.length || 0}
+                            /{interview.interviewType === "Coding" ? 3 : 5} {interview.interviewType === "Coding" ? "problems" : "answers"}
                           </span>
 
 
