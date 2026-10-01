@@ -2211,7 +2211,7 @@ function Interview({ onBackToDashboard }) {
 
                 {interviewType === "Coding" ? (
                   <div className="coding-editor-window">
-                    <div className="coding-file-bar"><span className="coding-file-dots"><i /><i /><i /></span><code>{codingLanguage === "Java" || codingLanguage === "C#" ? "Solution" : "solution"}.{({ Java: "java", "C++": "cpp", Python: "py", JavaScript: "js", "C#": "cs" })[codingLanguage]}</code><span>Auto-saved</span></div>
+                    <div className="coding-file-bar"><span className="coding-file-dots"><i /><i /><i /></span><code>{codingLanguage === "Java" ? "Main" : codingLanguage === "C#" ? "Solution" : "solution"}.{({ Java: "java", "C++": "cpp", Python: "py", JavaScript: "js", "C#": "cs" })[codingLanguage]}</code><span>Auto-saved</span></div>
                     <div className="coding-source-editor">
                       <CodeEditor
                         language={RUNNER_LANGUAGE_IDS[codingLanguage]}

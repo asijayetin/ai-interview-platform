@@ -8,7 +8,7 @@ const API_URL = (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://
 const LANGUAGE_INFO = {
   javascript: { label: "JavaScript", ext: "js", starter: `// Write and run your code here\nconst input = require('fs').readFileSync(0, 'utf8').trim();\nconsole.log(input || 'Hello, world!');` },
   python: { label: "Python", ext: "py", starter: `# Write and run your code here\nimport sys\n\ntext = sys.stdin.read().strip()\nprint(text or "Hello, world!")` },
-  java: { label: "Java", ext: "java", starter: `import java.util.*;\n\npublic class Main {\n    public static void main(String[] args) {\n        Scanner scanner = new Scanner(System.in);\n        String input = scanner.hasNextLine() ? scanner.nextLine() : "Hello, world!";\n        System.out.println(input);\n    }\n}` },
+  java: { label: "Java", ext: "java", starter: `import java.util.*;\n\nclass Main {\n    public static void main(String[] args) {\n        Scanner scanner = new Scanner(System.in);\n        String input = scanner.hasNextLine() ? scanner.nextLine() : "Hello, world!";\n        System.out.println(input);\n    }\n}` },
   cpp: { label: "C++", ext: "cpp", starter: `#include <iostream>\n#include <string>\nusing namespace std;\n\nint main() {\n    string input;\n    getline(cin, input);\n    cout << (input.empty() ? "Hello, world!" : input) << endl;\n    return 0;\n}` },
   csharp: { label: "C#", ext: "cs", starter: `using System;\n\nclass Program {\n    static void Main() {\n        var input = Console.ReadLine();\n        Console.WriteLine(string.IsNullOrEmpty(input) ? "Hello, world!" : input);\n    }\n}` },
 };

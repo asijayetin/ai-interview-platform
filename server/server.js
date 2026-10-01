@@ -1503,7 +1503,7 @@ app.post(
         : Math.max(1, Math.min(Number(count) || 5, 10));
 
       const prompt = isCodingInterview
-        ? `Create exactly 3 distinct, medium-difficulty coding interview problems for a ${role} candidate using ${codingLanguage}. Use these exact three topics in order, one per problem: ${selectedCodingTopics.join(", ")}. Do not substitute, repeat, or combine the topics. Problems should suit entry to mid-level candidates, use clear constraints, and avoid obscure tricks. Do not repeat or lightly reword these recent problems: ${JSON.stringify(recentCodingQuestions)}. For every problem return: "question" (plain-language statement), "category" (the exact topic string above), "functionName" (a short valid identifier), "starterCode" (a complete, runnable ${codingLanguage} program containing imports, one clearly marked TODO solution function with a placeholder body only, plus a main entry point that reads stdin, calls that function with the parsed input, and prints its result; do not include the solution), "exampleInput" (a short valid stdin string matching the problem input format), and "exampleOutput" (the expected stdout for that input). The starterCode must read the exampleInput from stdin, and its sample output must match exampleOutput. Do not provide a solution, pseudocode, or completed algorithm. Keep each starterCode compact and compilable. Return ONLY a valid JSON array of exactly 3 objects.`
+        ? `Create exactly 3 distinct, medium-difficulty coding interview problems for a ${role} candidate using ${codingLanguage}. Use these exact three topics in order, one per problem: ${selectedCodingTopics.join(", ")}. Do not substitute, repeat, or combine the topics. Problems should suit entry to mid-level candidates, use clear constraints, and avoid obscure tricks. Do not repeat or lightly reword these recent problems: ${JSON.stringify(recentCodingQuestions)}. For every problem return: "question" (plain-language statement), "category" (the exact topic string above), "functionName" (a short valid identifier), "starterCode" (a complete, runnable ${codingLanguage} program containing imports, one clearly marked TODO solution function with a placeholder body only, plus a main entry point that reads stdin, calls that function with the parsed input, and prints its result; do not include the solution), "exampleInput" (a short valid stdin string matching the problem input format), and "exampleOutput" (the expected stdout for that input). The starterCode must read the exampleInput from stdin, and its sample output must match exampleOutput. For Java, declare Main as a package-private class, not a public class, because the hosted compiler uses a generated source filename. Do not provide a solution, pseudocode, or completed algorithm. Keep each starterCode compact and compilable. Return ONLY a valid JSON array of exactly 3 objects.`
         : `Generate ${numberOfQuestions} ${difficulty || "Medium"} interview questions for the role ${role || "Software Developer"}. Interview type: ${interviewType || "Technical"}. Return ONLY a valid JSON array. Each object must contain "question" and "category".`;
 
       const generatedText =
@@ -1925,12 +1925,17 @@ app.post("/api/code/run", authMiddleware, async (req, res) => {
     const compiler = chooseWandboxCompiler(compilers, language);
     if (!compiler) return res.status(400).json({ message: "That language is temporarily unavailable in the hosted compiler." });
 
+    // Wandbox compiles Java source from prog.java, so a public Main class fails
+    // Java's public-type/file-name rule. Keep Main launchable but package-private.
+    const sourceCode = language === "java"
+      ? code.replace(/^([ \t]*)public[ \t]+(?=class[ \t]+Main\b)/gm, "$1")
+      : code;
     const response = await fetchWandbox(`${WANDBOX_API}/compile.json`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         compiler: compiler.name,
-        code,
+        code: sourceCode,
         stdin,
         save: false,
       }),
