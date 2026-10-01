@@ -1360,6 +1360,10 @@ app.post(
         });
       }
 
+      await sendPhoneVerification(
+        normalizedPhone
+      );
+
       user.phone =
         normalizedPhone;
 
@@ -1370,10 +1374,6 @@ app.post(
         new Date();
 
       await user.save();
-
-      await sendPhoneVerification(
-        normalizedPhone
-      );
 
       console.log(
         "Phone OTP sent to:",
@@ -1390,6 +1390,13 @@ app.post(
         "Send phone OTP error:",
         error
       );
+
+      if (Number(error.code) === 21608) {
+        return res.status(403).json({
+          message:
+            "Twilio trial only sends OTPs to verified recipient numbers. Verify this number in Twilio Console or upgrade the Twilio account.",
+        });
+      }
 
       res.status(500).json({
         message:
