@@ -8,7 +8,7 @@ const API_URL = (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://
 const SELECTED_INTERVIEW_KEY =
   "selectedInterviewId";
 
-function Dashboard({ onStartInterview, onProfile, onLogout }) {
+function Dashboard({ onStartInterview, onProfile, onLogout, onReviewResume }) {
   const [interviews, setInterviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -964,6 +964,19 @@ function Dashboard({ onStartInterview, onProfile, onLogout }) {
           Ready to practice and improve your interview skills?
         </p>
 
+      </section>
+
+      <section className="resume-review-card">
+        <div className="resume-review-copy">
+          <span className="dashboard-icon">📄</span>
+          <div>
+            <h3>Get your resume reviewed</h3>
+            <p>See how well it fits your target role, find skill gaps, and get specific improvements.</p>
+          </div>
+        </div>
+        <button className="secondary-btn" onClick={onReviewResume}>
+          Review Resume →
+        </button>
       </section>
 
 

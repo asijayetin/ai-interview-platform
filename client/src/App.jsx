@@ -7,6 +7,7 @@ import Dashboard from "./Dashboard";
 import Interview from "./Interview";
 import Profile from "./Profile";
 import Settings from "./Settings";
+import ResumeReview from "./ResumeReview";
 
 function App() {
 
@@ -261,6 +262,7 @@ function App() {
 
       {page !== "dashboard" &&
         page !== "interview" &&
+        page !== "resume-review" &&
         page !== "settings" && (
 
         <header className="navbar">
@@ -469,6 +471,7 @@ function App() {
 
           onLogout={handleLogout}
           onProfile={() => setPage("profile")}
+          onReviewResume={() => setPage("resume-review")}
 
         />
 
@@ -502,6 +505,12 @@ function App() {
           }
         />
 
+      )}
+
+      {page === "resume-review" && (
+        <ResumeReview
+          onBackToDashboard={() => setPage("dashboard")}
+        />
       )}
 
 
