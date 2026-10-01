@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import "./CodingInterview.css";
 
 const API_URL = (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:5000" : ""))
   .trim()
@@ -143,6 +144,7 @@ function Interview({ onBackToDashboard }) {
   const [codingOutput, setCodingOutput] = useState(null);
   const [codingRunError, setCodingRunError] = useState("");
   const [codingRunning, setCodingRunning] = useState(false);
+  const codeEditorLineCount = Math.max(answer.split("\n").length, 18);
 
   // ==========================================
   // EVALUATION
@@ -1586,7 +1588,7 @@ function Interview({ onBackToDashboard }) {
   return (
     <div className="interview-page">
 
-      <div className="interview-container">
+      <div className={`interview-container${interviewType === "Coding" && showQuestions ? " coding-interview-container" : ""}`}>
 
         {/* ================================== */}
         {/* TOP SECTION */}
@@ -1834,9 +1836,9 @@ function Interview({ onBackToDashboard }) {
         {showQuestions &&
           !completed && (
 
-          <div className="questions-section">
+          <div className={`questions-section${interviewType === "Coding" ? " coding-interview-section" : ""}`}>
 
-            <div className="question-card">
+            <div className={`question-card${interviewType === "Coding" ? " coding-interview-card" : ""}`}>
 
               {/* HEADER */}
 
@@ -2207,31 +2209,35 @@ function Interview({ onBackToDashboard }) {
 
                 {interviewType !== "Coding" && <label>Your Answer</label>}
 
-                <textarea
-                  id={interviewType === "Coding" ? "coding-solution-editor" : undefined}
-                  className={interviewType === "Coding" ? "code-answer-editor" : ""}
-                  onKeyDown={handleAnswerEditorKeyDown}
-                  value={answer}
-
-                  onChange={(e) =>
-                    setAnswer(
-                      e.target.value
-                    )
-                  }
-
-                  placeholder={
-                    interviewType === "Coding"
-                      ? `Write your ${codingLanguage} solution here...`
-                      : isListening
-                      ? "🔴 Listening... Speak your answer."
-                      : "Type your answer or click Start Answer and speak..."
-                  }
-
-                  rows="8"
-                  wrap={interviewType === "Coding" ? "off" : "soft"}
-                  spellCheck={interviewType !== "Coding"}
-                  autoCapitalize={interviewType === "Coding" ? "off" : undefined}
-                />
+                {interviewType === "Coding" ? (
+                  <div className="coding-editor-window">
+                    <div className="coding-file-bar"><span className="coding-file-dots"><i /><i /><i /></span><code>{codingLanguage === "Java" || codingLanguage === "C#" ? "Solution" : "solution"}.{({ Java: "java", "C++": "cpp", Python: "py", JavaScript: "js", "C#": "cs" })[codingLanguage]}</code><span>Auto-saved</span></div>
+                    <div className="coding-source-editor">
+                      <div className="coding-line-gutter" aria-hidden="true">{Array.from({ length: codeEditorLineCount }, (_, index) => <span key={index}>{index + 1}</span>)}</div>
+                      <textarea
+                        id="coding-solution-editor"
+                        className="code-answer-editor"
+                        onKeyDown={handleAnswerEditorKeyDown}
+                        value={answer}
+                        onChange={(event) => setAnswer(event.target.value)}
+                        placeholder={`Write your ${codingLanguage} solution here…`}
+                        wrap="off"
+                        spellCheck={false}
+                        autoCapitalize="off"
+                        autoComplete="off"
+                        autoCorrect="off"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <textarea
+                    onKeyDown={handleAnswerEditorKeyDown}
+                    value={answer}
+                    onChange={(event) => setAnswer(event.target.value)}
+                    placeholder={isListening ? "🔴 Listening... Speak your answer." : "Type your answer or click Start Answer and speak..."}
+                    rows="8"
+                  />
+                )}
                 {interviewType === "Coding" && (
                   <div className="coding-compiler-grid">
                     <label className="coding-console-panel"><span>Sample / custom input <small>stdin</small></span>
