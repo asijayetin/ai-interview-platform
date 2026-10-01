@@ -913,11 +913,11 @@ function Dashboard({ onStartInterview }) {
         <div>
 
           <h1>
-            Your Progress
+            Overview
           </h1>
 
           <p>
-            Track your interview practice and results.
+            Your interview preparation at a glance.
           </p>
 
         </div>
@@ -930,11 +930,11 @@ function Dashboard({ onStartInterview }) {
       <section className="welcome-section">
 
         <p className="small-heading">
-          DASHBOARD
+          YOUR PREPARATION
         </p>
 
         <h2>
-          Welcome, {user?.name || "User"} 👋
+          Welcome back, {user?.name || "there"} 👋
         </h2>
 
         <p>

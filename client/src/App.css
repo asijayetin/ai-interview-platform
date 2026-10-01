@@ -260,6 +260,94 @@ a {
   .workspace-placeholder-page { min-height: calc(100vh - 58px); padding: 24px 14px; }
 }
 
+/* Shared product theme polish */
+:root {
+  --workspace-ink: #111827;
+  --workspace-muted: #667085;
+  --workspace-line: #e6eaf0;
+  --workspace-accent: #6558d3;
+  --workspace-canvas: #f6f7fb;
+}
+
+body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: var(--workspace-ink); }
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 3px solid rgba(101, 88, 211, .28); outline-offset: 2px; }
+
+.workspace-layout { background: var(--workspace-canvas); }
+.workspace-sidebar { background: #151a2a; border-right-color: #252b3b; color: #f8fafc; }
+.workspace-brand { color: #f8fafc; font-size: 15px; }
+.workspace-brand-mark { background: linear-gradient(145deg, #8177ee, #5b50ca); color: #fff; box-shadow: 0 5px 14px rgba(101, 88, 211, .25); }
+.workspace-nav-label { color: #8c94a8; }
+.workspace-nav-item { color: #b4bbca; }
+.workspace-nav-item:hover { background: #20263a; color: #fff; }
+.workspace-nav-item.is-active { background: #2a2f48; color: #c3bdff; box-shadow: inset 3px 0 #8278f0; }
+.workspace-nav-icon { color: inherit; }
+.workspace-soon-badge { margin-left: auto; padding: 3px 5px; border: 1px solid #3d4558; border-radius: 5px; color: #aab2c2; font-size: 8px; font-weight: 750; letter-spacing: .4px; }
+.workspace-sidebar-bottom { border-top-color: #2b3142; }
+.workspace-profile-button { color: #e8ebf2; }
+.workspace-profile-button:hover { background: #20263a; }
+.workspace-user-avatar { background: linear-gradient(145deg, #8177ee, #5b50ca); color: #fff; }
+.workspace-user-details strong { color: #f1f3f8; }
+.workspace-user-details small { color: #929bad; }
+.workspace-logout-button { color: #aeb6c6; }
+.workspace-logout-button:hover { background: #302231; color: #ffb8c5; }
+.workspace-main { background: var(--workspace-canvas); }
+
+.workspace-main > .dashboard { padding-top: 34px; }
+.workspace-main .dashboard-header { padding-bottom: 19px; border-bottom-color: var(--workspace-line); }
+.workspace-main .dashboard-header h1 { color: var(--workspace-ink); font-size: 24px; letter-spacing: -.55px; }
+.workspace-main .dashboard-header p { color: var(--workspace-muted); }
+.workspace-main .welcome-section { padding: 36px 0 27px; }
+.workspace-main .welcome-section .small-heading { color: var(--workspace-accent); font-size: 10px; letter-spacing: 1.6px; }
+.workspace-main .welcome-section h2 { color: #161c2e; font-size: clamp(29px, 3vw, 36px); letter-spacing: -1.2px; }
+.workspace-main .welcome-section > p:last-child { color: var(--workspace-muted); }
+.workspace-main .dashboard-stats { gap: 15px; margin-bottom: 32px; }
+.workspace-main .stat-card { min-height: 112px; padding: 19px; gap: 14px; border-color: var(--workspace-line); border-radius: 13px; box-shadow: 0 3px 10px rgba(21, 29, 48, .025); }
+.workspace-main .stat-card:hover { transform: translateY(-2px); box-shadow: 0 11px 25px rgba(21, 29, 48, .07); }
+.workspace-main .stat-card > span { border-radius: 11px; }
+.workspace-main .stat-card h3 { color: #171d2f; font-size: 24px; }
+.workspace-main .stat-card p { color: var(--workspace-muted); font-size: 12px; }
+.workspace-main .recent-section { padding: 25px; border-color: var(--workspace-line); border-radius: 14px; box-shadow: 0 3px 10px rgba(21, 29, 48, .025); }
+.workspace-main .section-title { margin-bottom: 23px; }
+.workspace-main .section-title h2 { color: #20263a; font-size: 19px; letter-spacing: -.3px; }
+.workspace-main .section-title p { color: var(--workspace-muted); font-size: 13px; }
+.workspace-main .interview-page { background: transparent; }
+.workspace-main .interview-container { max-width: 1060px; }
+.workspace-main .interview-top h1 { color: #161c2e; font-size: clamp(32px, 4vw, 40px); letter-spacing: -1.1px; }
+.workspace-main .interview-top p { color: var(--workspace-muted); }
+.workspace-main .interview-setup,
+.workspace-main .interview-started,
+.workspace-main .interview-history,
+.workspace-main .question-card { border-color: var(--workspace-line); box-shadow: 0 8px 24px rgba(21, 29, 48, .045); }
+.workspace-main .resume-review-panel,
+.workspace-main .resume-result-card,
+.workspace-main .resume-score-card,
+.workspace-placeholder-card { border-color: var(--workspace-line); box-shadow: 0 12px 34px rgba(21, 29, 48, .045); }
+.workspace-main .resume-review-panel h1,
+.workspace-main .workspace-placeholder-card h1 { color: #161c2e; letter-spacing: -1.1px; }
+.workspace-main .resume-review-form input[type="text"],
+.workspace-main .resume-review-form input[type="file"] { border-color: #d8deea; border-radius: 10px; transition: border-color .15s, box-shadow .15s; }
+.workspace-main .resume-review-form input:focus { border-color: var(--workspace-accent); box-shadow: 0 0 0 3px rgba(101, 88, 211, .12); outline: none; }
+.workspace-main .resume-submit-button { border-radius: 10px; background: #252d46; box-shadow: 0 5px 12px rgba(28, 37, 62, .12); }
+.workspace-main .resume-submit-button:hover { background: #343e60; transform: translateY(-1px); }
+.workspace-main .resume-score-ring { border-color: #d8d4ff; color: #5146bd; }
+.workspace-main .workspace-placeholder-icon { background: #eeecff; color: #5f53ca; }
+.workspace-main .workspace-status-pill { background: #f0efff; color: #554bb5; }
+
+@media (max-width: 760px) {
+  .workspace-mobile-bar { background: rgba(21, 26, 42, .97); border-bottom-color: #252b3b; color: #fff; }
+  .workspace-menu-toggle { background: #252b3b; color: #f8fafc; }
+  .workspace-mobile-brand { color: #f8fafc; }
+  .workspace-mobile-current { color: #b5bdd0; }
+  .workspace-sidebar { background: #151a2a; }
+  .workspace-sidebar-scrim { background: rgba(10, 14, 27, .5); }
+  .workspace-main > .dashboard { padding: 25px 18px 42px; }
+  .workspace-main .dashboard-header { align-items: flex-start; }
+  .workspace-main .welcome-section { padding: 28px 0 23px; }
+  .workspace-main .dashboard-stats { gap: 10px; }
+  .workspace-main .stat-card { min-height: 96px; padding: 14px; }
+  .workspace-main .recent-section { padding: 18px; }
+}
+
 
 /* =========================================
    NAVBAR
