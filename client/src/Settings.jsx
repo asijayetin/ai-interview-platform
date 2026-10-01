@@ -162,6 +162,7 @@ function Settings({ onBackToProfile }) {
           {
             method: "POST",
             headers: authHeaders,
+            body: JSON.stringify({ email: user.email }),
             signal: controller.signal,
           }
         );
@@ -173,7 +174,7 @@ function Settings({ onBackToProfile }) {
 
       if (!response.ok) {
         setOtpError(
-          data.message || "Unable to send email OTP."
+          data.error || data.message || "Unable to send email OTP."
         );
         return;
       }
@@ -219,7 +220,7 @@ function Settings({ onBackToProfile }) {
         {
           method: "POST",
           headers: authHeaders,
-          body: JSON.stringify({ otp }),
+          body: JSON.stringify({ email: user.email, otp }),
         }
       );
 
@@ -236,10 +237,11 @@ function Settings({ onBackToProfile }) {
         "Email verified successfully."
       );
 
-      setUser((previous) => ({
-        ...previous,
-        emailVerified: true,
-      }));
+      const verifiedUser = data.user
+        ? { ...user, ...data.user, emailVerified: true }
+        : { ...user, emailVerified: true };
+      setUser(verifiedUser);
+      localStorage.setItem("user", JSON.stringify(verifiedUser));
     } catch (error) {
       console.log("Verify email OTP error:", error);
       setOtpError(
@@ -297,7 +299,7 @@ function Settings({ onBackToProfile }) {
 
       if (!response.ok) {
         setOtpError(
-          data.message || "Unable to send phone OTP."
+          data.error || data.message || "Unable to send phone OTP."
         );
         return;
       }
