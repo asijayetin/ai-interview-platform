@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:5000" : ""))
+  .trim()
+  .replace(/\/+$/, "")
+  .replace(/\/api$/i, "");
 
 const INTERVIEW_SESSION_KEY =
   "activeInterviewSession";
@@ -117,6 +120,8 @@ function Interview({ onBackToDashboard }) {
 
   const videoRef = useRef(null);
 
+  const answersRef = useRef(savedSession?.answers || []);
+
   const streamRef = useRef(null);
 
   const [cameraActive, setCameraActive] =
@@ -173,6 +178,7 @@ function Interview({ onBackToDashboard }) {
       answer,
       completed,
       evaluation,
+      answers: answersRef.current,
     };
 
     try {
@@ -846,7 +852,7 @@ function Interview({ onBackToDashboard }) {
 
       const response =
         await fetch(
-          `${API_URL}/api/interviews/${interviewId}/questions`,
+          `${API_URL}/api/gemini/generate`,
           {
             method: "POST",
 
@@ -857,6 +863,12 @@ function Interview({ onBackToDashboard }) {
               Authorization:
                 `Bearer ${token}`,
             },
+            body: JSON.stringify({
+              role,
+              interviewType,
+              difficulty: "Medium",
+              count: 5,
+            }),
           }
         );
 
@@ -869,43 +881,6 @@ function Interview({ onBackToDashboard }) {
       );
 
       if (!response.ok) {
-
-        // If saved interview no longer exists,
-        // remove stale local session.
-
-        if (
-          response.status === 404 ||
-          (
-            data.error &&
-            data.error
-              .toLowerCase()
-              .includes(
-                "interview"
-              ) &&
-            data.error
-              .toLowerCase()
-              .includes(
-                "not found"
-              )
-          )
-        ) {
-
-          localStorage.removeItem(
-            INTERVIEW_SESSION_KEY
-          );
-
-          setInterviewId(null);
-
-          setStarted(false);
-
-          setShowQuestions(false);
-
-          setQuestions([]);
-
-          setCurrentQuestion(0);
-
-        }
-
         setError(
           data.error ||
             data.message ||
@@ -935,15 +910,23 @@ function Interview({ onBackToDashboard }) {
 
       }
 
-      setQuestions(
-        data.questions
-      );
+      const generatedQuestions = data.questions
+        .map((item) => typeof item === "string" ? item : item?.question)
+        .filter((question) => typeof question === "string" && question.trim());
+
+      if (generatedQuestions.length === 0) {
+        setError("AI did not return any usable questions. Please try again.");
+        setQuestionsLoading(false);
+        return false;
+      }
+
+      setQuestions(generatedQuestions);
 
       setCurrentQuestion(0);
 
       console.log(
         "AI questions generated:",
-        data.questions
+        generatedQuestions
       );
 
       setQuestionsLoading(false);
@@ -1014,6 +997,7 @@ function Interview({ onBackToDashboard }) {
     }
 
     setLoading(true);
+    answersRef.current = [];
 
     try {
 
@@ -1043,11 +1027,10 @@ function Interview({ onBackToDashboard }) {
 
       if (!response.ok) {
 
-        setError(
-          data.error ||
-            data.message ||
-            "Failed to start interview."
-        );
+        const message = data.error || data.message || "Failed to start interview.";
+        setError(response.status === 404
+          ? `${message} (${API_URL}${data.path || "/api/interviews"})`
+          : message);
 
         setLoading(false);
 
@@ -1220,6 +1203,8 @@ function Interview({ onBackToDashboard }) {
 
       }
 
+      answersRef.current = data.interview.answers || answersRef.current;
+
       console.log(
         "Answer saved:",
         data.interview
@@ -1320,14 +1305,21 @@ function Interview({ onBackToDashboard }) {
 
       const response =
         await fetch(
-          `${API_URL}/api/interviews/${interviewId}/evaluate`,
+          `${API_URL}/api/gemini/evaluate`,
           {
             method: "POST",
 
             headers: {
+              "Content-Type": "application/json",
               Authorization:
                 `Bearer ${token}`,
             },
+            body: JSON.stringify({
+              questions,
+              answers: answersRef.current,
+              role,
+              interviewType,
+            }),
           }
         );
 
@@ -1374,6 +1366,20 @@ function Interview({ onBackToDashboard }) {
         data.evaluation
       );
 
+      const saveResponse = await fetch(`${API_URL}/api/interviews/${interviewId}/result`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ evaluation: data.evaluation }),
+      });
+      if (!saveResponse.ok) {
+        const saveData = await saveResponse.json().catch(() => ({}));
+        setError(saveData.message || "Interview completed, but the result could not be saved.");
+        return;
+      }
+
       setCompleted(true);
 
     } catch (error) {
@@ -1407,6 +1413,7 @@ function Interview({ onBackToDashboard }) {
     setShowQuestions(false);
     setInterviewId(null);
     setQuestions([]);
+    answersRef.current = [];
     setCurrentQuestion(0);
     setAnswer("");
     setCompleted(false);

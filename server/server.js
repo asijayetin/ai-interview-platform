@@ -6,6 +6,8 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const twilio = require("twilio");
 
+const dns = require("dns");
+dns.setServers(["8.8.8.8", "1.1.1.1"]);
 require("dotenv").config();
 
 const User = require("./models/User");
@@ -1825,6 +1827,64 @@ app.delete(
 // GEMINI INTERVIEW GENERATION
 // ========================================
 
+// Save each answer to the interview currently in progress.
+app.post(
+  "/api/interviews/:id/answer",
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const { question, answer } = req.body;
+      if (!question || !answer?.trim()) {
+        return res.status(400).json({ message: "Question and answer are required" });
+      }
+
+      const interview = await Interview.findOneAndUpdate(
+        { _id: req.params.id, userId: req.user.userId },
+        { $push: { answers: { question, answer: answer.trim() } } },
+        { new: true, runValidators: true }
+      );
+      if (!interview) {
+        return res.status(404).json({ message: "Interview not found" });
+      }
+      return res.json({ interview });
+    } catch (error) {
+      return res.status(500).json({ message: "Failed to save answer", error: error.message });
+    }
+  }
+);
+
+// Store the evaluation on the same interview record shown in history.
+app.put(
+  "/api/interviews/:id/result",
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const { evaluation } = req.body;
+      if (!evaluation) {
+        return res.status(400).json({ message: "Evaluation is required" });
+      }
+      const interview = await Interview.findOneAndUpdate(
+        { _id: req.params.id, userId: req.user.userId },
+        {
+          score: evaluation.score,
+          communicationScore: evaluation.communicationScore,
+          relevanceScore: evaluation.relevanceScore,
+          clarityScore: evaluation.clarityScore,
+          feedback: evaluation.feedback || "",
+          improvements: evaluation.improvements || "",
+        },
+        { new: true, runValidators: true }
+      );
+      if (!interview) {
+        return res.status(404).json({ message: "Interview not found" });
+      }
+      return res.json({ interview });
+    } catch (error) {
+      return res.status(500).json({ message: "Failed to save interview result", error: error.message });
+    }
+  }
+);
+
 app.post(
   "/api/gemini/generate",
 
@@ -2036,7 +2096,7 @@ Return ONLY valid JSON in this exact structure:
   "improvements": ""
 }
 
-Scores must be from 0 to 100.
+Scores must be from 0 to 10.
 `;
 
       const response =
@@ -2384,4 +2444,3 @@ mongoose
       );
     }
   );
-  
