@@ -204,7 +204,8 @@ const getAzureFoundryChatCompletion = async (prompt) => {
     endpointUrl.hash = "";
     endpointUrl.pathname = endpointUrl.pathname
       .replace(/\/+$/, "")
-      .replace(/\/openai\/v1(?:\/chat\/completions)?$/i, "");
+      .replace(/\/openai\/v1(?:\/chat\/completions)?$/i, "")
+      .replace(/\/openai\/deployments\/[^/]+(?:\/chat\/completions)?$/i, "");
     baseEndpoint = endpointUrl.toString().replace(/\/$/, "");
   } catch {
     throw new Error("AZURE_FOUNDRY_ENDPOINT must be a valid HTTPS URL copied from Foundry.");
@@ -237,7 +238,7 @@ const getAzureFoundryChatCompletion = async (prompt) => {
       responseText.slice(0, 400) ||
       "No error details returned";
     const error = new Error(
-      `Azure AI Foundry HTTP ${response.status}: ${azureMessage} (deployment: ${deployment})`
+      `Azure AI Foundry HTTP ${response.status}: ${azureMessage} (deployment: ${deployment}; URL: ${baseEndpoint}/openai/v1/chat/completions)`
     );
     error.statusCode = response.status;
     throw error;
