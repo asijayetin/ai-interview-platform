@@ -20,7 +20,6 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.9.4",
     "nodemailer": "^10.0.1",
-    "openai": "^7.10.0",
-    "twilio": "^6.1.0"
+    "openai": "^7.10.0"
   }
 }
