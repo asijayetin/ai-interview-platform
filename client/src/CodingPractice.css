@@ -1,0 +1,53 @@
+.practice-page { width: min(100%, 1320px); margin: 0 auto; padding: 38px clamp(20px, 4vw, 54px) 60px; color: #182138; }
+.practice-heading { display: flex; justify-content: space-between; align-items: center; gap: 22px; margin-bottom: 27px; }
+.practice-heading .small-heading { margin-bottom: 10px; color: #6257cf; font-size: 10px; font-weight: 800; letter-spacing: 1.4px; }
+.practice-heading h1 { margin-bottom: 7px; font-size: clamp(27px, 3vw, 36px); letter-spacing: -1.1px; }
+.practice-heading p:not(.small-heading) { color: #69758b; font-size: 14px; }
+.runner-status { display: inline-flex; flex-shrink: 0; align-items: center; gap: 8px; padding: 9px 12px; border: 1px solid #e2e6ef; border-radius: 999px; color: #657187; background: #fff; font-size: 11px; font-weight: 700; }
+.runner-status i { width: 7px; height: 7px; border-radius: 50%; background: #dda74d; }
+.runner-status.is-ready { color: #267865; border-color: #cbe9df; background: #f1fbf7; }
+.runner-status.is-ready i { background: #35a984; }
+.practice-workbench { overflow: hidden; border: 1px solid #e0e5ef; border-radius: 16px; background: #fff; box-shadow: 0 12px 36px rgba(25, 34, 57, .06); }
+.practice-toolbar { min-height: 76px; display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 13px 17px; border-bottom: 1px solid #e8ebf1; background: #fbfcfe; }
+.practice-language-select { display: flex; align-items: center; gap: 12px; color: #707b8f; font-size: 12px; font-weight: 650; }
+.practice-language-select select { min-width: 154px; padding: 10px 35px 10px 12px; border: 1px solid #dce2ec; border-radius: 8px; color: #202a41; background: #fff; font-size: 13px; }
+.practice-toolbar-actions { display: flex; align-items: center; gap: 11px; }
+.practice-reset-btn { padding: 10px 12px; border: 1px solid transparent; border-radius: 8px; color: #667187; background: transparent; font-size: 12px; font-weight: 650; }
+.practice-reset-btn:hover { border-color: #e3e6ef; background: #fff; }
+.practice-run-btn { min-width: 140px; padding: 10px 12px; border: 1px solid #5148b6; border-radius: 8px; color: #fff; background: #5f55c7; box-shadow: 0 3px 9px rgba(85, 75, 191, .18); font-size: 12px; font-weight: 750; }
+.practice-run-btn:hover:not(:disabled) { background: #5047b2; }
+.practice-run-btn:disabled { cursor: wait; opacity: .7; }
+.practice-run-btn span { margin-right: 5px; font-size: 10px; }
+.practice-run-btn kbd { margin-left: 11px; padding: 3px 5px; border: 1px solid rgba(255,255,255,.3); border-radius: 4px; color: #e6e3ff; font-size: 9px; font-weight: 500; }
+.practice-editor-shell { margin: 16px; overflow: hidden; border: 1px solid #252d3d; border-radius: 11px; background: #171d2b; }
+.practice-editor-title { height: 38px; display: flex; align-items: center; gap: 8px; padding: 0 13px; border-bottom: 1px solid #2b3342; color: #dce1ed; background: #202737; font: 11px ui-monospace, SFMono-Regular, Consolas, monospace; }
+.practice-file-dot { width: 7px; height: 7px; border-radius: 50%; background: #8a7ef2; }
+.practice-editor-title > span:last-child { margin-left: auto; color: #8994a9; font-family: Inter, Arial, sans-serif; font-size: 10px; }
+.practice-editor { display: grid; grid-template-columns: 48px minmax(0, 1fr); min-height: 360px; max-height: 58vh; overflow: auto; padding: 15px 0; color: #e6eaf2; background: #171d2b; }
+.practice-line-numbers { display: flex; flex-direction: column; padding-right: 13px; color: #667188; text-align: right; user-select: none; font: 13px/21px ui-monospace, SFMono-Regular, Consolas, monospace; }
+.practice-editor textarea { width: 100%; min-height: 330px; resize: vertical; padding: 0 17px 0 0; border: 0; outline: 0; color: #e6eaf2; background: transparent; caret-color: #a99eff; white-space: pre; tab-size: 4; font: 13px/21px ui-monospace, SFMono-Regular, Consolas, monospace; }
+.practice-io-grid { display: grid; grid-template-columns: .85fr 1.15fr; gap: 13px; margin: 0 16px 16px; }
+.practice-io-panel { min-width: 0; overflow: hidden; border: 1px solid #e3e7ef; border-radius: 10px; background: #fff; }
+.practice-io-panel > span { display: flex; justify-content: space-between; align-items: center; padding: 11px 13px; border-bottom: 1px solid #e9ecf2; color: #354057; font-size: 11px; font-weight: 750; }
+.practice-io-panel > span small { color: #9099a9; font-size: 9px; font-weight: 550; }
+.practice-io-panel textarea, .practice-io-panel pre { width: 100%; min-height: 100px; max-height: 200px; overflow: auto; padding: 13px; border: 0; outline: 0; resize: vertical; color: #4e5a70; background: #fbfcfe; white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.55 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.practice-io-panel textarea::placeholder { color: #a0a9b7; }
+.practice-io-panel pre { margin: 0; }
+.practice-output-panel pre { color: #263249; }
+.practice-output-panel em { display: block; padding: 0 13px 10px; font-size: 10px; font-style: normal; font-weight: 700; }
+.practice-output-panel .output-success { color: #2b8b69; }
+.practice-output-panel .output-failure { color: #b74a51; }
+.practice-setup-note { display: grid; gap: 4px; margin: 0 16px 16px; padding: 12px 14px; border: 1px solid #e6e3fa; border-radius: 9px; background: #f7f6ff; }
+.practice-setup-note strong { color: #5046a8; font-size: 11px; }
+.practice-setup-note span { color: #6b7082; font-size: 11px; line-height: 1.6; }
+.practice-setup-note code { padding: 2px 5px; border-radius: 4px; color: #5147b0; background: #eceaff; font: 10px ui-monospace, SFMono-Regular, Consolas, monospace; }
+.practice-shortcut-hint { margin: 11px 3px 0; color: #7c8799; font-size: 11px; }
+.practice-shortcut-hint kbd { padding: 3px 5px; border: 1px solid #dfe3eb; border-radius: 4px; color: #59647a; background: #fff; font: 10px ui-monospace, SFMono-Regular, Consolas, monospace; }
+@media (max-width: 720px) {
+  .practice-page { padding: 25px 15px 42px; }
+  .practice-heading { align-items: flex-start; flex-direction: column; }
+  .practice-toolbar { align-items: stretch; flex-direction: column; }
+  .practice-toolbar-actions { justify-content: space-between; }
+  .practice-io-grid { grid-template-columns: 1fr; }
+  .practice-editor { min-height: 300px; max-height: 50vh; }
+}

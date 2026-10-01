@@ -1767,6 +1767,132 @@ app.get(
 );
 
 // ========================================
+// AUTHENTICATED CODING PLAYGROUND (Piston-compatible runner)
+// ========================================
+
+const CODE_RUNNER_LANGUAGES = {
+  javascript: { aliases: ["javascript", "js", "node"], filename: "main.js" },
+  python: { aliases: ["python", "py"], filename: "main.py" },
+  java: { aliases: ["java"], filename: "Main.java" },
+  cpp: { aliases: ["c++", "cpp", "g++"], filename: "main.cpp" },
+  csharp: { aliases: ["c#", "csharp", "dotnet", "cs"], filename: "Main.cs" },
+};
+const codeRunnerRecentRuns = new Map();
+
+const getCodeRunnerBaseUrl = () => {
+  const configured = process.env.PISTON_API_URL?.trim();
+  if (!configured) return null;
+  const parsed = new URL(configured);
+  if (parsed.protocol !== "https:" && parsed.hostname !== "localhost" && parsed.hostname !== "127.0.0.1") {
+    throw new Error("PISTON_API_URL must use HTTPS outside local development.");
+  }
+  return parsed.toString().replace(/\/+$/, "").replace(/\/(?:api\/v2\/piston|api\/v2)$/i, (path) => path);
+};
+
+const resolveCodeRunnerUrl = (base, endpoint) => {
+  if (/\/api\/v2\/piston$/i.test(base)) return `${base}/${endpoint}`;
+  if (/\/api\/v2$/i.test(base)) return `${base}/${endpoint}`;
+  return `${base}/api/v2/${endpoint}`;
+};
+
+const fetchCodeRunner = async (url, options = {}) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
+app.get("/api/code/runtimes", authMiddleware, async (req, res) => {
+  try {
+    const base = getCodeRunnerBaseUrl();
+    if (!base) {
+      return res.status(503).json({
+        configured: false,
+        message: "The code runner is not connected yet. Add PISTON_API_URL to the backend environment to enable execution.",
+      });
+    }
+    const response = await fetchCodeRunner(resolveCodeRunnerUrl(base, "runtimes"));
+    if (!response.ok) throw new Error(`Code runner returned HTTP ${response.status}.`);
+    const runtimes = await response.json();
+    const languages = Object.entries(CODE_RUNNER_LANGUAGES).map(([id, config]) => {
+      const runtime = runtimes.find((item) => config.aliases.includes(String(item.language).toLowerCase()) ||
+        (item.aliases || []).some((alias) => config.aliases.includes(String(alias).toLowerCase())));
+      return { id, name: id === "cpp" ? "C++" : id === "csharp" ? "C#" : id[0].toUpperCase() + id.slice(1), available: Boolean(runtime), version: runtime?.version || null };
+    });
+    res.json({ configured: true, languages });
+  } catch (error) {
+    console.error("Code runner runtimes error:", error.message);
+    res.status(502).json({ configured: false, message: "Could not connect to the code runner. Check PISTON_API_URL and try again." });
+  }
+});
+
+app.post("/api/code/run", authMiddleware, async (req, res) => {
+  try {
+    const userId = String(req.user.userId);
+    const recentRuns = (codeRunnerRecentRuns.get(userId) || []).filter((time) => Date.now() - time < 60_000);
+    if (recentRuns.length >= 10) {
+      codeRunnerRecentRuns.set(userId, recentRuns);
+      return res.status(429).json({ message: "You have reached the run limit. Wait a minute, then try again." });
+    }
+    recentRuns.push(Date.now());
+    codeRunnerRecentRuns.set(userId, recentRuns);
+
+    const { language, code, stdin = "" } = req.body || {};
+    const languageConfig = CODE_RUNNER_LANGUAGES[language];
+    if (!languageConfig) return res.status(400).json({ message: "Choose a supported language." });
+    if (typeof code !== "string" || !code.trim() || code.length > 50000) {
+      return res.status(400).json({ message: "Enter code under 50,000 characters." });
+    }
+    if (typeof stdin !== "string" || stdin.length > 10000) {
+      return res.status(400).json({ message: "Input must be under 10,000 characters." });
+    }
+    const base = getCodeRunnerBaseUrl();
+    if (!base) return res.status(503).json({ message: "The code runner is not connected yet. Add PISTON_API_URL to the backend environment to enable execution." });
+
+    const runtimesResponse = await fetchCodeRunner(resolveCodeRunnerUrl(base, "runtimes"));
+    if (!runtimesResponse.ok) throw new Error(`Code runner returned HTTP ${runtimesResponse.status}.`);
+    const runtimes = await runtimesResponse.json();
+    const runtime = runtimes.find((item) => languageConfig.aliases.includes(String(item.language).toLowerCase()) ||
+      (item.aliases || []).some((alias) => languageConfig.aliases.includes(String(alias).toLowerCase())));
+    if (!runtime) return res.status(400).json({ message: "That language is not installed on the code runner yet." });
+
+    const response = await fetchCodeRunner(resolveCodeRunnerUrl(base, "execute"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        language: runtime.language,
+        version: runtime.version,
+        files: [{ name: languageConfig.filename, content: code }],
+        stdin,
+        compile_timeout: 10000,
+        run_timeout: 3000,
+        compile_cpu_time: 10000,
+        run_cpu_time: 3000,
+        compile_memory_limit: 268435456,
+        run_memory_limit: 67108864,
+      }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) return res.status(502).json({ message: result.message || `Code runner returned HTTP ${response.status}.` });
+    res.json({
+      stdout: result.run?.stdout || "",
+      stderr: [result.compile?.stderr, result.run?.stderr].filter(Boolean).join("\n"),
+      compileOutput: result.compile?.output || "",
+      status: result.run?.status || result.compile?.status || null,
+      message: result.run?.message || result.compile?.message || null,
+      exitCode: result.run?.code ?? result.compile?.code ?? null,
+      runtime: result.version,
+    });
+  } catch (error) {
+    console.error("Code execution error:", error.message);
+    res.status(error.name === "TypeError" ? 503 : 502).json({ message: "Could not reach the code runner. Check its URL and availability." });
+  }
+});
+
+// ========================================
 // 404 HANDLER
 // ========================================
 
