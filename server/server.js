@@ -17,6 +17,44 @@ const authMiddleware = require("./middleware/authMiddleware");
 
 const app = express();
 
+// Keep generated coding questions genuinely unsolved: the AI can create the
+// question and driver, but only the user fills in the function body.
+const resetCodingSolutionBody = (source, language, functionName) => {
+  const begin = /^[ \t]*(?:\/\/|#)[ \t]*BEGIN SOLUTION[ \t]*$/m.exec(source);
+  if (!begin) return source;
+  const endPattern = /^[ \t]*(?:\/\/|#)[ \t]*END SOLUTION[ \t]*$/gm;
+  endPattern.lastIndex = begin.index + begin[0].length;
+  const end = endPattern.exec(source);
+  if (!end) return source;
+
+  const bodyStart = source.indexOf("\n", begin.index + begin[0].length);
+  if (bodyStart === -1 || end.index < bodyStart) return source;
+  const bodyFrom = bodyStart + 1;
+  const normalizedLanguage = String(language || "").toLowerCase();
+  const bodyIndent = begin[0].match(/^[\t ]*/)?.[0] || "";
+  const safeFunctionName = String(functionName || "solution").replace(/[^A-Za-z0-9_]/g, "") || "solution";
+  const escapedName = safeFunctionName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const signature = source.slice(0, begin.index).match(new RegExp(
+    `(?:^|\\n)[\\t ]*(?:(?:public|private|protected|static|final|virtual|override|async|synchronized|inline|constexpr)\\s+)*([A-Za-z_$][\\w.$<>?, *&\\[\\]]*)\\s+${escapedName}\\s*\\(`,
+    "m"
+  ));
+  const returnType = signature?.[1]?.trim().replace(/\s+/g, " ");
+  let placeholder = `${bodyIndent}// TODO: Write your solution here.\n`;
+  if (normalizedLanguage === "java") {
+    const defaults = { int: "0", long: "0L", short: "0", byte: "0", double: "0.0", float: "0.0f", boolean: "false", char: "'\\0'" };
+    if (returnType && returnType !== "void") placeholder += `${bodyIndent}return ${defaults[returnType] || "null"};\n`;
+  } else if (["c++", "cpp", "c"].includes(normalizedLanguage)) {
+    if (returnType && returnType !== "void") placeholder += `${bodyIndent}return {};\n`;
+  } else if (["c#", "csharp", "c_sharp"].includes(normalizedLanguage)) {
+    if (returnType && returnType !== "void") placeholder += `${bodyIndent}return default;\n`;
+  } else if (normalizedLanguage === "python") {
+    placeholder = `${bodyIndent}# TODO: Write your solution here.\n${bodyIndent}return None\n`;
+  } else {
+    placeholder += `${bodyIndent}return null;\n`;
+  }
+  return `${source.slice(0, bodyFrom)}${placeholder}${source.slice(end.index)}`;
+};
+
 app.use(
   cors({
     origin: "https://ai-interview-platform-ten-alpha.vercel.app",
@@ -1503,7 +1541,7 @@ app.post(
         : Math.max(1, Math.min(Number(count) || 5, 10));
 
       const prompt = isCodingInterview
-        ? `Create exactly 3 distinct, medium-difficulty coding interview problems for a ${role} candidate using ${codingLanguage}. Use these exact three topics in order, one per problem: ${selectedCodingTopics.join(", ")}. Do not substitute, repeat, or combine the topics. Problems should suit entry to mid-level candidates, use clear constraints, and avoid obscure tricks. Do not repeat or lightly reword these recent problems: ${JSON.stringify(recentCodingQuestions)}. For every problem return: "question", "category", "functionName", "starterCode", "exampleInput", "exampleOutput", and "testCases". Each starterCode must be a complete runnable program with imports, one TODO solution function, and a main entry point that reads stdin, calls the solution function, and prints its result. Put the editable function body between exact comment lines BEGIN SOLUTION and END SOLUTION (use # comments for Python, // comments for the other languages); all signatures, imports, and main/driver code stay outside those markers. Leave a compilable placeholder inside the markers, but do not write the solution. For Java, use package-private class Main, never public class Main. Include exactly three testCases, each an object with string fields input and output; testCases[0] must exactly match exampleInput/exampleOutput, while the other two must cover meaningful edge cases. The driver must handle all three inputs and print output matching each expected output. Do not provide a solution or pseudocode. Return ONLY a valid JSON array of exactly 3 objects.`
+        ? `Create exactly 3 distinct, medium-difficulty coding interview problems for a ${role} candidate using ${codingLanguage}. Use these exact three topics in order, one per problem: ${selectedCodingTopics.join(", ")}. Do not substitute, repeat, or combine the topics. Problems should suit entry to mid-level candidates, use clear constraints, and avoid obscure tricks. Do not repeat or lightly reword these recent problems: ${JSON.stringify(recentCodingQuestions)}. For every problem return: "question", "category", "functionName", "starterCode", "exampleInput", "exampleOutput", and "testCases". Each starterCode must be a complete runnable program. Put the function inside a Solution (or equivalent) class where that language uses classes, with its signature generated for the problem. Make the function static where needed so the driver can call it. Put the editable function body between exact comment lines BEGIN SOLUTION and END SOLUTION (use # comments for Python, // comments for other languages); indent these markers inside the function body. Put all input parsing and the locked entry point in a separate driver section surrounded by exact comment lines BEGIN DRIVER and END DRIVER (same language comment style); the driver must call the Solution function and print its result. For Java, use class Solution plus a separate package-private class Main containing main; never make Main public because Azure compile service uses prog.java. Do not include an algorithm, pseudocode, or answer in the solution body; put only a TODO comment there. Include exactly three testCases, each an object with string fields input and output; testCases[0] must exactly match exampleInput/exampleOutput, while the other two must cover meaningful edge cases. The driver must handle all three inputs and print output matching each expected output. Return ONLY a valid JSON array of exactly 3 objects.`
         : `Generate ${numberOfQuestions} ${difficulty || "Medium"} interview questions for the role ${role || "Software Developer"}. Interview type: ${interviewType || "Technical"}. Return ONLY a valid JSON array. Each object must contain "question" and "category".`;
 
       const generatedText =
@@ -1547,6 +1585,9 @@ app.post(
           !/^[ \t]*(?:\/\/|#)[ \t]*BEGIN SOLUTION[ \t]*$/m.test(item.starterCode) ||
           !/^[ \t]*(?:\/\/|#)[ \t]*END SOLUTION[ \t]*$/m.test(item.starterCode) ||
           item.starterCode.indexOf("END SOLUTION") <= item.starterCode.indexOf("BEGIN SOLUTION") ||
+          !/^[ \t]*(?:\/\/|#)[ \t]*BEGIN DRIVER[ \t]*$/m.test(item.starterCode) ||
+          !/^[ \t]*(?:\/\/|#)[ \t]*END DRIVER[ \t]*$/m.test(item.starterCode) ||
+          item.starterCode.indexOf("END DRIVER") <= item.starterCode.indexOf("BEGIN DRIVER") ||
           !Array.isArray(item.testCases) || item.testCases.length !== 3 ||
           typeof item.exampleInput !== "string" || typeof item.exampleOutput !== "string" ||
           item.testCases.some((testCase) => !testCase || typeof testCase.input !== "string" || typeof testCase.output !== "string") ||
@@ -1558,7 +1599,9 @@ app.post(
           question: String(item.question).slice(0, 5000),
           category: selectedCodingTopics[index],
           functionName: String(item.functionName || "solution").replace(/[^A-Za-z0-9_]/g, "").slice(0, 50) || "solution",
-          starterCode: typeof item.starterCode === "string" ? item.starterCode.slice(0, 30000) : "",
+          starterCode: typeof item.starterCode === "string"
+            ? resetCodingSolutionBody(item.starterCode.slice(0, 30000), codingLanguage, item.functionName)
+            : "",
           exampleInput: typeof item.exampleInput === "string" ? item.exampleInput.slice(0, 4000) : "",
           exampleOutput: typeof item.exampleOutput === "string" ? item.exampleOutput.slice(0, 2000) : "",
           testCases: item.testCases.slice(0, 3).map((testCase) => ({

@@ -2235,9 +2235,14 @@ function Interview({ onBackToDashboard }) {
                 {interviewType === "Coding" && (
                   <div className="coding-editor-toolbar">
                     <div><label htmlFor="coding-solution-editor">Your solution</label><span className="coding-language-pill">{codingLanguage}</span></div>
-                    <button type="button" className="coding-run-button" onClick={runCodingCode} disabled={codingRunning || loading}>
-                      {codingRunning ? "Running tests…" : "▶ Run tests"}<kbd>Ctrl ↵</kbd>
-                    </button>
+                    <div className="coding-toolbar-actions">
+                      <button type="button" className="coding-next-question-btn" onClick={() => submitAnswer(true)} disabled={codingRunning || loading}>
+                        {currentQuestion === questions.length - 1 ? "Finish interview →" : "Next Question →"}
+                      </button>
+                      <button type="button" className="coding-run-button" onClick={runCodingCode} disabled={codingRunning || loading}>
+                        {codingRunning ? "Running tests…" : "▶ Run tests"}<kbd>Ctrl ↵</kbd>
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -2245,7 +2250,7 @@ function Interview({ onBackToDashboard }) {
 
                 {interviewType === "Coding" ? (
                   <div className="coding-editor-window">
-                    <div className="coding-file-bar"><span className="coding-file-dots"><i /><i /><i /></span><code>{codingLanguage === "Java" ? "Main" : codingLanguage === "C#" ? "Solution" : "solution"}.{({ Java: "java", "C++": "cpp", Python: "py", JavaScript: "js", "C#": "cs" })[codingLanguage]}</code><span>Auto-saved</span></div>
+                    <div className="coding-file-bar"><span className="coding-file-dots"><i /><i /><i /></span><code>{codingLanguage === "Java" || codingLanguage === "C#" ? "Solution" : "solution"}.{({ Java: "java", "C++": "cpp", Python: "py", JavaScript: "js", "C#": "cs" })[codingLanguage]}</code><span>Only the function body is editable</span></div>
                     <div className="coding-source-editor">
                       <CodeEditor
                         language={RUNNER_LANGUAGE_IDS[codingLanguage]}
@@ -2253,6 +2258,8 @@ function Interview({ onBackToDashboard }) {
                         onChange={(nextAnswer) => { setAnswer(nextAnswer); setCodingOutput(null); setCodingRunError(""); }}
                         onRun={runCodingCode}
                         lockOutsideSolution
+                        collapseDriver
+                        foldKey={currentQuestion}
                         ariaLabel={`${codingLanguage} coding interview editor`}
                         className="coding-interview-code"
                       />
@@ -2517,17 +2524,6 @@ function Interview({ onBackToDashboard }) {
                   ? interviewType === "Coding" ? "Submit solution & finish →" : "Finish & Get AI Score 🤖"
                   : interviewType === "Coding" ? "Submit solution →" : "Submit Answer →"}
               </button>
-
-              {interviewType === "Coding" && (
-                <button
-                  type="button"
-                  className="coding-next-question-btn"
-                  onClick={() => submitAnswer(true)}
-                  disabled={loading || codingRunning}
-                >
-                  {currentQuestion === questions.length - 1 ? "Finish interview →" : "Next Question →"}
-                </button>
-              )}
 
             </div>
 
