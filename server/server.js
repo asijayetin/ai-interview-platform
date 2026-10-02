@@ -55,6 +55,14 @@ const resetCodingSolutionBody = (source, language, functionName) => {
   return `${source.slice(0, bodyFrom)}${placeholder}${source.slice(end.index)}`;
 };
 
+const ensureJavaUtilityImport = (source, language) => {
+  if (String(language || "").toLowerCase() !== "java" || /^\s*import\s+java\.util\.\*\s*;/m.test(source)) return source;
+  const packageDeclaration = /^[ \t]*package\s+[^;]+;[ \t]*(?:\r?\n|$)/m.exec(source);
+  const insertAt = packageDeclaration ? packageDeclaration.index + packageDeclaration[0].length : 0;
+  const separator = insertAt > 0 && !/[\r\n]$/.test(source.slice(0, insertAt)) ? "\n" : "";
+  return `${source.slice(0, insertAt)}${separator}import java.util.*;\n${source.slice(insertAt)}`;
+};
+
 const addCodingDriverMarkers = (source, language) => {
   if (/^[ \t]*(?:\/\/|#)[ \t]*BEGIN DRIVER[ \t]*$/m.test(source)) return source;
   const normalizedLanguage = String(language || "").toLowerCase();
@@ -1625,7 +1633,7 @@ app.post(
           category: selectedCodingTopics[index],
           functionName: String(item.functionName || "solution").replace(/[^A-Za-z0-9_]/g, "").slice(0, 50) || "solution",
           starterCode: typeof item.starterCode === "string"
-            ? resetCodingSolutionBody(addCodingDriverMarkers(item.starterCode.slice(0, 30000), codingLanguage), codingLanguage, item.functionName)
+            ? resetCodingSolutionBody(addCodingDriverMarkers(ensureJavaUtilityImport(item.starterCode.slice(0, 30000), codingLanguage), codingLanguage), codingLanguage, item.functionName)
             : "",
           exampleInput: String(item.exampleInput ?? item.testCases?.[0]?.input ?? "").slice(0, 4000),
           exampleOutput: String(item.exampleOutput ?? item.testCases?.[0]?.output ?? "").slice(0, 2000),

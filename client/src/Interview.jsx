@@ -27,7 +27,16 @@ const CODING_ROLE_OPTIONS = ROLE_OPTIONS.filter((roleOption) =>
 const CODING_LANGUAGES = ["Java", "C++", "Python", "JavaScript", "C#"];
 const RUNNER_LANGUAGE_IDS = { Java: "java", "C++": "cpp", Python: "python", JavaScript: "javascript", "C#": "csharp" };
 const getQuestionText = (item) => typeof item === "string" ? item : item?.question || "";
-const getCodingStarter = (item) => item?.starterCode || "";
+const ensureJavaUtilityImport = (source) => {
+  if (!source || /^\s*import\s+java\.util\.\*\s*;/m.test(source)) return source || "";
+  const packageDeclaration = /^[ \t]*package\s+[^;]+;[ \t]*(?:\r?\n|$)/m.exec(source);
+  const insertAt = packageDeclaration ? packageDeclaration.index + packageDeclaration[0].length : 0;
+  return `${source.slice(0, insertAt)}import java.util.*;\n${source.slice(insertAt)}`;
+};
+const getCodingStarter = (item, language) => {
+  const source = item?.starterCode || "";
+  return language === "Java" ? ensureJavaUtilityImport(source) : source;
+};
 const getCodingTestCases = (item) => Array.isArray(item?.testCases) && item.testCases.length
   ? item.testCases
   : item?.exampleInput != null ? [{ input: item.exampleInput, output: item.exampleOutput || "" }] : [];
@@ -149,6 +158,12 @@ function Interview({ onBackToDashboard }) {
   const [codingOutput, setCodingOutput] = useState(null);
   const [codingRunError, setCodingRunError] = useState("");
   const [codingRunning, setCodingRunning] = useState(false);
+
+  useEffect(() => {
+    if (interviewType !== "Coding" || codingLanguage !== "Java" || !answer) return;
+    const answerWithJavaImports = ensureJavaUtilityImport(answer);
+    if (answerWithJavaImports !== answer) setAnswer(answerWithJavaImports);
+  }, [interviewType, codingLanguage, answer]);
 
   // ==========================================
   // EVALUATION
@@ -1021,7 +1036,7 @@ function Interview({ onBackToDashboard }) {
 
       setCurrentQuestion(0);
       if (interviewType === "Coding") {
-        setAnswer(getCodingStarter(generatedQuestions[0]));
+        setAnswer(getCodingStarter(generatedQuestions[0], codingLanguage));
         const firstTestCase = getCodingTestCases(generatedQuestions[0])[0];
         setCodingStdin(firstTestCase?.input ?? generatedQuestions[0]?.exampleInput ?? "");
         setCodingTestIndex(0);
@@ -1399,7 +1414,7 @@ function Interview({ onBackToDashboard }) {
         );
 
         const nextQuestion = questions[currentQuestion + 1];
-        setAnswer(interviewType === "Coding" ? getCodingStarter(nextQuestion) : "");
+        setAnswer(interviewType === "Coding" ? getCodingStarter(nextQuestion, codingLanguage) : "");
         setCodingStdin(interviewType === "Coding" ? getCodingTestCases(nextQuestion)[0]?.input ?? nextQuestion?.exampleInput ?? "" : "");
         setCodingTestIndex(0);
         setCodingOutput(null);
