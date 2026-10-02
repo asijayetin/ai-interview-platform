@@ -281,8 +281,8 @@ function AITutor() {
 
           {error && <p className="ai-tutor-error" role="alert">{error}</p>}
           <form className="ai-tutor-composer" onSubmit={(event) => { event.preventDefault(); sendMessage(); }}>
-            <textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); sendMessage(); } }} placeholder={mode === "debug" ? "Paste your code and error message…" : "Ask a question, share your attempt, or paste code…"} aria-label="Message your AI tutor" rows="2" maxLength={4000} />
-            <div className="ai-tutor-composer-footer"><span>Enter to send <i /> Shift + Enter for a new line <i /> {input.length}/4000</span><button type="submit" disabled={sending || !input.trim()}>{sending ? "Thinking…" : "Send to tutor"}<b>↑</b></button></div>
+            <textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); sendMessage(); } }} placeholder={mode === "debug" ? "Paste your code and error message…" : "Ask a question, share your attempt, or paste code…"} aria-label="Message your AI tutor" rows="2" maxLength={2500} />
+            <div className="ai-tutor-composer-footer"><span>Enter to send <i /> Shift + Enter for a new line <i /> {input.length}/2500</span><button type="submit" disabled={sending || !input.trim()}>{sending ? "Thinking…" : "Send to tutor"}<b>↑</b></button></div>
           </form>
         </div>
       </div>
