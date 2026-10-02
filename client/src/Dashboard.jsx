@@ -928,19 +928,16 @@ function Dashboard({ onStartInterview }) {
       {/* WELCOME */}
 
       <section className="welcome-section">
-
-        <p className="small-heading">
-          YOUR PREPARATION
-        </p>
-
-        <h2>
-          Welcome back, {user?.name || "there"} 👋
-        </h2>
-
-        <p>
-          Ready to practice and improve your interview skills?
-        </p>
-
+        <div className="dashboard-welcome-copy">
+          <p className="small-heading">YOUR PREPARATION</p>
+          <h2>Welcome back, {user?.name || "there"} <span aria-hidden="true">👋</span></h2>
+          <p>Build confidence with focused practice, one session at a time.</p>
+        </div>
+        <button type="button" className="dashboard-welcome-action" onClick={onStartInterview}>
+          <span className="dashboard-welcome-action-icon" aria-hidden="true">✦</span>
+          <span><strong>Ready to practice?</strong><small>Start a new interview</small></span>
+          <b aria-hidden="true">→</b>
+        </button>
       </section>
 
       {/* STATS */}
@@ -949,7 +946,7 @@ function Dashboard({ onStartInterview }) {
 
         <div className="stat-card">
 
-          <span className="stat-glyph stat-glyph-interviews">I</span>
+          <span className="stat-glyph stat-glyph-interviews">▤</span>
 
           <div>
 
@@ -1035,9 +1032,8 @@ function Dashboard({ onStartInterview }) {
             Recent Interviews
           </h2>
 
-          <p>
-            Your latest interview attempts.
-          </p>
+          <p>Your latest interview attempts.</p>
+          <span className="dashboard-interview-count">{interviews.length} {interviews.length === 1 ? "session" : "sessions"}</span>
 
         </div>
 
@@ -1115,35 +1111,10 @@ function Dashboard({ onStartInterview }) {
               {/* FILTER + SORT CONTROLS */}
               {/* ================================= */}
 
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  gap: "15px",
-                  flexWrap: "wrap",
-                  marginBottom: "20px",
-                }}
-              >
+              <div className="dashboard-interview-controls">
 
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "10px",
-                    flexWrap: "wrap",
-                  }}
-                >
-
-                  <label
-                    style={{
-                      fontWeight: "600",
-                      color: "#334155",
-                      fontSize: "14px",
-                    }}
-                  >
-                    Filter:
-                  </label>
+                <label className="dashboard-select-wrap">
+                  <span>Filter</span>
 
                   <select
                     value={interviewTypeFilter}
@@ -1152,16 +1123,6 @@ function Dashboard({ onStartInterview }) {
                         e.target.value
                       )
                     }
-                    style={{
-                      padding: "10px 14px",
-                      borderRadius: "8px",
-                      border: "1px solid #cbd5e1",
-                      background: "#ffffff",
-                      color: "#0f172a",
-                      fontSize: "14px",
-                      cursor: "pointer",
-                      outline: "none",
-                    }}
                   >
 
                     <option value="All">
@@ -1181,44 +1142,16 @@ function Dashboard({ onStartInterview }) {
                     </option>
 
                   </select>
+                </label>
 
-                </div>
-
-
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "10px",
-                    flexWrap: "wrap",
-                  }}
-                >
-
-                  <label
-                    style={{
-                      fontWeight: "600",
-                      color: "#334155",
-                      fontSize: "14px",
-                    }}
-                  >
-                    Sort:
-                  </label>
+                <label className="dashboard-select-wrap">
+                  <span>Sort</span>
 
                   <select
                     value={sortBy}
                     onChange={(e) =>
                       setSortBy(e.target.value)
                     }
-                    style={{
-                      padding: "10px 14px",
-                      borderRadius: "8px",
-                      border: "1px solid #cbd5e1",
-                      background: "#ffffff",
-                      color: "#0f172a",
-                      fontSize: "14px",
-                      cursor: "pointer",
-                      outline: "none",
-                    }}
                   >
 
                     <option value="newest">
@@ -1238,24 +1171,14 @@ function Dashboard({ onStartInterview }) {
                     </option>
 
                   </select>
-
-                </div>
+                </label>
 
               </div>
 
 
               {filteredInterviews.length === 0 ? (
 
-                <div
-                  style={{
-                    padding: "30px",
-                    textAlign: "center",
-                    borderRadius: "12px",
-                    background: "#f8fafc",
-                    border: "1px solid #e2e8f0",
-                    color: "#64748b",
-                  }}
-                >
+                <div className="dashboard-filter-empty">
                   No interviews found for this filter.
                 </div>
 
@@ -1274,9 +1197,9 @@ function Dashboard({ onStartInterview }) {
                             interview
                           )
                         }
-                        style={{
-                          cursor: "pointer",
-                        }}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") openInterviewHistory(interview); }}
                         title="Click to view interview history"
                       >
 

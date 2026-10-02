@@ -2916,6 +2916,74 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   }
 }
 
+/* Dashboard refinement: clear hierarchy, stronger action and tidy history */
+.workspace-main > .dashboard { max-width: 1600px; margin: 0 auto; padding: 30px clamp(24px, 4.8vw, 76px) 68px; }
+.workspace-main .dashboard-header { padding-bottom: 18px; }
+.workspace-main .dashboard-header h1 { font-size: 22px; font-weight: 750; }
+.workspace-main .welcome-section { min-height: 150px; padding: 28px 0 24px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.dashboard-welcome-copy .small-heading { margin-bottom: 11px; }
+.dashboard-welcome-copy h2 { margin: 0 0 8px; color: #172033; font-size: clamp(28px, 3vw, 36px); line-height: 1.15; letter-spacing: -1.25px; }
+.dashboard-welcome-copy h2 span { display: inline-block; margin-left: 3px; font-size: .82em; }
+.dashboard-welcome-copy > p:last-child { margin: 0; color: #738099; font-size: 14px; }
+.dashboard-welcome-action { min-width: 230px; display: flex; align-items: center; gap: 12px; padding: 13px 15px; border: 1px solid #e3e2fb; border-radius: 14px; background: linear-gradient(120deg, #fff, #f8f7ff); color: #27344d; text-align: left; cursor: pointer; transition: .18s ease; }
+.dashboard-welcome-action:hover { border-color: #c9c3ff; box-shadow: 0 10px 25px rgba(67, 56, 202, .09); transform: translateY(-2px); }
+.dashboard-welcome-action-icon { display: grid; flex: 0 0 38px; width: 38px; height: 38px; place-items: center; border-radius: 11px; background: #eeecff; color: #6558d3; font-size: 17px; }
+.dashboard-welcome-action > span:nth-child(2) { flex: 1; }
+.dashboard-welcome-action strong, .dashboard-welcome-action small { display: block; }
+.dashboard-welcome-action strong { font-size: 11px; font-weight: 750; }
+.dashboard-welcome-action small { margin-top: 4px; color: #818ca1; font-size: 10px; }
+.dashboard-welcome-action > b { color: #6659d3; font-size: 18px; font-weight: 500; }
+.workspace-main .dashboard-stats { gap: 14px; margin-bottom: 28px; }
+.workspace-main .stat-card { position: relative; min-height: 104px; padding: 17px 18px; border-radius: 14px; box-shadow: 0 5px 16px rgba(21, 29, 48, .035); }
+.workspace-main .stat-card::after { position: absolute; right: 16px; bottom: 0; left: 16px; height: 2px; border-radius: 2px 2px 0 0; background: linear-gradient(90deg, rgba(101,88,211,.18), transparent); content: ""; }
+.workspace-main .stat-card > span { flex: 0 0 46px; width: 46px; height: 46px; font-size: 18px; }
+.workspace-main .stat-card h3 { margin: 0 0 4px; font-size: 25px; font-weight: 750; letter-spacing: -.5px; }
+.workspace-main .stat-card p { margin: 0; font-size: 11px; }
+.workspace-main .recent-section { padding: 23px; border-radius: 15px; box-shadow: 0 7px 22px rgba(21,29,48,.035); }
+.workspace-main .section-title { position: relative; margin-bottom: 18px; padding-right: 110px; }
+.workspace-main .section-title h2 { margin-bottom: 5px; font-size: 18px; }
+.workspace-main .section-title p { margin: 0; font-size: 11px; }
+.dashboard-interview-count { position: absolute; top: 1px; right: 0; padding: 6px 9px; border: 1px solid #e7e9f0; border-radius: 8px; background: #fafbfe; color: #6d7890; font-size: 10px; font-weight: 650; }
+.dashboard-interview-controls { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin: 0 0 15px; }
+.dashboard-select-wrap { display: inline-flex; align-items: center; gap: 9px; color: #64718a; font-size: 11px; font-weight: 650; }
+.dashboard-select-wrap select { min-height: 38px; padding: 0 32px 0 11px; border: 1px solid #dfe4ed; border-radius: 9px; background: #fff; color: #25324a; font: inherit; font-size: 11px; cursor: pointer; }
+.dashboard-select-wrap select:hover { border-color: #bcb5f7; }
+.dashboard-filter-empty { padding: 25px; border: 1px dashed #d8deea; border-radius: 12px; background: #fafbfe; color: #748198; font-size: 12px; text-align: center; }
+.workspace-main .interview-history { gap: 9px; }
+.workspace-main .history-card { min-height: 80px; padding: 13px 15px; border: 1px solid #e8ebf2; border-radius: 12px; transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease; }
+.workspace-main .history-card:hover { border-color: #cbc5ff; box-shadow: 0 8px 20px rgba(31, 41, 70, .065); transform: translateY(-1px); }
+.workspace-main .history-info { gap: 12px; }
+.workspace-main .history-icon { width: 42px; height: 42px; border-radius: 12px; font-size: 14px; }
+.workspace-main .history-info h3 { margin: 0 0 4px; font-size: 13px; }
+.workspace-main .history-info p { margin: 0; color: #77839a; font-size: 11px; }
+.workspace-main .history-details { gap: 14px; color: #738099; font-size: 10px; }
+.workspace-main .empty-interviews { min-height: 220px; border-color: #dce2ed; background: #fbfcfe; }
+
+@media (max-width: 900px) {
+  .workspace-main .dashboard-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dashboard-welcome-action { min-width: 205px; }
+}
+@media (max-width: 600px) {
+  .workspace-main > .dashboard { padding: 24px 16px 42px; }
+  .workspace-main .welcome-section { min-height: 0; align-items: stretch; flex-direction: column; gap: 17px; padding: 27px 0 20px; }
+  .dashboard-welcome-copy h2 { font-size: 27px; }
+  .dashboard-welcome-copy > p:last-child { font-size: 12px; }
+  .dashboard-welcome-action { width: 100%; box-sizing: border-box; }
+  .workspace-main .dashboard-stats { gap: 9px; margin-bottom: 17px; }
+  .workspace-main .stat-card { min-height: 84px; padding: 12px; gap: 10px; }
+  .workspace-main .stat-card > span { flex-basis: 36px; width: 36px; height: 36px; font-size: 15px; }
+  .workspace-main .stat-card h3 { font-size: 20px; }
+  .workspace-main .stat-card p { font-size: 10px; }
+  .workspace-main .recent-section { padding: 16px 13px; }
+  .workspace-main .section-title { padding-right: 0; }
+  .dashboard-interview-count { position: static; display: inline-flex; margin-top: 10px; }
+  .dashboard-interview-controls { align-items: stretch; }
+  .dashboard-select-wrap { justify-content: space-between; width: 100%; }
+  .dashboard-select-wrap select { min-width: 0; flex: 1; }
+  .workspace-main .history-card { align-items: flex-start; flex-direction: column; gap: 11px; }
+  .workspace-main .history-details { width: 100%; justify-content: space-between; gap: 7px; padding-left: 54px; box-sizing: border-box; }
+}
+
 /* ================================
    PROFILE PAGE
 ================================ */
