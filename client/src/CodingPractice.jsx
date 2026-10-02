@@ -104,7 +104,7 @@ function CodingPractice() {
         </div>
 
         <div className="practice-editor-shell">
-          <div className="practice-editor-title"><span className="practice-file-dot" />{language === "java" || language === "csharp" ? "Main" : "main"}.{LANGUAGE_INFO[language].ext}<span>Starter playground</span></div>
+          <div className="practice-editor-title"><span className="practice-file-dot" />{language === "java" || language === "csharp" ? "Main" : "main"}.{LANGUAGE_INFO[language].ext}<span>Full source editable · add functions or change Main</span></div>
           <div className="practice-editor">
             <CodeEditor
               language={language}

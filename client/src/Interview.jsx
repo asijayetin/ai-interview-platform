@@ -35,7 +35,17 @@ const ensureJavaUtilityImport = (source) => {
 };
 const getCodingStarter = (item, language) => {
   const source = item?.starterCode || "";
-  return language === "Java" ? ensureJavaUtilityImport(source) : source;
+  if (language !== "Java") return source;
+  const withImport = ensureJavaUtilityImport(source);
+  if (/^[ \t]*\/\/[ \t]*BEGIN HELPERS[ \t]*$/m.test(withImport) || !/\bclass\s+Solution\b/.test(withImport)) return withImport;
+  const driverStart = /^[ \t]*\/\/[ \t]*BEGIN DRIVER[ \t]*$/m.exec(withImport)?.index ?? withImport.length;
+  const solutionEnd = withImport.lastIndexOf("}", driverStart);
+  if (solutionEnd < 0) return withImport;
+  const lineStart = withImport.lastIndexOf("\n", solutionEnd - 1) + 1;
+  const indent = withImport.slice(lineStart, solutionEnd).match(/^[ \t]*/)?.[0] || "";
+  const helperIndent = `${indent}    `;
+  const helperSection = `\n${helperIndent}// BEGIN HELPERS\n${helperIndent}// Optional static helper methods go here.\n${helperIndent}// END HELPERS\n${indent}`;
+  return `${withImport.slice(0, solutionEnd)}${helperSection}${withImport.slice(solutionEnd)}`;
 };
 const getCodingTestCases = (item) => Array.isArray(item?.testCases) && item.testCases.length
   ? item.testCases
@@ -2315,7 +2325,7 @@ function Interview({ onBackToDashboard }) {
 
                 {interviewType === "Coding" ? (
                   <div className="coding-editor-window">
-                    <div className="coding-file-bar"><span className="coding-file-dots"><i /><i /><i /></span><code>{codingLanguage === "Java" || codingLanguage === "C#" ? "Solution" : "solution"}.{({ Java: "java", "C++": "cpp", Python: "py", JavaScript: "js", "C#": "cs" })[codingLanguage]}</code><span>Only the function body is editable</span></div>
+                    <div className="coding-file-bar"><span className="coding-file-dots"><i /><i /><i /></span><code>{codingLanguage === "Java" || codingLanguage === "C#" ? "Solution" : "solution"}.{({ Java: "java", "C++": "cpp", Python: "py", JavaScript: "js", "C#": "cs" })[codingLanguage]}</code><span>Function body{codingLanguage === "Java" ? " + helper methods" : ""} editable · runner locked</span></div>
                     <div className="coding-source-editor">
                       <CodeEditor
                         key={`coding-editor-${currentQuestion}-${codingLanguage}`}
@@ -2364,7 +2374,7 @@ function Interview({ onBackToDashboard }) {
                     </div>
                   </div>
                 )}
-                {interviewType === "Coding" && <p className="coding-review-note">Only the marked function body is editable. Run checks all visible cases; Submit saves your answer and advances only after every case passes.</p>}
+                {interviewType === "Coding" && <p className="coding-review-note">Only the marked function body and optional Java helper methods are editable; the runner stays locked. Run checks all visible cases; Submit saves your answer and advances only after every case passes.</p>}
 
               </div>
 

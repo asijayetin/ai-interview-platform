@@ -63,6 +63,50 @@ const ensureJavaUtilityImport = (source, language) => {
   return `${source.slice(0, insertAt)}${separator}import java.util.*;\n${source.slice(insertAt)}`;
 };
 
+const ensureJavaCodingHelperRegion = (source, language) => {
+  if (String(language || "").toLowerCase() !== "java" || /^[ \t]*\/\/[ \t]*BEGIN HELPERS[ \t]*$/m.test(source)) return source;
+  const classStart = /\bclass\s+Solution\b[^\{]*\{/.exec(source);
+  if (!classStart) return source;
+  const openBrace = source.indexOf("{", classStart.index);
+  let depth = 0;
+  let state = "code";
+  let quote = "";
+  let escaped = false;
+  for (let index = openBrace; index < source.length; index += 1) {
+    const current = source[index];
+    const next = source[index + 1];
+    if (state === "line-comment") {
+      if (current === "\n") state = "code";
+      continue;
+    }
+    if (state === "block-comment") {
+      if (current === "*" && next === "/") { state = "code"; index += 1; }
+      continue;
+    }
+    if (state === "string") {
+      if (escaped) escaped = false;
+      else if (current === "\\") escaped = true;
+      else if (current === quote) state = "code";
+      continue;
+    }
+    if (current === "/" && next === "/") { state = "line-comment"; index += 1; continue; }
+    if (current === "/" && next === "*") { state = "block-comment"; index += 1; continue; }
+    if (current === '"' || current === "'") { state = "string"; quote = current; escaped = false; continue; }
+    if (current === "{") depth += 1;
+    if (current === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        const lineStart = source.lastIndexOf("\n", index - 1) + 1;
+        const indent = (source.slice(lineStart, index).match(/^[ \t]*/) || [""])[0];
+        const helperIndent = `${indent}    `;
+        const helpers = `\n${helperIndent}// BEGIN HELPERS\n${helperIndent}// Optional static helper methods go here.\n${helperIndent}// END HELPERS\n${indent}`;
+        return `${source.slice(0, index)}${helpers}${source.slice(index)}`;
+      }
+    }
+  }
+  return source;
+};
+
 const addCodingDriverMarkers = (source, language) => {
   if (/^[ \t]*(?:\/\/|#)[ \t]*BEGIN DRIVER[ \t]*$/m.test(source)) return source;
   const normalizedLanguage = String(language || "").toLowerCase();
@@ -1581,7 +1625,7 @@ app.post(
         : Math.max(1, Math.min(Number(count) || 5, 10));
 
       const prompt = isCodingInterview
-        ? `Create exactly 3 distinct, medium-difficulty coding interview problems for a ${role} candidate using ${codingLanguage}. Use these exact three topics in order, one per problem: ${selectedCodingTopics.join(", ")}. Do not substitute, repeat, or combine the topics. Problems should suit entry to mid-level candidates, use clear constraints, and avoid obscure tricks. Do not repeat or lightly reword these recent problems: ${JSON.stringify(recentCodingQuestions)}. For every problem return: "question", "category", "functionName", "starterCode", "exampleInput", "exampleOutput", and "testCases". Each starterCode must be a complete runnable program. Put the function inside a Solution (or equivalent) class where that language uses classes, with its signature generated for the problem. Make the function static where needed so the driver can call it. Put the editable function body between exact comment lines BEGIN SOLUTION and END SOLUTION (use # comments for Python, // comments for other languages); indent these markers inside the function body. Put all input parsing and the locked entry point in a separate driver section surrounded by exact comment lines BEGIN DRIVER and END DRIVER (same language comment style); the driver must call the Solution function and print its result. For Java, use class Solution plus a separate package-private class Main containing main; never make Main public because Azure compile service uses prog.java. Do not include an algorithm, pseudocode, or answer in the solution body; put only a TODO comment there. Include exactly three testCases, each an object with string fields input and output; testCases[0] must exactly match exampleInput/exampleOutput, while the other two must cover meaningful edge cases. The driver must handle all three inputs and print output matching each expected output. Return ONLY a valid JSON array of exactly 3 objects.`
+        ? `Create exactly 3 distinct, medium-difficulty coding interview problems for a ${role} candidate using ${codingLanguage}. Use these exact three topics in order, one per problem: ${selectedCodingTopics.join(", ")}. Do not substitute, repeat, or combine the topics. Problems should suit entry to mid-level candidates, use clear constraints, and avoid obscure tricks. Do not repeat or lightly reword these recent problems: ${JSON.stringify(recentCodingQuestions)}. For every problem return: "question", "category", "functionName", "starterCode", "exampleInput", "exampleOutput", and "testCases". Each starterCode must be a complete runnable program. Put the target function inside a Solution (or equivalent) class where that language uses classes, with its signature generated for the problem. Make the function static where needed so the driver can call it. Put only the editable target function body between exact comment lines BEGIN SOLUTION and END SOLUTION (use # comments for Python, // comments for other languages); indent these markers inside the target function body. For Java, also include a class-scope editable helper-method section after the target method and before the Solution closing brace, between exact // BEGIN HELPERS and // END HELPERS marker lines. Put all input parsing and the locked entry point in a separate driver section surrounded by exact comment lines BEGIN DRIVER and END DRIVER (same language comment style); the driver must call the Solution target function and may call helper methods only through that function. For Java, use class Solution plus a separate package-private class Main containing main; never make Main public because Azure compile service uses prog.java. The driver must read ONLY the current stdin, parse it according to the documented input format, call the target function, and print exactly one result with no labels, debug output, hard-coded sample answers, or values from any other test. Every test input must be valid in that format, including empty and single-item cases where applicable. Do not include an algorithm, pseudocode, or answer in the target function body; put only a TODO comment there. Include exactly three distinct testCases, each an object with string fields input and output; testCases[0] must exactly match exampleInput/exampleOutput, while the other two must cover meaningful edge cases. The driver must produce the stated output independently for each test input. Return ONLY a valid JSON array of exactly 3 objects.`
         : `Generate ${numberOfQuestions} ${difficulty || "Medium"} interview questions for the role ${role || "Software Developer"}. Interview type: ${interviewType || "Technical"}. Return ONLY a valid JSON array. Each object must contain "question" and "category".`;
 
       const generatedText =
@@ -1633,7 +1677,7 @@ app.post(
           category: selectedCodingTopics[index],
           functionName: String(item.functionName || "solution").replace(/[^A-Za-z0-9_]/g, "").slice(0, 50) || "solution",
           starterCode: typeof item.starterCode === "string"
-            ? resetCodingSolutionBody(addCodingDriverMarkers(ensureJavaUtilityImport(item.starterCode.slice(0, 30000), codingLanguage), codingLanguage), codingLanguage, item.functionName)
+            ? resetCodingSolutionBody(addCodingDriverMarkers(ensureJavaCodingHelperRegion(ensureJavaUtilityImport(item.starterCode.slice(0, 30000), codingLanguage), codingLanguage), codingLanguage), codingLanguage, item.functionName)
             : "",
           exampleInput: String(item.exampleInput ?? item.testCases?.[0]?.input ?? "").slice(0, 4000),
           exampleOutput: String(item.exampleOutput ?? item.testCases?.[0]?.output ?? "").slice(0, 2000),
