@@ -220,13 +220,13 @@ function AITutor() {
           </div>
           <p className="ai-tutor-diagnosis-summary">{diagnosis.summary}</p>
           {diagnosis.strengths?.length > 0 && <div className="ai-tutor-strengths">{diagnosis.strengths.map((item, index) => <span key={item.title + index}>✓ <strong>{item.title}</strong> — {item.evidence}</span>)}</div>}
-          <div className="ai-tutor-focus-grid">{diagnosis.focusAreas?.map((area, index) => <article className="ai-tutor-focus-card" key={area.title + index}>
+          {!!diagnosis.focusAreas?.length && <div className="ai-tutor-focus-grid">{diagnosis.focusAreas.map((area, index) => <article className="ai-tutor-focus-card" key={area.title + index}>
             <div className="ai-tutor-focus-heading"><span>{area.source || "Practice"}</span><small className={"priority-" + String(area.priority || "medium").toLowerCase()}>{area.priority || "Focus"}</small></div>
             <h3>{area.title}</h3><p className="ai-tutor-focus-evidence">{area.evidence}</p>
             <div className="ai-tutor-focus-lesson"><strong>What to learn</strong><p>{area.lesson}</p></div>
             <div className="ai-tutor-focus-practice"><strong>Try this</strong><p>{area.practice}</p></div>
             <button type="button" onClick={() => teachFocusArea(area)} disabled={sending}>Learn this with AI Tutor →</button>
-          </article>)}</div>
+          </article>)}</div>}
           {diagnosis.nextStep && <p className="ai-tutor-next-step"><strong>Your next step:</strong> {diagnosis.nextStep}</p>}
         </>}
         {!diagnosis && <div className="ai-tutor-diagnosis-empty"><span>✦</span><p>Run your first assessment to get lessons based on your real answers and interview scores.</p></div>}

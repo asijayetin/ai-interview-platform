@@ -11,6 +11,7 @@ import ResumeReview from "./ResumeReview";
 import WorkspaceSidebar from "./WorkspaceSidebar";
 import CodingPractice from "./CodingPractice";
 import AITutor from "./AITutor";
+import InterviewReport from "./InterviewReport";
 
 function App() {
 
@@ -59,7 +60,7 @@ function App() {
   const [profileMenuOpen, setProfileMenuOpen] =
     useState(false);
 
-  const workspacePages = ["dashboard", "interview", "resume-review", "practice", "tutor"];
+  const workspacePages = ["dashboard", "interview", "resume-review", "practice", "tutor", "interview-report"];
   const isWorkspacePage = workspacePages.includes(page);
 
 
@@ -485,6 +486,7 @@ function App() {
             )}
             {page === "practice" && <CodingPractice />}
             {page === "tutor" && <AITutor />}
+            {page === "interview-report" && <InterviewReport onNavigate={setPage} />}
           </div>
         </div>
       )}
