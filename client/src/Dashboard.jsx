@@ -1220,14 +1220,14 @@ function Dashboard({ onStartInterview }) {
 
                         <div className="history-info">
 
-                          <div className={`history-icon history-icon-${String(interview.interviewType || "technical").toLowerCase()}`}>
-                            {interview.interviewType === "HR" ? "HR" : interview.interviewType === "Technical" ? "T" : "</>"}
+                          <div className={`history-icon history-icon-${interview.interviewMode === "Voice" ? "voice" : String(interview.interviewType || "technical").toLowerCase()}`}>
+                            {interview.interviewMode === "Voice" ? "🎙" : interview.interviewType === "HR" ? "HR" : interview.interviewType === "Technical" ? "T" : "</>"}
                           </div>
 
                           <div>
 
                             <h3>
-                              {interview.interviewType}{" "}
+                              {interview.interviewMode === "Voice" ? "Voice " : ""}{interview.interviewType}{" "}
                               Interview
                             </h3>
 

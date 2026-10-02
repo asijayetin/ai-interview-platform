@@ -392,6 +392,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .workspace-main .history-icon-hr { background: #edf5ff; color: #3573b7; font-family: inherit; }
 .workspace-main .history-icon-technical { background: #edf4f5; color: #397976; font-family: inherit; }
 .workspace-main .history-icon-coding { background: #f2efff; color: #5c4fc2; }
+.workspace-main .history-icon-voice { background: #eaf7f4; color: #287b6d; font-family: inherit; }
 
 /* Coding interview workbench */
 .workspace-main .coding-question-content { padding: 24px 26px; border: 1px solid #e3e6f0; border-radius: 15px; background: linear-gradient(135deg, #fff 35%, #f8f7ff); box-shadow: 0 7px 21px rgba(31, 39, 68, .045); }

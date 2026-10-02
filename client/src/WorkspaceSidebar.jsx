@@ -3,6 +3,7 @@ import { useState } from "react";
 const navigation = [
   { id: "dashboard", label: "Overview", icon: "overview", group: "WORKSPACE" },
   { id: "interview", label: "Start Interview", icon: "interview", group: "PREPARATION" },
+  { id: "voice-interview", label: "Voice Interview", icon: "voice", group: "PREPARATION" },
   { id: "resume-review", label: "Resume Reviewer", icon: "resume", group: "PREPARATION" },
   { id: "practice", label: "Coding Practice", icon: "code", group: "PREPARATION" },
   { id: "tutor", label: "AI Tutor", icon: "tutor", group: "PREPARATION" },
@@ -14,6 +15,7 @@ function WorkspaceIcon({ name }) {
   const paths = {
     overview: <><path d="m3 10 9-7 9 7" /><path d="M5 9v11h14V9M9 20v-6h6v6" /></>,
     interview: <><rect x="9" y="2" width="6" height="13" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v4M9 22h6" /></>,
+    voice: <><path d="M12 3v18M8 7v10M4 10v4M16 7v10M20 10v4" /></>,
     resume: <><path d="M7 3h7l5 5v13H7z" /><path d="M14 3v6h5M10 13h6M10 17h6" /></>,
     code: <><path d="m8 8-4 4 4 4M16 8l4 4-4 4M14 5l-4 14" /></>,
     tutor: <><path d="m12 3 1.9 5.8L20 11l-6.1 2.1L12 19l-1.9-5.9L4 11l6.1-2.2L12 3Z" /><path d="m19 14 .9 2.1L22 17l-2.1.9L19 20l-.9-2.1L16 17l2.1-.9L19 14Z" /></>,

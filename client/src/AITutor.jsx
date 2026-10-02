@@ -8,7 +8,6 @@ const TUTOR_MODES = [
   { id: "learn", icon: "✦", title: "Learn a concept", detail: "Clear explanation + example" },
   { id: "quiz", icon: "◇", title: "Quiz me", detail: "One question at a time" },
   { id: "debug", icon: "⌘", title: "Debug code", detail: "Find the cause, learn the fix" },
-  { id: "interview", icon: "◉", title: "Mock interview", detail: "Practise speaking your answer" },
   { id: "plan", icon: "▦", title: "Study plan", detail: "Build a focused roadmap" },
 ];
 
@@ -16,7 +15,6 @@ const MODE_PROMPTS = {
   learn: (focus) => [`Explain a tricky ${focus} concept with a simple example`, `Teach me one important ${focus} concept for interviews`],
   quiz: (focus) => [`Quiz me on ${focus}, one question at a time`, `Give me a ${focus} question and wait for my answer`],
   debug: () => ["Help me debug this code. I will paste the code and error next.", "Explain how to approach debugging a coding problem"],
-  interview: (focus) => [`Start a mock interview about ${focus}. Ask one question and wait for my answer.`, "Help me structure a strong interview answer using STAR"],
   plan: (focus) => [`Make me a practical 7-day study plan for ${focus}`, "Help me plan a 30-minute daily interview-prep routine"],
 };
 
@@ -248,7 +246,7 @@ function AITutor() {
           </label>
 
           <div className="ai-tutor-mode-section">
-            <div className="ai-tutor-section-title"><span>Choose a session</span><small>5 modes</small></div>
+            <div className="ai-tutor-section-title"><span>Choose a session</span><small>4 modes</small></div>
             <div className="ai-tutor-mode-list">
               {TUTOR_MODES.map((item) => <button type="button" key={item.id} className={`ai-tutor-mode${mode === item.id ? " is-active" : ""}`} onClick={() => setMode(item.id)} aria-pressed={mode === item.id}>
                 <span className="ai-tutor-mode-icon">{item.icon}</span><span><strong>{item.title}</strong><small>{item.detail}</small></span><span className="ai-tutor-mode-arrow">›</span>
@@ -269,7 +267,7 @@ function AITutor() {
             {!messages.length && <div className="ai-tutor-welcome">
               <span className="ai-tutor-orb" aria-hidden="true">✦</span>
               <p className="ai-tutor-welcome-eyebrow">LET'S MAKE PROGRESS</p>
-              <h2>{mode === "quiz" ? "Ready for a quick challenge?" : mode === "debug" ? "Let's solve what you're stuck on." : mode === "plan" ? "Build a plan you can follow." : mode === "interview" ? "Let's practise like it's interview day." : "What would you like to learn today?"}</h2>
+              <h2>{mode === "quiz" ? "Ready for a quick challenge?" : mode === "debug" ? "Let's solve what you're stuck on." : mode === "plan" ? "Build a plan you can follow." : "What would you like to learn today?"}</h2>
               <p>Choose a prompt to get started, or write your own question below.</p>
               <div className="ai-tutor-quick-prompts">{suggestions.map((prompt) => <button type="button" key={prompt} onClick={() => sendMessage(prompt)} disabled={sending}><span>{prompt}</span><b>→</b></button>)}</div>
             </div>}
