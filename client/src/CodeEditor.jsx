@@ -4,7 +4,7 @@ import { javascript } from "@codemirror/lang-javascript";
 import { python } from "@codemirror/lang-python";
 import { java } from "@codemirror/lang-java";
 import { cpp } from "@codemirror/lang-cpp";
-import { foldEffect, indentUnit, StreamLanguage } from "@codemirror/language";
+import { indentUnit, StreamLanguage } from "@codemirror/language";
 import { EditorState } from "@codemirror/state";
 import { csharp } from "@codemirror/legacy-modes/mode/clike";
 import { Decoration, EditorView, keymap } from "@codemirror/view";
@@ -42,23 +42,29 @@ function getDriverRange(source) {
   const end = endPattern.exec(source);
   if (!end) return null;
   const endOfLine = source.indexOf("\n", end.index + end[0].length);
-  return { from: begin.index, to: endOfLine === -1 ? source.length : endOfLine };
+  return { from: begin.index, to: endOfLine === -1 ? source.length : endOfLine + 1 };
 }
 
-function foldDriver(view) {
-  const range = getDriverRange(view.state.doc.toString());
-  if (range && range.to > range.from) view.dispatch({ effects: foldEffect.of(range) });
-}
-
-function CodeEditor({ language = "javascript", value, onChange, onRun, ariaLabel = "Code editor", className = "", lockOutsideSolution = false, collapseDriver = false, foldKey = 0 }) {
+function CodeEditor({ language = "javascript", value, onChange, onRun, ariaLabel = "Code editor", className = "", lockOutsideSolution = false }) {
   const onRunRef = useRef(onRun);
-  const viewRef = useRef(null);
   useEffect(() => { onRunRef.current = onRun; }, [onRun]);
 
-  useEffect(() => {
-    if (!collapseDriver || !viewRef.current) return;
-    foldDriver(viewRef.current);
-  }, [collapseDriver, foldKey]);
+  const driverRange = typeof value === "string" ? getDriverRange(value) : null;
+  const editorValue = driverRange
+    ? `${value.slice(0, driverRange.from)}${value.slice(driverRange.to)}`
+    : value;
+  const handleEditorChange = (nextEditorValue) => {
+    if (!driverRange) {
+      onChange?.(nextEditorValue);
+      return;
+    }
+    const driverSource = value.slice(driverRange.from, driverRange.to);
+    const nextDriverStart = Math.max(0, Math.min(
+      nextEditorValue.length,
+      driverRange.from + nextEditorValue.length - editorValue.length
+    ));
+    onChange?.(`${nextEditorValue.slice(0, nextDriverStart)}${driverSource}${nextEditorValue.slice(nextDriverStart)}`);
+  };
 
   const extensions = useMemo(() => {
     const solutionLock = lockOutsideSolution ? [
@@ -101,14 +107,13 @@ function CodeEditor({ language = "javascript", value, onChange, onRun, ariaLabel
   return (
     <div className={`arena-code-editor ${className}`.trim()}>
       <CodeMirror
-        value={value}
-        onChange={onChange}
+        value={editorValue}
+        onChange={handleEditorChange}
         extensions={extensions}
         theme={oneDark}
-        onCreateEditor={(view) => { viewRef.current = view; if (collapseDriver) foldDriver(view); }}
         basicSetup={{
           lineNumbers: true,
-          foldGutter: true,
+          foldGutter: false,
           highlightActiveLineGutter: true,
           highlightActiveLine: true,
           bracketMatching: true,
@@ -123,6 +128,12 @@ function CodeEditor({ language = "javascript", value, onChange, onRun, ariaLabel
         autoCorrect="off"
         autoComplete="off"
       />
+      {driverRange && (
+        <div className="coding-locked-driver" role="note" aria-label="Locked, read-only program driver">
+          <code>{language === "java" ? "class Main" : language === "csharp" ? "class Program" : "Driver"} &#123; … &#125;</code>
+          <span><i aria-hidden="true">🔒</i> Locked runner</span>
+        </div>
+      )}
     </div>
   );
 }

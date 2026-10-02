@@ -2258,8 +2258,6 @@ function Interview({ onBackToDashboard }) {
                         onChange={(nextAnswer) => { setAnswer(nextAnswer); setCodingOutput(null); setCodingRunError(""); }}
                         onRun={runCodingCode}
                         lockOutsideSolution
-                        collapseDriver
-                        foldKey={currentQuestion}
                         ariaLabel={`${codingLanguage} coding interview editor`}
                         className="coding-interview-code"
                       />
