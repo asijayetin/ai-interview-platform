@@ -2779,6 +2779,41 @@ function Interview({ onBackToDashboard }) {
 
               </div>
 
+              <section className="answer-review-section" aria-labelledby="answer-review-title">
+                <div className="answer-review-heading">
+                  <div><p>DETAILED REPORT</p><h3 id="answer-review-title">Answer-by-answer review</h3><span>Specific notes based on each response you gave.</span></div>
+                  <span className="answer-review-count">{(evaluation.answerFeedback || []).length} reviewed</span>
+                </div>
+
+                {(evaluation.answerFeedback || []).length > 0 ? (
+                  <div className="answer-review-list">
+                    {evaluation.answerFeedback.map((review, index) => {
+                      const questionIndex = Number.isInteger(review.questionIndex) ? review.questionIndex : index;
+                      const originalQuestion = getQuestionText(questions[questionIndex]) || answersRef.current[questionIndex]?.question || `Question ${questionIndex + 1}`;
+                      const originalAnswer = answersRef.current[questionIndex]?.answer || "";
+                      const hasScore = review.score !== null && review.score !== undefined && Number.isFinite(Number(review.score));
+                      const scoreClass = !hasScore ? "" : Number(review.score) >= 7 ? "is-strong" : Number(review.score) >= 4 ? "is-developing" : "is-needs-work";
+                      return (
+                        <article className="answer-review-card" key={`${questionIndex}-${index}`}>
+                          <header className="answer-review-card-heading">
+                            <div><span>QUESTION {questionIndex + 1}</span><h4>{originalQuestion}</h4></div>
+                            <strong className={`answer-review-score ${scoreClass}`}>{hasScore ? Number(review.score) : "—"}<small>/10</small></strong>
+                          </header>
+                          <details className="answer-review-response"><summary>Your response</summary><p>{originalAnswer || "Response not available."}</p></details>
+                          <div className="answer-review-notes">
+                            <div className="answer-review-note is-strength"><span>WHAT WENT WELL</span><p>{review.strength || "No separate strength note was returned."}</p></div>
+                            <div className="answer-review-note is-improvement"><span>WHAT TO IMPROVE</span><p>{review.improvement || "Try adding more specific reasoning and supporting details."}</p></div>
+                          </div>
+                          {review.strongerApproach && <div className="answer-review-example"><span>{interviewType === "HR" ? "A stronger answer structure" : interviewType === "Coding" ? "A stronger solution approach" : "A stronger answer approach"}</span><p>{review.strongerApproach}</p></div>}
+                        </article>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="answer-review-unavailable">Per-answer notes aren’t available for this saved evaluation.</p>
+                )}
+              </section>
+
               <div className="result-actions">
 
                 <button

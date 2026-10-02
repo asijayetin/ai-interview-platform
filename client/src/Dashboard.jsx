@@ -544,7 +544,7 @@ function Dashboard({ onStartInterview }) {
                   color: "#64748b",
                 }}
               >
-                Relevance
+                {interview.interviewType === "Coding" ? "Correctness" : interview.interviewType === "HR" ? "Relevant examples" : "Technical accuracy"}
               </p>
 
               <strong
@@ -593,7 +593,7 @@ function Dashboard({ onStartInterview }) {
                   color: "#64748b",
                 }}
               >
-                Clarity
+                {interview.interviewType === "Coding" ? "Complexity & edge cases" : interview.interviewType === "HR" ? "Answer structure" : "Reasoning & trade-offs"}
               </p>
 
               <strong
@@ -750,6 +750,21 @@ function Dashboard({ onStartInterview }) {
                       </p>
 
                     </div>
+
+                    {Array.isArray(interview.answerFeedback) && interview.answerFeedback.find((review) => review.questionIndex === index) && (() => {
+                      const review = interview.answerFeedback.find((entry) => entry.questionIndex === index);
+                      const hasScore = review.score !== null && review.score !== undefined;
+                      return (
+                        <div className="history-answer-review">
+                          <div className="history-answer-review-title"><strong>AI feedback</strong>{hasScore && <span>{review.score}/10</span>}</div>
+                          <div className="history-answer-review-grid">
+                            {review.strength && <div><small>What went well</small><p>{review.strength}</p></div>}
+                            {review.improvement && <div><small>What to improve</small><p>{review.improvement}</p></div>}
+                          </div>
+                          {review.strongerApproach && <div className="history-answer-approach"><small>{interview.interviewType === "HR" ? "Stronger answer structure" : interview.interviewType === "Coding" ? "Solution approach" : "Stronger answer approach"}</small><p>{review.strongerApproach}</p></div>}
+                        </div>
+                      );
+                    })()}
 
                   </div>
 
