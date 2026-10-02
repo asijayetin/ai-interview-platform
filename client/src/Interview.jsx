@@ -158,12 +158,20 @@ function Interview({ onBackToDashboard }) {
   const [codingOutput, setCodingOutput] = useState(null);
   const [codingRunError, setCodingRunError] = useState("");
   const [codingRunning, setCodingRunning] = useState(false);
+  const [codingDrafts, setCodingDrafts] = useState(savedSession?.codingDrafts || {});
 
   useEffect(() => {
     if (interviewType !== "Coding" || codingLanguage !== "Java" || !answer) return;
     const answerWithJavaImports = ensureJavaUtilityImport(answer);
     if (answerWithJavaImports !== answer) setAnswer(answerWithJavaImports);
   }, [interviewType, codingLanguage, answer]);
+
+  useEffect(() => {
+    if (interviewType !== "Coding" || !answer || !questions[currentQuestion]) return;
+    setCodingDrafts((drafts) => drafts[currentQuestion] === answer
+      ? drafts
+      : { ...drafts, [currentQuestion]: answer });
+  }, [interviewType, questions, currentQuestion, answer]);
 
   // ==========================================
   // EVALUATION
@@ -252,6 +260,7 @@ function Interview({ onBackToDashboard }) {
       questions,
       currentQuestion,
       answer,
+      codingDrafts,
       codingStdin,
       completed,
       evaluation,
@@ -284,6 +293,7 @@ function Interview({ onBackToDashboard }) {
     questions,
     currentQuestion,
     answer,
+    codingDrafts,
     codingStdin,
     completed,
     evaluation,
@@ -1036,7 +1046,9 @@ function Interview({ onBackToDashboard }) {
 
       setCurrentQuestion(0);
       if (interviewType === "Coding") {
-        setAnswer(getCodingStarter(generatedQuestions[0], codingLanguage));
+        const firstStarter = getCodingStarter(generatedQuestions[0], codingLanguage);
+        setAnswer(firstStarter);
+        setCodingDrafts({ 0: firstStarter });
         const firstTestCase = getCodingTestCases(generatedQuestions[0])[0];
         setCodingStdin(firstTestCase?.input ?? generatedQuestions[0]?.exampleInput ?? "");
         setCodingTestIndex(0);
@@ -1235,6 +1247,22 @@ function Interview({ onBackToDashboard }) {
     }
   };
 
+  const goToCodingQuestion = (index) => {
+    if (index < 0 || index > currentQuestion || index >= questions.length || codingRunning || loading) return;
+    const nextQuestion = questions[index];
+    const nextAnswer = Object.prototype.hasOwnProperty.call(codingDrafts, index)
+      ? codingDrafts[index]
+      : getCodingStarter(nextQuestion, codingLanguage);
+    setCodingDrafts((drafts) => ({ ...drafts, [currentQuestion]: answer }));
+    setCurrentQuestion(index);
+    setAnswer(nextAnswer);
+    setCodingStdin(getCodingTestCases(nextQuestion)[0]?.input ?? nextQuestion?.exampleInput ?? "");
+    setCodingTestIndex(0);
+    setCodingOutput(null);
+    setCodingRunError("");
+    setError("");
+  };
+
   // ==========================================
   // CONTINUE TO QUESTIONS
   // ==========================================
@@ -1409,12 +1437,15 @@ function Interview({ onBackToDashboard }) {
 
       else {
 
-        setCurrentQuestion(
-          currentQuestion + 1
-        );
-
         const nextQuestion = questions[currentQuestion + 1];
-        setAnswer(interviewType === "Coding" ? getCodingStarter(nextQuestion, codingLanguage) : "");
+        const nextAnswer = interviewType === "Coding"
+          ? (codingDrafts[currentQuestion + 1] ?? getCodingStarter(nextQuestion, codingLanguage))
+          : "";
+        setCodingDrafts((drafts) => interviewType === "Coding"
+          ? { ...drafts, [currentQuestion]: answer, [currentQuestion + 1]: nextAnswer }
+          : drafts);
+        setCurrentQuestion(currentQuestion + 1);
+        setAnswer(nextAnswer);
         setCodingStdin(interviewType === "Coding" ? getCodingTestCases(nextQuestion)[0]?.input ?? nextQuestion?.exampleInput ?? "" : "");
         setCodingTestIndex(0);
         setCodingOutput(null);
@@ -1600,6 +1631,7 @@ function Interview({ onBackToDashboard }) {
     answersRef.current = [];
     setCurrentQuestion(0);
     setAnswer("");
+    setCodingDrafts({});
     setCodingStdin("");
     setCodingOutput(null);
     setCodingRunError("");
@@ -1907,13 +1939,26 @@ function Interview({ onBackToDashboard }) {
 
                 </div>
 
-                <div className="question-count">
-                  Question{" "}
-                  {currentQuestion + 1}
-                  {" "}
-                  of{" "}
-                  {questions.length}
-                </div>
+                {interviewType === "Coding" ? (
+                  <div className="coding-question-nav" aria-label="Choose a coding question">
+                    {questions.map((_, index) => (
+                      <button
+                        type="button"
+                        key={index}
+                        className={index === currentQuestion ? "is-current" : ""}
+                        aria-label={`Open question ${index + 1}`}
+                        aria-current={index === currentQuestion ? "step" : undefined}
+                        onClick={() => goToCodingQuestion(index)}
+                        disabled={index > currentQuestion || codingRunning || loading}
+                      >
+                        {index + 1}
+                      </button>
+                    ))}
+                    <span>Question {currentQuestion + 1} of {questions.length}</span>
+                  </div>
+                ) : (
+                  <div className="question-count">Question {currentQuestion + 1} of {questions.length}</div>
+                )}
 
               </div>
 
@@ -2251,6 +2296,11 @@ function Interview({ onBackToDashboard }) {
                   <div className="coding-editor-toolbar">
                     <div><label htmlFor="coding-solution-editor">Your solution</label><span className="coding-language-pill">{codingLanguage}</span></div>
                     <div className="coding-toolbar-actions">
+                      {currentQuestion > 0 && (
+                        <button type="button" className="coding-previous-question-btn" onClick={() => goToCodingQuestion(currentQuestion - 1)} disabled={codingRunning || loading}>
+                          ← Previous Question
+                        </button>
+                      )}
                       <button type="button" className="coding-next-question-btn" onClick={() => submitAnswer(true)} disabled={codingRunning || loading}>
                         {currentQuestion === questions.length - 1 ? "Finish interview →" : "Next Question →"}
                       </button>
@@ -2268,9 +2318,10 @@ function Interview({ onBackToDashboard }) {
                     <div className="coding-file-bar"><span className="coding-file-dots"><i /><i /><i /></span><code>{codingLanguage === "Java" || codingLanguage === "C#" ? "Solution" : "solution"}.{({ Java: "java", "C++": "cpp", Python: "py", JavaScript: "js", "C#": "cs" })[codingLanguage]}</code><span>Only the function body is editable</span></div>
                     <div className="coding-source-editor">
                       <CodeEditor
+                        key={`coding-editor-${currentQuestion}-${codingLanguage}`}
                         language={RUNNER_LANGUAGE_IDS[codingLanguage]}
                         value={answer}
-                        onChange={(nextAnswer) => { setAnswer(nextAnswer); setCodingOutput(null); setCodingRunError(""); }}
+                        onChange={(nextAnswer) => { setAnswer(nextAnswer); setCodingDrafts((drafts) => ({ ...drafts, [currentQuestion]: nextAnswer })); setCodingOutput(null); setCodingRunError(""); }}
                         onRun={runCodingCode}
                         lockOutsideSolution
                         ariaLabel={`${codingLanguage} coding interview editor`}

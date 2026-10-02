@@ -6,6 +6,12 @@
 .coding-interview-card .question-header .small-heading { margin-bottom: 4px; color: #675bd1; font-size: 9px; font-weight: 850; letter-spacing: 1.3px; }
 .coding-interview-card .question-header h2 { margin: 0; color: #20283d; font-size: 14px; font-weight: 750; }
 .coding-interview-card .question-count { padding: 7px 10px; border: 1px solid #e6e8ef; border-radius: 7px; color: #68748a; background: #fafbfe; font-size: 10px; font-weight: 750; }
+.coding-interview-card .coding-question-nav { display: flex; align-items: center; gap: 5px; }
+.coding-interview-card .coding-question-nav button { width: 29px; height: 29px; padding: 0; border: 1px solid #e1e5ef; border-radius: 7px; color: #5e6880; background: #fff; font-size: 10px; font-weight: 800; cursor: pointer; }
+.coding-interview-card .coding-question-nav button:hover:not(:disabled) { border-color: #bdb7ee; color: #5148b6; background: #f7f6ff; }
+.coding-interview-card .coding-question-nav button.is-current { border-color: #665bd2; color: #fff; background: #665bd2; }
+.coding-interview-card .coding-question-nav button:disabled { cursor: wait; opacity: .6; }
+.coding-interview-card .coding-question-nav > span { margin-left: 4px; color: #68748a; font-size: 9px; font-weight: 750; white-space: nowrap; }
 .coding-interview-card > .progress-container { grid-column: 1; grid-row: 2; height: 4px; margin: 19px 21px 0; overflow: hidden; border-radius: 99px; background: #ebeef5; }
 .coding-interview-card .progress-bar { height: 100%; border-radius: inherit; background: linear-gradient(90deg, #5e54c7, #9389f2); transition: width .3s ease; }
 .workspace-main .coding-interview-card .coding-question-content { grid-column: 1; grid-row: 3; min-width: 0; max-height: min(67vh, 790px); margin: 12px 0 18px 20px; padding: 19px 18px; overflow: auto; border: 0; border-right: 1px solid #e7e9f0; border-radius: 0; background: #fff; box-shadow: none; }
@@ -25,6 +31,9 @@
 .coding-interview-card .coding-editor-toolbar .coding-next-question-btn { min-height: 31px; padding: 6px 10px; border: 1px solid #d8d4f8; border-radius: 7px; color: #5148b6; background: #f5f4ff; font-size: 10px; font-weight: 750; white-space: nowrap; }
 .coding-interview-card .coding-editor-toolbar .coding-next-question-btn:hover:not(:disabled) { border-color: #aaa2ee; background: #eceaff; }
 .coding-interview-card .coding-editor-toolbar .coding-next-question-btn:disabled { cursor: wait; opacity: .65; }
+.coding-interview-card .coding-editor-toolbar .coding-previous-question-btn { min-height: 31px; padding: 6px 10px; border: 1px solid #dce1eb; border-radius: 7px; color: #4f5a70; background: #fff; font-size: 10px; font-weight: 750; white-space: nowrap; }
+.coding-interview-card .coding-editor-toolbar .coding-previous-question-btn:hover:not(:disabled) { border-color: #bdb7ee; color: #5148b6; background: #f7f6ff; }
+.coding-interview-card .coding-editor-toolbar .coding-previous-question-btn:disabled { cursor: wait; opacity: .65; }
 .coding-editor-window { margin: 0; overflow: hidden; background: #171d2b; }
 .coding-interview-card .coding-locked-driver { min-height: 37px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 13px; border-top: 1px solid #dce1eb; color: #667187; background: #eef0f4; cursor: default; pointer-events: none; user-select: none; }
 .coding-interview-card .coding-locked-driver code { color: #4b5569; font: 11px ui-monospace, SFMono-Regular, Consolas, monospace; }
@@ -78,6 +87,7 @@
   .coding-interview-card .coding-editor-toolbar { gap: 8px; padding: 8px; }
   .coding-interview-card .coding-toolbar-actions { gap: 5px; }
   .coding-interview-card .coding-editor-toolbar .coding-next-question-btn,
+  .coding-interview-card .coding-editor-toolbar .coding-previous-question-btn,
   .coding-interview-card .coding-run-button { padding: 6px 7px; font-size: 9px; }
   .coding-interview-card .coding-run-button kbd { display: none; }
 }
