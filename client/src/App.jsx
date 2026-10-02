@@ -267,11 +267,7 @@ function App() {
           NAVBAR
       ==================================== */}
 
-      {page !== "dashboard" &&
-        page !== "interview" &&
-        page !== "resume-review" &&
-        page !== "practice" &&
-        page !== "tutor" &&
+      {!isWorkspacePage &&
         page !== "settings" && (
 
         <header className="navbar">
