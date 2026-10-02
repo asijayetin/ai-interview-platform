@@ -25,6 +25,10 @@ const CODING_ROLE_OPTIONS = ROLE_OPTIONS.filter((roleOption) =>
   ["Software Developer", "Java Developer", "C++ Developer", "Python Developer", "Frontend Developer", "Backend Developer", "Full Stack Developer"].includes(roleOption)
 );
 const CODING_LANGUAGES = ["Java", "C++", "Python", "JavaScript", "C#"];
+const INTERVIEW_FLOW_STAGES = {
+  HR: ["Introduction & career story", "Role motivation", "Behavioral · STAR", "Collaboration & conflict", "Strengths & growth"],
+  Technical: ["Core role concepts", "Applied problem-solving", "Debugging & edge cases", "Design & trade-offs", "Role-specific depth"],
+};
 const RUNNER_LANGUAGE_IDS = { Java: "java", "C++": "cpp", Python: "python", JavaScript: "javascript", "C#": "csharp" };
 const getQuestionText = (item) => typeof item === "string" ? item : item?.question || "";
 const ensureJavaUtilityImport = (source) => {
@@ -1048,12 +1052,12 @@ function Interview({ onBackToDashboard }) {
             if (typeof item === "string") return { question: item, category: "Coding challenge", starterCode: "" };
             return { ...item, question: item?.question || "", category: item?.category || "Coding challenge" };
           }
-          if (typeof item === "string") return item;
-          return item?.question;
+          if (typeof item === "string") return { question: item, category: "Interview question" };
+          return { question: item?.question || "", category: item?.category || "Interview question" };
         })
         .filter((item) => interviewType === "Coding"
           ? typeof item?.question === "string" && item.question.trim()
-          : typeof item === "string" && item.trim());
+          : typeof item?.question === "string" && item.question.trim());
 
       if (interviewType === "Coding" && generatedQuestions.length !== 3) {
         setError("The AI could not prepare all 3 coding problems. Please try again.");
@@ -1805,6 +1809,17 @@ function Interview({ onBackToDashboard }) {
 
               </div>
 
+              {(interviewType === "HR" || interviewType === "Technical") && (
+                <div className={`interview-flow-preview interview-flow-${interviewType.toLowerCase()}`}>
+                  <div className="interview-flow-preview-heading">
+                    <span className="interview-flow-preview-mark">{interviewType === "HR" ? "HR" : "T"}</span>
+                    <div><strong>{interviewType === "HR" ? "HR interview flow" : "Technical interview flow"}</strong><small>{interviewType === "HR" ? "Practice clear, structured answers about your experience." : `Role-focused questions for ${role || "your chosen role"}, from fundamentals to design.`}</small></div>
+                  </div>
+                  <ol>{INTERVIEW_FLOW_STAGES[interviewType].map((stage, index) => <li key={stage}><span>{String(index + 1).padStart(2, "0")}</span>{stage}</li>)}</ol>
+                  <p><span>5 questions</span><i /> One at a time <i /> Personalized AI feedback at the end</p>
+                </div>
+              )}
+
               {/* ROLE */}
 
               <div className="role-section">
@@ -2295,6 +2310,13 @@ function Interview({ onBackToDashboard }) {
                   {currentQuestion + 1}
                 </p>
 
+                {interviewType !== "Coding" && questions[currentQuestion]?.category && (
+                  <div className={`interview-stage-tag interview-stage-${interviewType.toLowerCase()}`}>
+                    <span>{interviewType === "HR" ? "HR ROUND" : "TECHNICAL ROUND"}</span>
+                    <strong>{questions[currentQuestion].category}</strong>
+                  </div>
+                )}
+
                 {interviewType === "Coding" && (
                   <div className="coding-challenge-meta">
                     <span className="coding-topic-tag">{questions[currentQuestion]?.category || "Coding challenge"}</span>
@@ -2708,7 +2730,7 @@ function Interview({ onBackToDashboard }) {
                 <div className="score-box">
 
                   <span>
-                    {interviewType === "Coding" ? "Correctness" : "Relevance"}
+                    {interviewType === "Coding" ? "Correctness" : interviewType === "HR" ? "Relevant examples" : "Technical accuracy"}
                   </span>
 
                   <strong>
@@ -2721,7 +2743,7 @@ function Interview({ onBackToDashboard }) {
                 <div className="score-box">
 
                   <span>
-                    {interviewType === "Coding" ? "Complexity & edge cases" : "Clarity"}
+                    {interviewType === "Coding" ? "Complexity & edge cases" : interviewType === "HR" ? "Answer structure" : "Reasoning & trade-offs"}
                   </span>
 
                   <strong>
