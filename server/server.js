@@ -55,6 +55,38 @@ const resetCodingSolutionBody = (source, language, functionName) => {
   return `${source.slice(0, bodyFrom)}${placeholder}${source.slice(end.index)}`;
 };
 
+const addCodingDriverMarkers = (source, language) => {
+  if (/^[ \t]*(?:\/\/|#)[ \t]*BEGIN DRIVER[ \t]*$/m.test(source)) return source;
+  const normalizedLanguage = String(language || "").toLowerCase();
+  const patterns = {
+    java: /^[ \t]*(?:(?:public|protected|private|final|abstract)\s+)*class\s+Main\b[^\n]*\{/m,
+    csharp: /^[ \t]*(?:(?:public|protected|private|internal|static|sealed|abstract)\s+)*class\s+Program\b[^\n]*\{/m,
+    cpp: /^[ \t]*(?:(?:signed\s+)?int)\s+main\s*\(/m,
+    python: /^[ \t]*if\s+__name__\s*==\s*["']__main__["']\s*:/m,
+  };
+  const driver = patterns[normalizedLanguage]?.exec(source);
+  if (!driver) return source;
+  const marker = normalizedLanguage === "python" ? "#" : "//";
+  const driverStart = driver.index;
+  return `${source.slice(0, driverStart)}${marker} BEGIN DRIVER\n${source.slice(driverStart).trimEnd()}\n${marker} END DRIVER\n`;
+};
+
+const prepareCodingTestCases = (item) => {
+  const sampleInput = item.exampleInput ?? item.testCases?.[0]?.input ?? "";
+  const sampleOutput = item.exampleOutput ?? item.testCases?.[0]?.output ?? "";
+  const example = {
+    input: String(sampleInput).slice(0, 4000),
+    output: String(sampleOutput).slice(0, 2000),
+  };
+  const additionalCases = (Array.isArray(item.testCases) ? item.testCases : [])
+    .filter((testCase) => testCase && testCase.input != null && testCase.output != null)
+    .map((testCase) => ({ input: String(testCase.input).slice(0, 4000), output: String(testCase.output).slice(0, 2000) }))
+    .filter((testCase) => testCase.input !== example.input || testCase.output !== example.output);
+  const cases = [example, ...additionalCases].slice(0, 3);
+  while (cases.length < 3) cases.push({ ...example });
+  return cases;
+};
+
 app.use(
   cors({
     origin: "https://ai-interview-platform-ten-alpha.vercel.app",
@@ -1584,30 +1616,20 @@ app.post(
           typeof item.starterCode !== "string" || !item.starterCode.trim() ||
           !/^[ \t]*(?:\/\/|#)[ \t]*BEGIN SOLUTION[ \t]*$/m.test(item.starterCode) ||
           !/^[ \t]*(?:\/\/|#)[ \t]*END SOLUTION[ \t]*$/m.test(item.starterCode) ||
-          item.starterCode.indexOf("END SOLUTION") <= item.starterCode.indexOf("BEGIN SOLUTION") ||
-          !/^[ \t]*(?:\/\/|#)[ \t]*BEGIN DRIVER[ \t]*$/m.test(item.starterCode) ||
-          !/^[ \t]*(?:\/\/|#)[ \t]*END DRIVER[ \t]*$/m.test(item.starterCode) ||
-          item.starterCode.indexOf("END DRIVER") <= item.starterCode.indexOf("BEGIN DRIVER") ||
-          !Array.isArray(item.testCases) || item.testCases.length !== 3 ||
-          typeof item.exampleInput !== "string" || typeof item.exampleOutput !== "string" ||
-          item.testCases.some((testCase) => !testCase || typeof testCase.input !== "string" || typeof testCase.output !== "string") ||
-          item.testCases[0]?.input !== item.exampleInput || item.testCases[0]?.output !== item.exampleOutput
+          item.starterCode.indexOf("END SOLUTION") <= item.starterCode.indexOf("BEGIN SOLUTION")
         )) {
-          return res.status(502).json({ message: "AI could not prepare coding problems with a locked function template and three runnable test cases. Please try again." });
+          return res.status(502).json({ message: "AI did not return a valid coding question and editable function template. Please try again." });
         }
         questions = questions.map((item, index) => ({
           question: String(item.question).slice(0, 5000),
           category: selectedCodingTopics[index],
           functionName: String(item.functionName || "solution").replace(/[^A-Za-z0-9_]/g, "").slice(0, 50) || "solution",
           starterCode: typeof item.starterCode === "string"
-            ? resetCodingSolutionBody(item.starterCode.slice(0, 30000), codingLanguage, item.functionName)
+            ? resetCodingSolutionBody(addCodingDriverMarkers(item.starterCode.slice(0, 30000), codingLanguage), codingLanguage, item.functionName)
             : "",
-          exampleInput: typeof item.exampleInput === "string" ? item.exampleInput.slice(0, 4000) : "",
-          exampleOutput: typeof item.exampleOutput === "string" ? item.exampleOutput.slice(0, 2000) : "",
-          testCases: item.testCases.slice(0, 3).map((testCase) => ({
-            input: testCase.input.slice(0, 4000),
-            output: testCase.output.slice(0, 2000),
-          })),
+          exampleInput: String(item.exampleInput ?? item.testCases?.[0]?.input ?? "").slice(0, 4000),
+          exampleOutput: String(item.exampleOutput ?? item.testCases?.[0]?.output ?? "").slice(0, 2000),
+          testCases: prepareCodingTestCases(item),
         }));
         await Interview.updateOne(
           { _id: req.body.interviewId, userId: req.user.userId },
