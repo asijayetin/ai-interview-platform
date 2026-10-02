@@ -111,14 +111,38 @@ function Interview({ onBackToDashboard }) {
   const [codingLanguage, setCodingLanguage] = useState(
     savedSession?.codingLanguage || "Java"
   );
+  const [resumeFile, setResumeFile] = useState(null);
+  const [resumeFileError, setResumeFileError] = useState("");
+  const resumeContextInputRef = useRef(null);
 
   const availableRoles = interviewType === "Coding" ? CODING_ROLE_OPTIONS : ROLE_OPTIONS;
 
   const selectInterviewType = (type) => {
     setInterviewType(type);
+    setResumeFileError("");
+    if (type === "Coding") setResumeFile(null);
     if (type === "Coding" && !CODING_ROLE_OPTIONS.includes(role)) {
       setRole("");
     }
+  };
+
+  const selectResumeContext = (file) => {
+    setResumeFileError("");
+    if (!file) {
+      setResumeFile(null);
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setResumeFileError("Resume must be 5 MB or smaller.");
+      setResumeFile(null);
+      return;
+    }
+    if (!/\.(pdf|docx)$/i.test(file.name)) {
+      setResumeFileError("Choose a PDF or DOCX resume.");
+      setResumeFile(null);
+      return;
+    }
+    setResumeFile(file);
   };
 
   const handleAnswerEditorKeyDown = (event) => {
@@ -984,27 +1008,35 @@ function Interview({ onBackToDashboard }) {
         "Generating AI questions..."
       );
 
+      const generationFields = {
+        role,
+        interviewType,
+        codingLanguage,
+        interviewId,
+        difficulty: "Medium",
+        count: interviewType === "Coding" ? 3 : 5,
+      };
+      let requestBody = JSON.stringify(generationFields);
+      const requestHeaders = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      };
+      if (resumeFile && interviewType !== "Coding") {
+        const formData = new FormData();
+        formData.append("role", role);
+        formData.append("interviewType", interviewType);
+        formData.append("resume", resumeFile);
+        requestBody = formData;
+        delete requestHeaders["Content-Type"];
+      }
+
       const response =
         await fetch(
           `${API_URL}/api/ai/generate`,
           {
             method: "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-
-              Authorization:
-                `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              role,
-              interviewType,
-              codingLanguage,
-              interviewId,
-              difficulty: "Medium",
-              count: interviewType === "Coding" ? 3 : 5,
-            }),
+            headers: requestHeaders,
+            body: requestBody,
           }
         );
 
@@ -1657,6 +1689,9 @@ function Interview({ onBackToDashboard }) {
 
     setInterviewType("");
     setRole("");
+    setResumeFile(null);
+    setResumeFileError("");
+    if (resumeContextInputRef.current) resumeContextInputRef.current.value = "";
     setStarted(false);
     setShowQuestions(false);
     setInterviewId(null);
@@ -1853,6 +1888,16 @@ function Interview({ onBackToDashboard }) {
                 </select>
 
               </div>
+
+              {(interviewType === "HR" || interviewType === "Technical") && (
+                <div className="interview-resume-context">
+                  <div className="interview-resume-context-copy"><span>OPTIONAL PERSONALIZATION</span><strong>Tailor questions to your resume</strong><small>We’ll use your projects and skills to make questions more relevant.</small></div>
+                  <input ref={resumeContextInputRef} className="interview-resume-context-input" type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(event) => { selectResumeContext(event.target.files?.[0] || null); event.target.value = ""; }} aria-label="Choose resume for personalized interview questions" />
+                  {resumeFile ? <div className="interview-resume-selected"><span>✓</span><strong title={resumeFile.name}>{resumeFile.name}</strong><button type="button" onClick={() => { selectResumeContext(null); if (resumeContextInputRef.current) resumeContextInputRef.current.value = ""; }}>Remove</button></div> : <button type="button" className="interview-resume-upload-btn" onClick={() => resumeContextInputRef.current?.click()}>Choose resume <span>↑</span></button>}
+                  {resumeFileError && <p className="interview-resume-context-error" role="alert">{resumeFileError}</p>}
+                  <p className="interview-resume-privacy">PDF or DOCX · up to 5 MB. Extracted text is sent to the configured AI service for this interview and isn’t saved by the app.</p>
+                </div>
+              )}
 
               {interviewType === "Coding" && (
                 <div className="role-section coding-language-section">
