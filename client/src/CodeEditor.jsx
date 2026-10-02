@@ -46,51 +46,12 @@ const getHelperBodyRange = (source) => {
   return end.index >= from ? { from, to: end.index } : null;
 };
 
-function getDriverRange(source, language) {
-  const begin = /^[ \t]*(?:\/\/|#)[ \t]*BEGIN DRIVER[ \t]*$/m.exec(source);
-  if (begin) {
-    const endPattern = /^[ \t]*(?:\/\/|#)[ \t]*END DRIVER[ \t]*$/gm;
-    endPattern.lastIndex = begin.index + begin[0].length;
-    const end = endPattern.exec(source);
-    if (end) {
-      const endOfLine = source.indexOf("\n", end.index + end[0].length);
-      return { from: begin.index, to: endOfLine === -1 ? source.length : endOfLine + 1 };
-    }
-  }
-
-  // Older saved interviews may not have driver markers. Keep their Java Main
-  // class out of the editable document as well, since it is always last.
-  const normalizedLanguage = String(language || "").toLowerCase();
-  const fallbackPatterns = {
-    java: /^[ \t]*(?:(?:public|protected|private|final|abstract)\s+)*class\s+Main\b[^\n]*\{/m,
-    csharp: /^[ \t]*(?:(?:public|protected|private|internal|static|sealed|abstract)\s+)*class\s+Program\b[^\n]*\{/m,
-    cpp: /^[ \t]*(?:(?:signed\s+)?int)\s+main\s*\(/m,
-  };
-  const fallback = fallbackPatterns[normalizedLanguage]?.exec(source);
-  return fallback ? { from: fallback.index, to: source.length } : null;
-}
-
 function CodeEditor({ language = "javascript", value, onChange, onRun, ariaLabel = "Code editor", className = "", lockOutsideSolution = false }) {
   const onRunRef = useRef(onRun);
   useEffect(() => { onRunRef.current = onRun; }, [onRun]);
 
-  // Only coding interviews have a protected driver. Coding Practice is a full
-  // source editor, so its Main class must stay visible and editable.
-  const driverRange = lockOutsideSolution && typeof value === "string" ? getDriverRange(value, language) : null;
-  const editorValue = driverRange
-    ? `${value.slice(0, driverRange.from)}${value.slice(driverRange.to)}`
-    : value;
   const handleEditorChange = (nextEditorValue) => {
-    if (!driverRange) {
-      onChange?.(nextEditorValue);
-      return;
-    }
-    const driverSource = value.slice(driverRange.from, driverRange.to);
-    const nextDriverStart = Math.max(0, Math.min(
-      nextEditorValue.length,
-      driverRange.from + nextEditorValue.length - editorValue.length
-    ));
-    onChange?.(`${nextEditorValue.slice(0, nextDriverStart)}${driverSource}${nextEditorValue.slice(nextDriverStart)}`);
+    onChange?.(nextEditorValue);
   };
 
   const extensions = useMemo(() => {
@@ -136,7 +97,7 @@ function CodeEditor({ language = "javascript", value, onChange, onRun, ariaLabel
   return (
     <div className={`arena-code-editor ${className}`.trim()}>
       <CodeMirror
-        value={editorValue}
+        value={value}
         onChange={handleEditorChange}
         extensions={extensions}
         theme={oneDark}

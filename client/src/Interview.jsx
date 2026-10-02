@@ -37,7 +37,19 @@ const getCodingStarter = (item, language) => {
   const source = item?.starterCode || "";
   if (language !== "Java") return source;
   const withImport = ensureJavaUtilityImport(source);
-  if (/^[ \t]*\/\/[ \t]*BEGIN HELPERS[ \t]*$/m.test(withImport) || !/\bclass\s+Solution\b/.test(withImport)) return withImport;
+  const helperBegin = /^[ \t]*\/\/[ \t]*BEGIN HELPERS[ \t]*$/m.exec(withImport);
+  if (helperBegin) {
+    const endPattern = /^[ \t]*\/\/[ \t]*END HELPERS[ \t]*$/gm;
+    endPattern.lastIndex = helperBegin.index + helperBegin[0].length;
+    const helperEnd = endPattern.exec(withImport);
+    if (!helperEnd) return withImport;
+    const bodyStart = withImport.indexOf("\n", helperBegin.index + helperBegin[0].length) + 1;
+    if (withImport.slice(bodyStart, helperEnd.index).trim()) return withImport;
+    const lineStart = withImport.lastIndexOf("\n", helperBegin.index - 1) + 1;
+    const indent = `${withImport.slice(lineStart, helperBegin.index).match(/^[ \t]*/)?.[0] || ""}    `;
+    return `${withImport.slice(0, bodyStart)}${indent}// Add optional static helper methods here.\n${withImport.slice(helperEnd.index)}`;
+  }
+  if (!/\bclass\s+Solution\b/.test(withImport)) return withImport;
   const driverStart = /^[ \t]*\/\/[ \t]*BEGIN DRIVER[ \t]*$/m.exec(withImport)?.index ?? withImport.length;
   const solutionEnd = withImport.lastIndexOf("}", driverStart);
   if (solutionEnd < 0) return withImport;
@@ -2325,7 +2337,7 @@ function Interview({ onBackToDashboard }) {
 
                 {interviewType === "Coding" ? (
                   <div className="coding-editor-window">
-                    <div className="coding-file-bar"><span className="coding-file-dots"><i /><i /><i /></span><code>{codingLanguage === "Java" || codingLanguage === "C#" ? "Solution" : "solution"}.{({ Java: "java", "C++": "cpp", Python: "py", JavaScript: "js", "C#": "cs" })[codingLanguage]}</code><span>Function body{codingLanguage === "Java" ? " + helper methods" : ""} editable · runner locked</span></div>
+                    <div className="coding-file-bar"><span className="coding-file-dots"><i /><i /><i /></span><code>{codingLanguage === "Java" || codingLanguage === "C#" ? "Solution" : "solution"}.{({ Java: "java", "C++": "cpp", Python: "py", JavaScript: "js", "C#": "cs" })[codingLanguage]}</code><span>Function body{codingLanguage === "Java" ? " + helper methods" : ""} editable · Main locked</span></div>
                     <div className="coding-source-editor">
                       <CodeEditor
                         key={`coding-editor-${currentQuestion}-${codingLanguage}`}

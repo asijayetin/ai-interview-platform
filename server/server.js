@@ -64,7 +64,19 @@ const ensureJavaUtilityImport = (source, language) => {
 };
 
 const ensureJavaCodingHelperRegion = (source, language) => {
-  if (String(language || "").toLowerCase() !== "java" || /^[ \t]*\/\/[ \t]*BEGIN HELPERS[ \t]*$/m.test(source)) return source;
+  if (String(language || "").toLowerCase() !== "java") return source;
+  const existingBegin = /^[ \t]*\/\/[ \t]*BEGIN HELPERS[ \t]*$/m.exec(source);
+  if (existingBegin) {
+    const existingEndPattern = /^[ \t]*\/\/[ \t]*END HELPERS[ \t]*$/gm;
+    existingEndPattern.lastIndex = existingBegin.index + existingBegin[0].length;
+    const existingEnd = existingEndPattern.exec(source);
+    if (!existingEnd) return source;
+    const bodyStart = source.indexOf("\n", existingBegin.index + existingBegin[0].length) + 1;
+    if (source.slice(bodyStart, existingEnd.index).trim()) return source;
+    const lineStart = source.lastIndexOf("\n", existingBegin.index - 1) + 1;
+    const indent = `${source.slice(lineStart, existingBegin.index).match(/^[ \t]*/)?.[0] || ""}    `;
+    return `${source.slice(0, bodyStart)}${indent}// Add optional static helper methods here.\n${source.slice(existingEnd.index)}`;
+  }
   const classStart = /\bclass\s+Solution\b[^\{]*\{/.exec(source);
   if (!classStart) return source;
   const openBrace = source.indexOf("{", classStart.index);
@@ -99,7 +111,7 @@ const ensureJavaCodingHelperRegion = (source, language) => {
         const lineStart = source.lastIndexOf("\n", index - 1) + 1;
         const indent = (source.slice(lineStart, index).match(/^[ \t]*/) || [""])[0];
         const helperIndent = `${indent}    `;
-        const helpers = `\n${helperIndent}// BEGIN HELPERS\n${helperIndent}// Optional static helper methods go here.\n${helperIndent}// END HELPERS\n${indent}`;
+        const helpers = `\n${helperIndent}// BEGIN HELPERS\n${helperIndent}// Add optional static helper methods here.\n${helperIndent}// END HELPERS\n${indent}`;
         return `${source.slice(0, index)}${helpers}${source.slice(index)}`;
       }
     }
