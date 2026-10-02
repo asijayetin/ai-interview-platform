@@ -68,7 +68,6 @@ function WorkspaceSidebar({ currentPage, onNavigate, onProfile, onLogout }) {
                 >
                   <span className="workspace-nav-icon"><WorkspaceIcon name={item.icon} /></span>
                   <span>{item.label}</span>
-                  {(item.id === "practice" || item.id === "tutor") && <span className="workspace-soon-badge">SOON</span>}
                 </button>
               ))}
             </div>

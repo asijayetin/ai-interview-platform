@@ -53,6 +53,9 @@
 .coding-interview-card > .start-interview-btn { grid-column: 2; grid-row: 6; justify-self: end; min-width: 195px; margin: 12px 14px 14px; padding: 11px 15px; border-radius: 8px; background: #252d46; font-size: 11px; }
 .coding-interview-card > .start-interview-btn:hover { background: #343e60; }
 .coding-interview-card > .start-interview-btn:disabled { opacity: .68; }
+.coding-interview-card > .coding-next-question-btn { grid-column: 2; grid-row: 6; justify-self: start; min-width: 145px; margin: 12px 14px 14px; padding: 10px 14px; border: 1px solid #dce1eb; border-radius: 8px; color: #414b62; background: #fff; font-size: 11px; font-weight: 700; }
+.coding-interview-card > .coding-next-question-btn:hover:not(:disabled) { border-color: #bdb7ee; color: #5148b6; background: #f7f6ff; }
+.coding-interview-card > .coding-next-question-btn:disabled { cursor: wait; opacity: .65; }
 @media (max-width: 1050px) {
   .workspace-main .interview-container.coding-interview-container { max-width: 100%; }
   .workspace-main .coding-interview-card { grid-template-columns: minmax(270px, .8fr) minmax(420px, 1.2fr); }
@@ -67,6 +70,7 @@
   .coding-interview-card .coding-source-editor .arena-code-editor { min-height: 320px; }
   .coding-interview-card > .interview-error { margin: 10px 14px 0; }
   .coding-interview-card > .start-interview-btn { align-self: flex-end; margin: 12px 14px 14px; }
+  .coding-interview-card > .coding-next-question-btn { align-self: flex-start; margin: 12px 14px 14px; }
 }
 @media (max-width: 480px) {
   .coding-interview-card > .question-header { padding: 11px 13px; }

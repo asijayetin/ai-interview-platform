@@ -9,8 +9,8 @@ import Profile from "./Profile";
 import Settings from "./Settings";
 import ResumeReview from "./ResumeReview";
 import WorkspaceSidebar from "./WorkspaceSidebar";
-import WorkspacePlaceholder from "./WorkspacePlaceholder";
 import CodingPractice from "./CodingPractice";
+import AITutor from "./AITutor";
 
 function App() {
 
@@ -484,7 +484,7 @@ function App() {
               <Interview onBackToDashboard={() => setPage("dashboard")} />
             )}
             {page === "practice" && <CodingPractice />}
-            {page === "tutor" && <WorkspacePlaceholder feature="tutor" />}
+            {page === "tutor" && <AITutor />}
           </div>
         </div>
       )}

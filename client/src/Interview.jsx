@@ -1257,7 +1257,7 @@ function Interview({ onBackToDashboard }) {
   // SUBMIT ANSWER
   // ==========================================
 
-  const submitAnswer = async () => {
+  const submitAnswer = async (continueWithoutPassingTests = false) => {
 
     setError("");
 
@@ -1312,7 +1312,7 @@ function Interview({ onBackToDashboard }) {
 
     }
 
-    if (interviewType === "Coding") {
+    if (interviewType === "Coding" && !continueWithoutPassingTests) {
       const testRun = await runCodingCode();
       if (!testRun?.accepted) {
         const passed = testRun?.passedCount || 0;
@@ -2517,6 +2517,17 @@ function Interview({ onBackToDashboard }) {
                   ? interviewType === "Coding" ? "Submit solution & finish →" : "Finish & Get AI Score 🤖"
                   : interviewType === "Coding" ? "Submit solution →" : "Submit Answer →"}
               </button>
+
+              {interviewType === "Coding" && (
+                <button
+                  type="button"
+                  className="coding-next-question-btn"
+                  onClick={() => submitAnswer(true)}
+                  disabled={loading || codingRunning}
+                >
+                  {currentQuestion === questions.length - 1 ? "Finish interview →" : "Next Question →"}
+                </button>
+              )}
 
             </div>
 
