@@ -46,12 +46,49 @@ const getHelperBodyRange = (source) => {
   return end.index >= from ? { from, to: end.index } : null;
 };
 
+const getDriverRange = (source, language) => {
+  const begin = /^[ \t]*(?:\/\/|#)[ \t]*BEGIN DRIVER[ \t]*$/m.exec(source);
+  if (begin) {
+    const endPattern = /^[ \t]*(?:\/\/|#)[ \t]*END DRIVER[ \t]*$/gm;
+    endPattern.lastIndex = begin.index + begin[0].length;
+    const end = endPattern.exec(source);
+    if (end) {
+      const endOfLine = source.indexOf("\n", end.index + end[0].length);
+      return { from: begin.index, to: endOfLine === -1 ? source.length : endOfLine + 1 };
+    }
+  }
+
+  const driverPatterns = {
+    java: /^[ \t]*(?:(?:public|protected|private|final|abstract)\s+)*class\s+Main\b[^\n]*\{/m,
+    csharp: /^[ \t]*(?:(?:public|protected|private|internal|static|sealed|abstract)\s+)*class\s+Program\b[^\n]*\{/m,
+    cpp: /^[ \t]*(?:(?:signed\s+)?int)\s+main\s*\(/m,
+    python: /^[ \t]*if\s+__name__\s*==\s*["']__main__["']\s*:/m,
+  };
+  const driver = driverPatterns[String(language || "").toLowerCase()]?.exec(source);
+  return driver ? { from: driver.index, to: source.length } : null;
+};
+
 function CodeEditor({ language = "javascript", value, onChange, onRun, ariaLabel = "Code editor", className = "", lockOutsideSolution = false }) {
   const onRunRef = useRef(onRun);
   useEffect(() => { onRunRef.current = onRun; }, [onRun]);
 
+  // Interview mode shows only the solution class. Keep the runner in the
+  // submitted source while hiding it from the editor; Practice stays full-file.
+  const driverRange = lockOutsideSolution && typeof value === "string" ? getDriverRange(value, language) : null;
+  const editorValue = driverRange
+    ? `${value.slice(0, driverRange.from)}${value.slice(driverRange.to)}`
+    : value;
   const handleEditorChange = (nextEditorValue) => {
-    onChange?.(nextEditorValue);
+    if (!driverRange) {
+      onChange?.(nextEditorValue);
+      return;
+    }
+    const driverSource = value.slice(driverRange.from, driverRange.to);
+    const nextDriverStart = Math.max(0, Math.min(
+      nextEditorValue.length,
+      driverRange.from + nextEditorValue.length - editorValue.length
+    ));
+    onChange?.(`${nextEditorValue.slice(0, nextDriverStart)}${driverSource}${nextEditorValue.slice(nextDriverStart)}`);
   };
 
   const extensions = useMemo(() => {
@@ -97,7 +134,7 @@ function CodeEditor({ language = "javascript", value, onChange, onRun, ariaLabel
   return (
     <div className={`arena-code-editor ${className}`.trim()}>
       <CodeMirror
-        value={value}
+        value={editorValue}
         onChange={handleEditorChange}
         extensions={extensions}
         theme={oneDark}
