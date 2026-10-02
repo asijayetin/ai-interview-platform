@@ -29,6 +29,16 @@ const getTutorStorageKey = () => {
   }
 };
 
+const getTutorDiagnosisKey = () => getTutorStorageKey() + ":diagnosis";
+
+const loadTutorDiagnosis = () => {
+  try {
+    return JSON.parse(localStorage.getItem(getTutorDiagnosisKey()) || "null");
+  } catch {
+    return null;
+  }
+};
+
 const loadTutorMessages = () => {
   try {
     const messages = JSON.parse(localStorage.getItem(getTutorStorageKey()) || "[]");
@@ -71,7 +81,17 @@ function AITutor() {
   const [mode, setMode] = useState("learn");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const [diagnosis, setDiagnosis] = useState(loadTutorDiagnosis);
+  const [diagnosisLoading, setDiagnosisLoading] = useState(false);
+  const [diagnosisFile, setDiagnosisFile] = useState(null);
+  const [diagnosisError, setDiagnosisError] = useState("");
+  const [coachContext, setCoachContext] = useState(() => {
+    const saved = loadTutorDiagnosis();
+    return saved ? JSON.stringify(saved) : "";
+  });
   const bottomRef = useRef(null);
+  const resumeInputRef = useRef(null);
+  const chatRef = useRef(null);
   const activeMode = TUTOR_MODES.find((item) => item.id === mode) || TUTOR_MODES[0];
   const suggestions = MODE_PROMPTS[mode](focus);
 
@@ -84,10 +104,19 @@ function AITutor() {
   }, [messages, storageKey]);
 
   useEffect(() => {
+    try {
+      if (diagnosis) localStorage.setItem(getTutorDiagnosisKey(), JSON.stringify(diagnosis));
+      else localStorage.removeItem(getTutorDiagnosisKey());
+    } catch {
+      // Keep the tutor usable if browser storage is unavailable.
+    }
+  }, [diagnosis]);
+
+  useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, sending]);
 
-  const sendMessage = async (prompt) => {
+  const sendMessage = async (prompt, learningContext = coachContext) => {
     const content = String(prompt ?? input).trim();
     if (!content || sending) return;
     if (!API_URL) {
@@ -106,7 +135,7 @@ function AITutor() {
           "Content-Type": "application/json",
           Authorization: "Bearer " + localStorage.getItem("token"),
         },
-        body: JSON.stringify({ message: content, history: previousMessages, focus, level, replyLanguage, mode }),
+        body: JSON.stringify({ message: content, history: previousMessages, focus, level, replyLanguage, mode, coachContext: learningContext }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.message || "The tutor couldn't reply. Please try again.");
@@ -116,6 +145,41 @@ function AITutor() {
     } finally {
       setSending(false);
     }
+  };
+
+  const analyzeProgress = async () => {
+    if (!API_URL) {
+      setDiagnosisError("The app server is not configured.");
+      return;
+    }
+    setDiagnosisError("");
+    setDiagnosisLoading(true);
+    try {
+      const formData = new FormData();
+      if (diagnosisFile) formData.append("resume", diagnosisFile);
+      const response = await fetch(API_URL + "/api/ai/tutor/diagnose", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + localStorage.getItem("token") },
+        body: formData,
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.message || "Could not analyze your progress.");
+      setDiagnosis(data.diagnosis);
+      setCoachContext(JSON.stringify(data.diagnosis));
+      setDiagnosisFile(null);
+      if (resumeInputRef.current) resumeInputRef.current.value = "";
+    } catch (diagnosisRequestError) {
+      setDiagnosisError(diagnosisRequestError.message || "Could not analyze your progress.");
+    } finally {
+      setDiagnosisLoading(false);
+    }
+  };
+
+  const teachFocusArea = (area) => {
+    const prompt = 'Teach me "' + area.title + '" based on this evidence: ' + area.evidence + '. First explain the idea simply, then show a small example, then give me this exercise without revealing its answer: ' + area.practice + '. Wait for my attempt.';
+    setMode("learn");
+    chatRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    sendMessage(prompt, JSON.stringify({ ...diagnosis, activeFocusArea: area }));
   };
 
   const clearConversation = () => {
@@ -134,6 +198,39 @@ function AITutor() {
         </div>
         <span className="ai-tutor-status"><i /> AI tutor ready</span>
       </header>
+
+      <section className="ai-tutor-diagnosis" aria-labelledby="ai-tutor-diagnosis-title">
+        <div className="ai-tutor-diagnosis-top">
+          <div><p className="ai-tutor-diagnosis-kicker">YOUR PRACTICE, CONNECTED</p><h2 id="ai-tutor-diagnosis-title">What should you work on next?</h2><p>The tutor reviews your saved HR, technical and coding interview feedback. Add a resume for a fuller picture.</p></div>
+          <div className="ai-tutor-diagnosis-actions">
+            <input ref={resumeInputRef} type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(event) => setDiagnosisFile(event.target.files?.[0] || null)} aria-label="Optional resume for learning assessment" />
+            <button className="ai-tutor-resume-pick" type="button" onClick={() => resumeInputRef.current?.click()}>{diagnosisFile ? "Resume selected ✓" : "Add resume (optional)"}</button>
+            <button className="ai-tutor-analyze" type="button" onClick={analyzeProgress} disabled={diagnosisLoading}>{diagnosisLoading ? "Reviewing your practice…" : diagnosis ? "Refresh my learning plan →" : "Find my weak areas →"}</button>
+          </div>
+        </div>
+        <p className="ai-tutor-diagnosis-privacy">Resume text is processed for this assessment and not saved. Interview history is read from your account.</p>
+        {diagnosisError && <p className="ai-tutor-diagnosis-error" role="alert">{diagnosisError}</p>}
+        {diagnosis && <>
+          <div className="ai-tutor-evidence-strip">
+            <span><strong>{diagnosis.evidenceSummary?.interviewsReviewed || 0}</strong> interviews reviewed</span>
+            <span>HR <strong>{diagnosis.evidenceSummary?.hr || 0}</strong></span>
+            <span>Technical <strong>{diagnosis.evidenceSummary?.technical || 0}</strong></span>
+            <span>Coding <strong>{diagnosis.evidenceSummary?.coding || 0}</strong></span>
+            {diagnosis.evidenceSummary?.resumeReviewed && <span>Resume included ✓</span>}
+          </div>
+          <p className="ai-tutor-diagnosis-summary">{diagnosis.summary}</p>
+          {diagnosis.strengths?.length > 0 && <div className="ai-tutor-strengths">{diagnosis.strengths.map((item, index) => <span key={item.title + index}>✓ <strong>{item.title}</strong> — {item.evidence}</span>)}</div>}
+          <div className="ai-tutor-focus-grid">{diagnosis.focusAreas?.map((area, index) => <article className="ai-tutor-focus-card" key={area.title + index}>
+            <div className="ai-tutor-focus-heading"><span>{area.source || "Practice"}</span><small className={"priority-" + String(area.priority || "medium").toLowerCase()}>{area.priority || "Focus"}</small></div>
+            <h3>{area.title}</h3><p className="ai-tutor-focus-evidence">{area.evidence}</p>
+            <div className="ai-tutor-focus-lesson"><strong>What to learn</strong><p>{area.lesson}</p></div>
+            <div className="ai-tutor-focus-practice"><strong>Try this</strong><p>{area.practice}</p></div>
+            <button type="button" onClick={() => teachFocusArea(area)} disabled={sending}>Learn this with AI Tutor →</button>
+          </article>)}</div>
+          {diagnosis.nextStep && <p className="ai-tutor-next-step"><strong>Your next step:</strong> {diagnosis.nextStep}</p>}
+        </>}
+        {!diagnosis && <div className="ai-tutor-diagnosis-empty"><span>✦</span><p>Run your first assessment to get lessons based on your real answers and interview scores.</p></div>}
+      </section>
 
       <div className="ai-tutor-workspace">
         <aside className="ai-tutor-sidebar">
@@ -162,7 +259,7 @@ function AITutor() {
           <div className="ai-tutor-sidebar-tip"><span>✦</span><div><strong>Learn actively</strong><p>Try explaining the idea back in your own words. The tutor can check your understanding.</p></div></div>
         </aside>
 
-        <div className="ai-tutor-chat">
+        <div className="ai-tutor-chat" ref={chatRef}>
           <div className="ai-tutor-chat-header">
             <div className="ai-tutor-chat-title"><span className="ai-tutor-chat-avatar">✦</span><div><strong>Your AI learning partner</strong><small>{focus} <i /> {level} <i /> {replyLanguage}</small></div></div>
             <div className="ai-tutor-chat-actions"><span className="ai-tutor-mode-badge">{activeMode.title}</span><button className="ai-tutor-clear" type="button" onClick={clearConversation} disabled={!messages.length || sending}>New chat</button></div>
