@@ -7,9 +7,11 @@
 .coding-interview-card .question-header h2 { margin: 0; color: #20283d; font-size: 14px; font-weight: 750; }
 .coding-interview-card .question-count { padding: 7px 10px; border: 1px solid #e6e8ef; border-radius: 7px; color: #68748a; background: #fafbfe; font-size: 10px; font-weight: 750; }
 .coding-interview-card .coding-question-nav { display: flex; align-items: center; gap: 5px; }
-.coding-interview-card .coding-question-nav button { width: 29px; height: 29px; padding: 0; border: 1px solid #e1e5ef; border-radius: 7px; color: #5e6880; background: #fff; font-size: 10px; font-weight: 800; cursor: pointer; }
+.coding-interview-card .coding-question-nav button { position: relative; width: 29px; height: 29px; padding: 0; border: 1px solid #e1e5ef; border-radius: 7px; color: #5e6880; background: #fff; font-size: 10px; font-weight: 800; cursor: pointer; }
 .coding-interview-card .coding-question-nav button:hover:not(:disabled) { border-color: #bdb7ee; color: #5148b6; background: #f7f6ff; }
 .coding-interview-card .coding-question-nav button.is-current { border-color: #665bd2; color: #fff; background: #665bd2; }
+.coding-interview-card .coding-question-nav button.is-complete:not(.is-current) { border-color: #a9dec5; color: #208458; background: #f2fbf6; }
+.coding-interview-card .coding-question-nav .coding-question-complete-check { position: absolute; top: -6px; right: -6px; width: 14px; height: 14px; display: grid; place-items: center; border: 1px solid #fff; border-radius: 50%; color: #fff; background: #25a36f; font-size: 9px; line-height: 1; box-shadow: 0 1px 3px rgba(25, 90, 61, .2); }
 .coding-interview-card .coding-question-nav button:disabled { cursor: wait; opacity: .6; }
 .coding-interview-card .coding-question-nav > span { margin-left: 4px; color: #68748a; font-size: 9px; font-weight: 750; white-space: nowrap; }
 .coding-interview-card > .progress-container { grid-column: 1; grid-row: 2; height: 4px; margin: 19px 21px 0; overflow: hidden; border-radius: 99px; background: #ebeef5; }

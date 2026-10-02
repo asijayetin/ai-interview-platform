@@ -181,6 +181,7 @@ function Interview({ onBackToDashboard }) {
   const [codingRunError, setCodingRunError] = useState("");
   const [codingRunning, setCodingRunning] = useState(false);
   const [codingDrafts, setCodingDrafts] = useState(savedSession?.codingDrafts || {});
+  const [completedCodingQuestions, setCompletedCodingQuestions] = useState(savedSession?.completedCodingQuestions || []);
 
   useEffect(() => {
     if (interviewType !== "Coding" || codingLanguage !== "Java" || !answer) return;
@@ -283,6 +284,7 @@ function Interview({ onBackToDashboard }) {
       currentQuestion,
       answer,
       codingDrafts,
+      completedCodingQuestions,
       codingStdin,
       completed,
       evaluation,
@@ -316,6 +318,7 @@ function Interview({ onBackToDashboard }) {
     currentQuestion,
     answer,
     codingDrafts,
+    completedCodingQuestions,
     codingStdin,
     completed,
     evaluation,
@@ -1068,6 +1071,7 @@ function Interview({ onBackToDashboard }) {
 
       setCurrentQuestion(0);
       if (interviewType === "Coding") {
+        setCompletedCodingQuestions([]);
         const firstStarter = getCodingStarter(generatedQuestions[0], codingLanguage);
         setAnswer(firstStarter);
         setCodingDrafts({ 0: firstStarter });
@@ -1260,6 +1264,9 @@ function Interview({ onBackToDashboard }) {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.message || "Could not run this code.");
       setCodingOutput(data);
+      if (data.results?.length === 3 && data.results.every((testCase) => testCase.accepted)) {
+        setCompletedCodingQuestions((done) => done.includes(currentQuestion) ? done : [...done, currentQuestion]);
+      }
       return data;
     } catch (runError) {
       setCodingRunError(runError.message || "Could not run this code.");
@@ -1649,7 +1656,8 @@ function Interview({ onBackToDashboard }) {
     setStarted(false);
     setShowQuestions(false);
     setInterviewId(null);
-    setQuestions([]);
+      setQuestions([]);
+      setCompletedCodingQuestions([]);
     answersRef.current = [];
     setCurrentQuestion(0);
     setAnswer("");
@@ -1967,13 +1975,13 @@ function Interview({ onBackToDashboard }) {
                       <button
                         type="button"
                         key={index}
-                        className={index === currentQuestion ? "is-current" : ""}
-                        aria-label={`Open question ${index + 1}`}
+                        className={`${index === currentQuestion ? "is-current" : ""}${completedCodingQuestions.includes(index) ? " is-complete" : ""}`}
+                        aria-label={`Open question ${index + 1}${completedCodingQuestions.includes(index) ? ", completed" : ""}`}
                         aria-current={index === currentQuestion ? "step" : undefined}
                         onClick={() => goToCodingQuestion(index)}
                         disabled={index > currentQuestion || codingRunning || loading}
                       >
-                        {index + 1}
+                        <span>{index + 1}</span>{completedCodingQuestions.includes(index) && <span className="coding-question-complete-check" aria-hidden="true">✓</span>}
                       </button>
                     ))}
                     <span>Question {currentQuestion + 1} of {questions.length}</span>
@@ -2343,7 +2351,7 @@ function Interview({ onBackToDashboard }) {
                         key={`coding-editor-${currentQuestion}-${codingLanguage}`}
                         language={RUNNER_LANGUAGE_IDS[codingLanguage]}
                         value={answer}
-                        onChange={(nextAnswer) => { setAnswer(nextAnswer); setCodingDrafts((drafts) => ({ ...drafts, [currentQuestion]: nextAnswer })); setCodingOutput(null); setCodingRunError(""); }}
+                        onChange={(nextAnswer) => { setAnswer(nextAnswer); setCodingDrafts((drafts) => ({ ...drafts, [currentQuestion]: nextAnswer })); setCompletedCodingQuestions((done) => done.filter((questionIndex) => questionIndex !== currentQuestion)); setCodingOutput(null); setCodingRunError(""); }}
                         onRun={runCodingCode}
                         lockOutsideSolution
                         ariaLabel={`${codingLanguage} coding interview editor`}
