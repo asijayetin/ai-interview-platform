@@ -74,7 +74,9 @@ function CodeEditor({ language = "javascript", value, onChange, onRun, ariaLabel
   const onRunRef = useRef(onRun);
   useEffect(() => { onRunRef.current = onRun; }, [onRun]);
 
-  const driverRange = typeof value === "string" ? getDriverRange(value, language) : null;
+  // Only coding interviews have a protected driver. Coding Practice is a full
+  // source editor, so its Main class must stay visible and editable.
+  const driverRange = lockOutsideSolution && typeof value === "string" ? getDriverRange(value, language) : null;
   const editorValue = driverRange
     ? `${value.slice(0, driverRange.from)}${value.slice(driverRange.to)}`
     : value;
@@ -155,12 +157,6 @@ function CodeEditor({ language = "javascript", value, onChange, onRun, ariaLabel
         autoCorrect="off"
         autoComplete="off"
       />
-      {driverRange && (
-        <div className="coding-locked-driver" role="note" aria-label="Locked, read-only program driver">
-          <code>{language === "java" ? "class Main" : language === "csharp" ? "class Program" : "Driver"} &#123; … &#125;</code>
-          <span><i aria-hidden="true">🔒</i> Locked runner · optional helper methods editable</span>
-        </div>
-      )}
     </div>
   );
 }
