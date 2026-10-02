@@ -500,6 +500,7 @@ function App() {
           onBackToDashboard={() =>
             setPage("dashboard")
           }
+          onManageSettings={() => setPage("settings")}
           onLogout={handleLogout}
         />
 
