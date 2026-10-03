@@ -122,7 +122,7 @@ export const formatJava = (source) => {
     .trim();
 };
 
-const TYPED_FUNCTIONS = {
+export const TYPED_FUNCTIONS = {
   "two-sum": {
     signature: "static int[] twoSum(int[] nums, int target)",
     stub: "return new int[0];",

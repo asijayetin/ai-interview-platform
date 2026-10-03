@@ -95,3 +95,48 @@
   .study-plan-hero h1 { font-size: 29px; }
   .study-plan-hero > div:first-child > p:last-child { font-size: 13px; }
 }
+
+/* Language-first Study Plan workspace */
+.study-plan-library-hero { margin-bottom: 18px; }
+.study-plan-language-picker, .study-plan-learning-nav, .study-plan-learning-content { min-width: 0; border: 1px solid #e1e6ef; border-radius: 16px; background: #fff; box-shadow: 0 10px 30px rgba(24, 34, 56, .045); }
+.study-plan-language-picker { padding: 23px 26px; }
+.study-plan-language-picker .study-plan-section-heading h2 { margin-bottom: 0; }
+.study-plan-language-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-top: 18px; }
+.study-plan-language-grid button { display: grid; justify-items: start; gap: 8px; min-height: 108px; padding: 13px; border: 1px solid #e2e7f0; border-radius: 12px; color: #344057; background: #fff; text-align: left; cursor: pointer; transition: border-color .16s, background .16s, transform .16s; }
+.study-plan-language-grid button:hover { border-color: #aaa2ed; transform: translateY(-1px); }
+.study-plan-language-grid button.is-selected { border-color: #766be0; background: #f8f7ff; box-shadow: 0 0 0 2px rgba(101, 88, 211, .1); }
+.study-plan-language-grid button > span { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; color: #5c50c4; background: #f0eeff; font-size: 13px; font-weight: 850; }
+.study-plan-language-grid strong { font-size: 14px; }
+.study-plan-language-grid small { color: #828da1; font-size: 11px; }
+.study-plan-learning-layout { display: grid; grid-template-columns: 218px minmax(0, 1fr); align-items: start; gap: 16px; margin-top: 16px; }
+.study-plan-learning-nav { position: sticky; top: 16px; display: grid; gap: 6px; padding: 17px 13px; }
+.study-plan-learning-nav > .study-plan-eyebrow { margin: 0 8px 7px; }
+.study-plan-learning-nav > button { display: flex; align-items: center; gap: 10px; min-height: 42px; padding: 0 10px; border: 0; border-radius: 9px; color: #68758b; background: transparent; text-align: left; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.study-plan-learning-nav > button:hover, .study-plan-learning-nav > button.is-active { color: #5145ba; background: #f3f1ff; }
+.study-plan-learning-nav > button:first-of-type { font-size: 19px; }
+.study-plan-learning-nav > button > span { font-size: 13px; }
+.study-plan-learning-nav-note { margin: 13px 5px 0; padding: 12px 9px; border-top: 1px solid #edf0f5; color: #8994a7; font-size: 11px; line-height: 1.6; }
+.study-plan-learning-nav-note strong { color: #39455d; font-size: 13px; }
+.study-plan-learning-content { min-height: 300px; padding: clamp(20px, 3vw, 28px); }
+.study-plan-resource-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 21px; }
+.study-plan-resource-grid article { padding: 18px; border: 1px solid #e5e8f0; border-radius: 12px; background: #fcfcfe; }
+.study-plan-resource-icon { display: grid; place-items: center; width: 39px; height: 39px; margin-bottom: 14px; border-radius: 11px; color: #5b50c5; background: #f0eeff; font-size: 20px; font-weight: 800; }
+.study-plan-resource-grid .study-plan-eyebrow { margin: 0 0 7px; }
+.study-plan-resource-grid h3 { margin: 0; color: #2f3b53; font-size: 18px; }
+.study-plan-resource-grid article > p:not(.study-plan-eyebrow) { min-height: 42px; color: #77849a; font-size: 13px; line-height: 1.6; }
+.study-plan-resource-grid button, .study-plan-primary-action, .study-plan-coming-note button { min-height: 39px; padding: 0 13px; border: 1px solid #dcd8fa; border-radius: 9px; color: #5549bd; background: #f9f8ff; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; }
+.study-plan-primary-action { margin-top: 19px; color: #fff; border-color: #6256c8; background: #6256c8; }
+.study-plan-coming-note { display: grid; gap: 8px; max-width: 620px; margin-top: 20px; padding: 17px; border: 1px solid #e7e2ff; border-radius: 11px; background: #faf9ff; }
+.study-plan-coming-note strong { color: #413b80; font-size: 14px; }
+.study-plan-coming-note span { color: #707c91; font-size: 13px; line-height: 1.6; }
+.study-plan-coming-note button { justify-self: start; margin-top: 5px; }
+.study-plan-notes-heading { display: flex; justify-content: space-between; align-items: start; gap: 18px; }
+.study-plan-notes-heading .study-plan-primary-action { flex: 0 0 auto; margin-top: 0; }
+.study-plan-notes-list { display: grid; gap: 9px; margin-top: 20px; }
+.study-plan-notes-list article { display: grid; grid-template-columns: 37px minmax(0, 1fr); gap: 12px; padding: 14px; border: 1px solid #e8ebf2; border-radius: 10px; background: #fdfdff; }
+.study-plan-notes-list article > span { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid #e5e1fb; border-radius: 9px; color: #5d52c4; background: #f5f3ff; font-size: 11px; font-weight: 850; }
+.study-plan-notes-list h3 { margin: 2px 0 7px; color: #354159; font-size: 15px; }
+.study-plan-notes-list ul { display: grid; gap: 6px; margin: 0; padding-left: 17px; color: #6d7a91; font-size: 13px; line-height: 1.55; }
+@media (max-width: 900px) { .study-plan-language-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 650px) { .study-plan-learning-layout { grid-template-columns: 1fr; } .study-plan-learning-nav { position: static; display: flex; flex-wrap: wrap; align-items: center; } .study-plan-learning-nav > .study-plan-eyebrow { flex-basis: 100%; } .study-plan-learning-nav-note { display: none; } .study-plan-resource-grid { grid-template-columns: 1fr; } }
+@media (max-width: 480px) { .study-plan-language-picker { padding: 18px; } .study-plan-language-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .study-plan-notes-heading { flex-direction: column; } }

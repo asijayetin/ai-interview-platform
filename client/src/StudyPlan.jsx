@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { downloadLanguageNotes, getLanguageNotes, STUDY_LANGUAGES } from "./studyNotes";
 import "./StudyPlan.css";
 
 const API_URL = (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:5000" : ""))
@@ -6,6 +7,8 @@ const API_URL = (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://
 const QR_IMAGE_URL = import.meta.env.VITE_UPI_QR_IMAGE_URL || "/study-plan-upi-qr.png";
 
 function StudyPlan({ onNavigate }) {
+  const [selectedLanguage, setSelectedLanguage] = useState(() => localStorage.getItem("studyPlanLanguage") || "");
+  const [activeTab, setActiveTab] = useState("home");
   const [utr, setUtr] = useState("");
   const [request, setRequest] = useState(null);
   const [access, setAccess] = useState({ isActive: false, accessUntil: null, isPaymentAdmin: false });
@@ -97,8 +100,87 @@ function StudyPlan({ onNavigate }) {
     }
   };
 
+  const chooseLanguage = (language) => {
+    setSelectedLanguage(language);
+    localStorage.setItem("studyPlanLanguage", language);
+    setActiveTab("home");
+  };
+
+  const notes = getLanguageNotes(selectedLanguage);
+
   return (
     <main className="study-plan-page">
+      {access.isActive ? (
+        <>
+          <header className="study-plan-hero study-plan-library-hero">
+            <div>
+              <p className="study-plan-eyebrow">YOUR STUDY PLAN</p>
+              <h1>{selectedLanguage ? `${notes.name} interview prep` : "Choose your coding language"}</h1>
+              <p>{selectedLanguage ? "Your language choice is saved for your next visit. Switch it any time." : "Pick the language you want to practise. Your notes and coding workspace will follow your choice."}</p>
+            </div>
+            <div className="study-plan-hero-mark" aria-hidden="true">{selectedLanguage ? notes.name === "Python" ? "Py" : notes.name.slice(0, 1) : "✦"}</div>
+          </header>
+
+          <section className="study-plan-language-picker" aria-label="Choose programming language">
+            <div className="study-plan-section-heading">
+              <p className="study-plan-eyebrow">STEP 1 · LANGUAGE</p>
+              <h2>What do you want to practise in?</h2>
+            </div>
+            <div className="study-plan-language-grid">
+              {STUDY_LANGUAGES.map((language) => (
+                <button type="button" key={language.id} className={selectedLanguage === language.id ? "is-selected" : ""} onClick={() => chooseLanguage(language.id)}>
+                  <span>{language.icon}</span><strong>{language.label}</strong><small>{["java", "cpp", "python"].includes(language.id) ? "DSA sheet + notes available" : "Notes ready · DSA templates coming"}</small>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {selectedLanguage && <div className="study-plan-learning-layout">
+            <nav className="study-plan-learning-nav" aria-label="Study Plan sections">
+              <p className="study-plan-eyebrow">YOUR MATERIALS</p>
+              <button type="button" className={activeTab === "home" ? "is-active" : ""} onClick={() => setActiveTab("home")}>⌂ <span>Study Plan</span></button>
+              <button type="button" className={activeTab === "dsa" ? "is-active" : ""} onClick={() => setActiveTab("dsa")}>⌘ <span>DSA Sheet</span></button>
+              <button type="button" className={activeTab === "notes" ? "is-active" : ""} onClick={() => setActiveTab("notes")}>▤ <span>{notes.name} Notes</span></button>
+              <div className="study-plan-learning-nav-note">Selected language<br/><strong>{notes.name}</strong></div>
+            </nav>
+
+            <section className="study-plan-learning-content">
+              {activeTab === "home" && <>
+                <div className="study-plan-section-heading">
+                  <p className="study-plan-eyebrow">STEP 2 · LEARN AND PRACTISE</p>
+                  <h2>{notes.name} learning workspace</h2>
+                  <p>Open the DSA sheet to solve interview problems, or download your language notes for offline revision.</p>
+                </div>
+                <div className="study-plan-resource-grid">
+                  <article><span className="study-plan-resource-icon">⌘</span><p className="study-plan-eyebrow">PRACTICE</p><h3>DSA Sheet</h3><p>{["java", "cpp", "python"].includes(selectedLanguage) ? `Browse 100+ topic-wise questions, use the ${notes.name} coding editor, and track accepted solutions.` : `${notes.name} notes are ready. Language-specific DSA compiler templates are coming soon.`}</p><button type="button" onClick={() => setActiveTab("dsa")}>{["java", "cpp", "python"].includes(selectedLanguage) ? "Open DSA Sheet →" : "View availability →"}</button></article>
+                  <article><span className="study-plan-resource-icon">▤</span><p className="study-plan-eyebrow">OFFLINE REFERENCE</p><h3>{notes.name} Notes</h3><p>Review syntax, data structures, common patterns, and complexity reminders.</p><button type="button" onClick={() => setActiveTab("notes")}>View notes →</button></article>
+                </div>
+              </>}
+
+              {activeTab === "dsa" && <>
+                <div className="study-plan-section-heading">
+                  <p className="study-plan-eyebrow">DSA QUESTION BANK</p>
+                  <h2>{notes.name} coding practice</h2>
+                  <p>{["java", "cpp", "python"].includes(selectedLanguage) ? `Open the 100+ question sheet and continue your saved ${notes.name} progress.` : `${notes.name} notes are available here; its separate coding templates are still being prepared.`}</p>
+                </div>
+                {["java", "cpp", "python"].includes(selectedLanguage) ? <button className="study-plan-primary-action" type="button" onClick={() => onNavigate?.("dsa-sheet")}>Open {notes.name} DSA Sheet →</button> : <div className="study-plan-coming-note"><strong>JavaScript and C# DSA templates are being prepared.</strong><span>Open your {notes.name} notes while those question templates are converted.</span><button type="button" onClick={() => setActiveTab("notes")}>Open {notes.name} notes →</button></div>}
+              </>}
+
+              {activeTab === "notes" && <>
+                <div className="study-plan-notes-heading">
+                  <div className="study-plan-section-heading">
+                    <p className="study-plan-eyebrow">LANGUAGE QUICK REFERENCE</p>
+                    <h2>{notes.name} DSA notes</h2>
+                    <p>{notes.subtitle}. Download the PDF to revise offline.</p>
+                  </div>
+                  <button className="study-plan-primary-action" type="button" onClick={() => downloadLanguageNotes(selectedLanguage)}>↓ Download PDF</button>
+                </div>
+                <div className="study-plan-notes-list">{notes.sections.map(([title, bullets], index) => <article key={title}><span>{String(index + 1).padStart(2, "0")}</span><div><h3>{title}</h3><ul>{bullets.map((bullet) => <li key={bullet}>{bullet}</li>)}</ul></div></article>)}</div>
+              </>}
+            </section>
+          </div>}
+        </>
+      ) : <>
       <header className="study-plan-hero">
         <div>
           <p className="study-plan-eyebrow">PERSONAL INTERVIEW PREPARATION</p>
@@ -182,6 +264,7 @@ function StudyPlan({ onNavigate }) {
           </>}
         </aside>
       </div>
+      </>}
 
       {access.isPaymentAdmin && (
         <section className="study-plan-admin-panel">
