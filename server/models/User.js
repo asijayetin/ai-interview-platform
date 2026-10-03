@@ -71,6 +71,13 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+
+    studyPlanLanguage: {
+      type: String,
+      enum: ["", "java", "cpp", "python", "javascript", "csharp"],
+      default: "",
+      trim: true,
+    },
   },
   {
     timestamps: true,

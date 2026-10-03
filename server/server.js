@@ -579,6 +579,10 @@ app.post(
           emailVerified:
             user.emailVerified ||
             false,
+
+          studyPlanLanguage:
+            user.studyPlanLanguage ||
+            "",
         },
       });
 
@@ -694,6 +698,10 @@ app.post(
           emailVerified:
             user.emailVerified ||
             false,
+
+          studyPlanLanguage:
+            user.studyPlanLanguage ||
+            "",
         },
       });
 
@@ -1121,6 +1129,10 @@ app.get(
           emailVerified:
             user.emailVerified ||
             false,
+
+          studyPlanLanguage:
+            user.studyPlanLanguage ||
+            "",
         },
       });
 
@@ -1137,6 +1149,38 @@ app.get(
         error:
           error.message,
       });
+    }
+  }
+);
+
+// A learner selects one language for their Study Plan. Keep it on the account
+// so the DSA workspace cannot silently switch languages between visits.
+app.put(
+  "/api/auth/study-plan-language",
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const language = String(req.body?.language || "").trim().toLowerCase();
+      const supportedLanguages = ["java", "cpp", "python", "javascript", "csharp"];
+      if (!supportedLanguages.includes(language)) {
+        return res.status(400).json({ message: "Choose a supported study language." });
+      }
+
+      const user = await User.findById(req.user.userId);
+      if (!user) return res.status(404).json({ message: "User not found." });
+      if (user.studyPlanLanguage && user.studyPlanLanguage !== language) {
+        return res.status(409).json({
+          message: "Your Study Plan language is already set. Contact the administrator if it needs to be changed.",
+          language: user.studyPlanLanguage,
+        });
+      }
+
+      user.studyPlanLanguage = language;
+      await user.save();
+      return res.json({ message: "Study Plan language saved.", language: user.studyPlanLanguage });
+    } catch (error) {
+      console.error("Save Study Plan language error:", error.message);
+      return res.status(500).json({ message: "Could not save your Study Plan language." });
     }
   }
 );

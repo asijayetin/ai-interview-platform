@@ -7,11 +7,14 @@ const API_URL = (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://
 const QR_IMAGE_URL = import.meta.env.VITE_UPI_QR_IMAGE_URL || "/study-plan-upi-qr.png";
 
 function StudyPlan({ onNavigate }) {
-  const [selectedLanguage, setSelectedLanguage] = useState(() => localStorage.getItem("studyPlanLanguage") || "");
+  const [selectedLanguage, setSelectedLanguage] = useState("");
+  const [languageLocked, setLanguageLocked] = useState(false);
+  const [languageLoading, setLanguageLoading] = useState(true);
+  const [languageSaving, setLanguageSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("home");
   const [utr, setUtr] = useState("");
   const [request, setRequest] = useState(null);
-  const [access, setAccess] = useState({ isActive: false, accessUntil: null, isPaymentAdmin: false });
+  const [access, setAccess] = useState(null);
   const [adminRequests, setAdminRequests] = useState([]);
   const [reviewingId, setReviewingId] = useState("");
   const [error, setError] = useState("");
@@ -20,7 +23,10 @@ function StudyPlan({ onNavigate }) {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (!token) return;
+    if (!token) {
+      setAccess({ isActive: false, accessUntil: null, isPaymentAdmin: false });
+      return;
+    }
     const headers = { Authorization: `Bearer ${token}` };
     Promise.all([
       fetch(`${API_URL}/api/payments/manual-request/latest`, { headers }),
@@ -36,7 +42,51 @@ function StudyPlan({ onNavigate }) {
           if (adminResponse.ok) setAdminRequests(adminData.requests || []);
         }
       })
-      .catch(() => {});
+      .catch(() => setAccess({ isActive: false, accessUntil: null, isPaymentAdmin: false }));
+  }, []);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) { setLanguageLoading(false); return; }
+    const headers = { Authorization: `Bearer ${token}` };
+    fetch(`${API_URL}/api/auth/me`, { headers })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || "Could not load your saved language.");
+        const accountLanguage = data.user?.studyPlanLanguage || "";
+        if (accountLanguage) {
+          setSelectedLanguage(accountLanguage);
+          setLanguageLocked(true);
+          localStorage.setItem("studyPlanLanguage", accountLanguage);
+          return;
+        }
+
+        // Keep a previous device selection for existing accounts, then save it
+        // on the account so the language stays fixed across devices.
+        const legacyLanguage = localStorage.getItem("studyPlanLanguage") || "";
+        if (STUDY_LANGUAGES.some((item) => item.id === legacyLanguage)) {
+          const saveResponse = await fetch(`${API_URL}/api/auth/study-plan-language`, {
+            method: "PUT",
+            headers: { ...headers, "Content-Type": "application/json" },
+            body: JSON.stringify({ language: legacyLanguage }),
+          });
+          const saved = await saveResponse.json();
+          const confirmedLanguage = saved.language || (saveResponse.ok ? legacyLanguage : "");
+          if (confirmedLanguage) {
+            setSelectedLanguage(confirmedLanguage);
+            setLanguageLocked(true);
+            localStorage.setItem("studyPlanLanguage", confirmedLanguage);
+          }
+        }
+      })
+      .catch(() => {
+        const localLanguage = localStorage.getItem("studyPlanLanguage") || "";
+        if (STUDY_LANGUAGES.some((item) => item.id === localLanguage)) {
+          setSelectedLanguage(localLanguage);
+          setLanguageLocked(true);
+        }
+      })
+      .finally(() => setLanguageLoading(false));
   }, []);
 
   const reviewRequest = async (requestId, decision) => {
@@ -100,13 +150,39 @@ function StudyPlan({ onNavigate }) {
     }
   };
 
-  const chooseLanguage = (language) => {
-    setSelectedLanguage(language);
-    localStorage.setItem("studyPlanLanguage", language);
-    setActiveTab("home");
+  const chooseLanguage = async (language) => {
+    if (languageLocked || languageSaving) return;
+    setError("");
+    setLanguageSaving(true);
+    try {
+      const response = await fetch(`${API_URL}/api/auth/study-plan-language`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("token")}` },
+        body: JSON.stringify({ language }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Could not save your language choice.");
+      const savedLanguage = data.language || language;
+      setSelectedLanguage(savedLanguage);
+      setLanguageLocked(true);
+      localStorage.setItem("studyPlanLanguage", savedLanguage);
+      setActiveTab("home");
+    } catch (languageError) {
+      setError(languageError.message || "Could not save your language choice.");
+    } finally {
+      setLanguageSaving(false);
+    }
   };
 
   const notes = getLanguageNotes(selectedLanguage);
+
+  if (access === null) {
+    return (
+      <main className="study-plan-page study-plan-loading" aria-busy="true" aria-live="polite">
+        <div className="study-plan-loading-card"><span className="study-plan-loading-mark">✦</span><strong>Loading your Study Plan</strong><span>Checking your access and saved language…</span></div>
+      </main>
+    );
+  }
 
   return (
     <main className="study-plan-page">
@@ -116,7 +192,7 @@ function StudyPlan({ onNavigate }) {
             <div>
               <p className="study-plan-eyebrow">YOUR STUDY PLAN</p>
               <h1>{selectedLanguage ? `${notes.name} interview prep` : "Choose your coding language"}</h1>
-              <p>{selectedLanguage ? "Your language choice is saved for your next visit. Switch it any time." : "Pick the language you want to practise. Your notes and coding workspace will follow your choice."}</p>
+              <p>{selectedLanguage ? "Your notes, DSA questions, and coding workspace are tied to this language." : "Pick the language you want to practise. This choice will be saved to your account."}</p>
             </div>
             <div className="study-plan-hero-mark" aria-hidden="true">{selectedLanguage ? notes.name === "Python" ? "Py" : notes.name.slice(0, 1) : "✦"}</div>
           </header>
@@ -125,14 +201,16 @@ function StudyPlan({ onNavigate }) {
             <div className="study-plan-section-heading">
               <p className="study-plan-eyebrow">STEP 1 · LANGUAGE</p>
               <h2>What do you want to practise in?</h2>
+              <p>{languageLoading ? "Loading your saved choice…" : languageLocked ? "Your language is fixed for this Study Plan and saved to your account." : "Choose carefully: this language will be locked to your account."}</p>
             </div>
             <div className="study-plan-language-grid">
               {STUDY_LANGUAGES.map((language) => (
-                <button type="button" key={language.id} className={selectedLanguage === language.id ? "is-selected" : ""} onClick={() => chooseLanguage(language.id)}>
-                  <span>{language.icon}</span><strong>{language.label}</strong><small>{["java", "cpp", "python"].includes(language.id) ? "DSA sheet + notes available" : "Notes ready · DSA templates coming"}</small>
+                <button type="button" key={language.id} className={selectedLanguage === language.id ? "is-selected" : ""} disabled={languageLoading || languageSaving || languageLocked} onClick={() => chooseLanguage(language.id)}>
+                  <span>{language.icon}</span><strong>{language.label}{selectedLanguage === language.id && languageLocked ? " · Selected" : ""}</strong><small>{languageSaving && selectedLanguage === language.id ? "Saving choice…" : ["java", "cpp", "python"].includes(language.id) ? "DSA sheet + notes available" : "Notes ready · DSA templates coming"}</small>
                 </button>
               ))}
             </div>
+            {error && <p className="study-plan-feedback is-error" role="alert">{error}</p>}
           </section>
 
           {selectedLanguage && <div className="study-plan-learning-layout">
@@ -175,7 +253,7 @@ function StudyPlan({ onNavigate }) {
                   </div>
                   <button className="study-plan-primary-action" type="button" onClick={() => downloadLanguageNotes(selectedLanguage)}>↓ Download PDF</button>
                 </div>
-                <div className="study-plan-notes-list">{notes.sections.map(([title, bullets], index) => <article key={title}><span>{String(index + 1).padStart(2, "0")}</span><div><h3>{title}</h3><ul>{bullets.map((bullet) => <li key={bullet}>{bullet}</li>)}</ul></div></article>)}</div>
+                <div className="study-plan-notes-list">{notes.sections.map(([title, bullets, code, exercise], index) => <article key={title}><span>{String(index + 1).padStart(2, "0")}</span><div><h3>{title}</h3><ul>{bullets.map((bullet) => <li key={bullet}>{bullet}</li>)}</ul><p className="study-plan-notes-code-label">{notes.name} example</p><pre className="study-plan-notes-code"><code>{code}</code></pre><p className="study-plan-notes-exercise"><strong>Try it:</strong> {exercise}</p></div></article>)}</div>
               </>}
             </section>
           </div>}
