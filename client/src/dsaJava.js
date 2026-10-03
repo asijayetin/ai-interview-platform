@@ -668,8 +668,31 @@ System.out.println(Solution.maxSubarray(nums));`,
   },
 };
 
+export const normalizeJavaDraftForQuestion = (question, source) => {
+  const typed = TYPED_FUNCTIONS[question.id];
+  if (!typed) return source;
+  let normalized = source;
+  for (const [className, keep] of [["TreeNode", typed.nodeType === "TreeNode"], ["ListNode", typed.nodeType === "ListNode"]]) {
+    if (keep) continue;
+    const match = new RegExp("^[ \\t]*static[ \\t]+class[ \\t]+" + className + "\\b[^\\n]*\\{", "m").exec(normalized);
+    if (!match) continue;
+    const open = normalized.indexOf("{", match.index);
+    const close = findClosingBrace(normalized, open);
+    if (close < 0) continue;
+    let end = close + 1;
+    if (normalized[end] === "\r") end++;
+    if (normalized[end] === "\n") end++;
+    normalized = normalized.slice(0, match.index) + normalized.slice(end);
+  }
+  return normalized;
+};
+
 export const isJavaDraftForQuestion = (question, source) => {
   const typed = TYPED_FUNCTIONS[question.id];
+  if (typed && (
+    source.includes("static class TreeNode") !== (typed.nodeType === "TreeNode")
+    || source.includes("static class ListNode") !== (typed.nodeType === "ListNode")
+  )) return false;
   return typed ? source.includes(typed.signature) : new RegExp(`\\b${getJavaFunctionName(question)}\\s*\\(`).test(source);
 };
 
@@ -679,10 +702,11 @@ export const buildJavaTemplate = (question, { answer = false } = {}) => {
   if (typed) {
     if (answer && !typed.solution) return question.solution || "";
     const body = answer ? typed.solution : "// TODO: Write your solution here.\n        " + typed.stub;
-    const nodeClass = [
-      "    static class ListNode { int val; ListNode next; ListNode(int val) { this.val = val; } }",
-      "    static class TreeNode { int val; TreeNode left, right; TreeNode(int val) { this.val = val; } }",
-    ];
+    const nodeClass = typed.nodeType === "ListNode"
+      ? ["    static class ListNode { int val; ListNode next; ListNode(int val) { this.val = val; } }"]
+      : typed.nodeType === "TreeNode"
+        ? ["    static class TreeNode { int val; TreeNode left, right; TreeNode(int val) { this.val = val; } }"]
+        : [];
     const helperBody = answer && typed.helpers ? typed.helpers.split("\n") : ["// Add helper methods here if you need them."];
     const driverLines = [
       "class Main {",
@@ -694,12 +718,16 @@ export const buildJavaTemplate = (question, { answer = false } = {}) => {
       "    static void printLines(List<?> a) { for (Object v : a) System.out.println(v); }",
       "    static void printNestedInts(List<List<Integer>> a) { for (List<Integer> row : a) { for (int i = 0; i < row.size(); i++) { if (i > 0) System.out.print(\" \"); System.out.print(row.get(i)); } System.out.println(); } }",
       "    static void printGroups(List<List<String>> a) { for (List<String> row : a) System.out.println(String.join(\" \", row)); }",
-      "    static Solution.ListNode list(int[] a) { Solution.ListNode d = new Solution.ListNode(0), t = d; for (int v : a) { t.next = new Solution.ListNode(v); t = t.next; } return d.next; }",
-      "    static void printList(Solution.ListNode n) { boolean first = true; while (n != null) { if (!first) System.out.print(\" \"); System.out.print(n.val); first = false; n = n.next; } System.out.println(); }",
-      "    static Solution.TreeNode tree(int[] a) { if (a.length == 0 || a[0] == -1) return null; Solution.TreeNode[] nodes = new Solution.TreeNode[a.length]; for (int i = 0; i < a.length; i++) if (a[i] != -1) nodes[i] = new Solution.TreeNode(a[i]); for (int i = 0; i < a.length; i++) if (nodes[i] != null) { int l = 2 * i + 1, r = l + 1; if (l < a.length) nodes[i].left = nodes[l]; if (r < a.length) nodes[i].right = nodes[r]; } return nodes[0]; }",
-      "    static void printTreeLevels(List<List<Integer>> levels) { for (List<Integer> row : levels) { for (int i = 0; i < row.size(); i++) { if (i > 0) System.out.print(\" \"); System.out.print(row.get(i)); } System.out.println(); } }",
-      "    static void putTree(Solution.TreeNode node, int i, int[] a) { if (node == null || i >= a.length) return; a[i] = node.val; putTree(node.left, 2 * i + 1, a); putTree(node.right, 2 * i + 2, a); }",
-      "    static void printTreeArray(Solution.TreeNode node, int n) { int[] a = new int[n]; java.util.Arrays.fill(a, -1); putTree(node, 0, a); printInts(a); }",
+      ...(typed.nodeType === "ListNode" ? [
+        "    static Solution.ListNode list(int[] a) { Solution.ListNode d = new Solution.ListNode(0), t = d; for (int v : a) { t.next = new Solution.ListNode(v); t = t.next; } return d.next; }",
+        "    static void printList(Solution.ListNode n) { boolean first = true; while (n != null) { if (!first) System.out.print(\" \"); System.out.print(n.val); first = false; n = n.next; } System.out.println(); }",
+      ] : []),
+      ...(typed.nodeType === "TreeNode" ? [
+        "    static Solution.TreeNode tree(int[] a) { if (a.length == 0 || a[0] == -1) return null; Solution.TreeNode[] nodes = new Solution.TreeNode[a.length]; for (int i = 0; i < a.length; i++) if (a[i] != -1) nodes[i] = new Solution.TreeNode(a[i]); for (int i = 0; i < a.length; i++) if (nodes[i] != null) { int l = 2 * i + 1, r = l + 1; if (l < a.length) nodes[i].left = nodes[l]; if (r < a.length) nodes[i].right = nodes[r]; } return nodes[0]; }",
+        "    static void printTreeLevels(List<List<Integer>> levels) { for (List<Integer> row : levels) { for (int i = 0; i < row.size(); i++) { if (i > 0) System.out.print(\" \"); System.out.print(row.get(i)); } System.out.println(); } }",
+        "    static void putTree(Solution.TreeNode node, int i, int[] a) { if (node == null || i >= a.length) return; a[i] = node.val; putTree(node.left, 2 * i + 1, a); putTree(node.right, 2 * i + 2, a); }",
+        "    static void printTreeArray(Solution.TreeNode node, int n) { int[] a = new int[n]; java.util.Arrays.fill(a, -1); putTree(node, 0, a); printInts(a); }",
+      ] : []),
       "    public static void main(String[] args) {",
       "        Scanner sc = new Scanner(System.in);",
       "        " + typed.driver,
