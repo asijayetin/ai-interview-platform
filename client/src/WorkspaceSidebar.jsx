@@ -8,6 +8,7 @@ const navigation = [
   { id: "practice", label: "Coding Practice", icon: "code", group: "PREPARATION" },
   { id: "tutor", label: "AI Tutor", icon: "tutor", group: "PREPARATION" },
   { id: "interview-report", label: "Interview Report", icon: "report", group: "PREPARATION" },
+  { id: "study-plan", label: "Study Plan", icon: "plan", group: "PREPARATION" },
 ];
 
 function WorkspaceIcon({ name }) {
@@ -20,6 +21,7 @@ function WorkspaceIcon({ name }) {
     code: <><path d="m8 8-4 4 4 4M16 8l4 4-4 4M14 5l-4 14" /></>,
     tutor: <><path d="m12 3 1.9 5.8L20 11l-6.1 2.1L12 19l-1.9-5.9L4 11l6.1-2.2L12 3Z" /><path d="m19 14 .9 2.1L22 17l-2.1.9L19 20l-.9-2.1L16 17l2.1-.9L19 14Z" /></>,
     report: <><path d="M4 19V5M4 19h17" /><path d="m7 15 4-4 3 2 6-7" /><path d="M17 6h3v3" /></>,
+    plan: <><rect x="4" y="4" width="16" height="17" rx="2" /><path d="M8 2v4M16 2v4M4 9h16M8 13h3M8 17h7" /></>,
   };
   return <svg {...common}>{paths[name] || paths.overview}</svg>;
 }

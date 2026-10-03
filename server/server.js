@@ -13,6 +13,7 @@ dns.setServers(["8.8.8.8", "1.1.1.1"]);
 require("dotenv").config();
 
 const User = require("./models/User");
+const ManualPaymentRequest = require("./models/ManualPaymentRequest");
 const authMiddleware = require("./middleware/authMiddleware");
 
 const app = express();
@@ -1962,6 +1963,55 @@ app.post("/api/ai/voice-interview/start", authMiddleware, async (req, res) => {
     return res.status(201).json({ interviewId: interview._id, question, questionNumber: 1, totalQuestions: 5 });
   } catch (error) {
     return res.status(error.statusCode || 500).json({ message: error.message || "Could not start the voice interview." });
+  }
+});
+
+// Manual UPI requests are kept pending until the account owner confirms the
+// transaction outside the app. Never grant paid access based on a client claim.
+app.post("/api/payments/manual-request", authMiddleware, async (req, res) => {
+  try {
+    const utr = String(req.body?.utr || "").trim().toUpperCase();
+    if (!/^[A-Z0-9-]{8,32}$/.test(utr)) {
+      return res.status(400).json({ message: "Enter a valid UTR or transaction ID (8–32 letters or numbers)." });
+    }
+
+    const user = await User.findById(req.user.userId).select("name email");
+    if (!user) return res.status(401).json({ message: "Please log in again." });
+
+    const existing = await ManualPaymentRequest.findOne({ utr });
+    if (existing) return res.status(409).json({ message: "This transaction ID has already been submitted." });
+
+    const request = await ManualPaymentRequest.create({
+      userId: user._id,
+      name: user.name,
+      email: user.email,
+      plan: "study-plan-monthly",
+      amount: 259,
+      currency: "INR",
+      utr,
+      status: "pending",
+    });
+
+    return res.status(201).json({
+      message: "Payment request submitted. Access stays pending until the payment is verified.",
+      requestId: request._id,
+      status: request.status,
+    });
+  } catch (error) {
+    console.error("Manual payment request error:", error);
+    return res.status(500).json({ message: "Could not submit the payment request. Please try again." });
+  }
+});
+
+app.get("/api/payments/manual-request/latest", authMiddleware, async (req, res) => {
+  try {
+    const request = await ManualPaymentRequest.findOne({ userId: req.user.userId })
+      .sort({ createdAt: -1 })
+      .select("amount currency utr status createdAt reviewedAt");
+    return res.json({ request });
+  } catch (error) {
+    console.error("Manual payment status error:", error);
+    return res.status(500).json({ message: "Could not load payment status." });
   }
 });
 
