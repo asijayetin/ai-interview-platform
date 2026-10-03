@@ -15,6 +15,7 @@ import InterviewReport from "./InterviewReport";
 import VoiceInterview from "./VoiceInterview";
 import StudyPlan from "./StudyPlan";
 import Organizer from "./Organizer";
+import DSASheet from "./DSASheet";
 
 function App() {
 
@@ -63,7 +64,7 @@ function App() {
   const [profileMenuOpen, setProfileMenuOpen] =
     useState(false);
 
-  const workspacePages = ["dashboard", "interview", "voice-interview", "resume-review", "practice", "tutor", "interview-report", "study-plan", "organizer"];
+  const workspacePages = ["dashboard", "interview", "voice-interview", "resume-review", "practice", "tutor", "interview-report", "study-plan", "dsa-sheet", "organizer"];
   const isWorkspacePage = workspacePages.includes(page);
 
 
@@ -488,6 +489,7 @@ function App() {
             {page === "tutor" && <AITutor />}
             {page === "interview-report" && <InterviewReport onNavigate={setPage} />}
             {page === "study-plan" && <StudyPlan onNavigate={setPage} />}
+            {page === "dsa-sheet" && <DSASheet onNavigate={setPage} />}
             {page === "organizer" && <Organizer />}
           </div>
         </div>
