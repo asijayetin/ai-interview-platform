@@ -41,6 +41,18 @@
 .study-plan-active-banner strong, .study-plan-active-banner small { display: block; }
 .study-plan-active-banner strong { font-size: 12px; }
 .study-plan-active-banner small { margin-top: 3px; color: #6c8b79; font-size: 11px; }
+.study-plan-active-banner button { margin-left: auto; flex: 0 0 auto; padding: 8px 11px; border: 1px solid #c9e7d5; border-radius: 8px; color: #246c48; background: #fff; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; }
+.active-study-plan { scroll-margin-top: 24px; margin-top: 20px; padding: clamp(20px, 3vw, 30px); border: 1px solid #e1e6ef; border-radius: 16px; background: #fff; box-shadow: 0 10px 30px rgba(24,34,56,.045); }
+.active-study-plan-heading { display:flex; align-items:center; justify-content:space-between; gap:20px; margin-bottom:20px; }
+.active-study-plan-heading h2 { margin:0 0 7px; color:#263149; font-size:23px; }
+.active-study-plan-heading p:not(.study-plan-eyebrow) { margin:0; color:#7a879d; font-size:14px; line-height:1.55; }
+.active-study-plan-heading button,.active-study-plan-days button { flex:0 0 auto; padding:9px 12px; border:1px solid #dedaf8; border-radius:8px; color:#5549bd; background:#f9f8ff; font:inherit; font-size:12px; font-weight:800; cursor:pointer; }
+.active-study-plan-days { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.active-study-plan-days article { display:flex; gap:14px; padding:16px; border:1px solid #e7eaf1; border-radius:12px; background:#fcfcfe; }
+.active-study-plan-days article>span { flex:0 0 54px; color:#6357ca; font-size:12px; font-weight:850; }
+.active-study-plan-days h3 { margin:0 0 5px; color:#354159; font-size:15px; }
+.active-study-plan-days p { margin:0 0 12px; color:#78849a; font-size:13px; line-height:1.55; }
+@media(max-width:700px){.active-study-plan-heading{align-items:flex-start;flex-direction:column}.active-study-plan-days{grid-template-columns:1fr}}
 .study-plan-payment-form { display: grid; gap: 8px; }
 .study-plan-payment-form label { color: #46526a; font-size: 12px; font-weight: 750; }
 .study-plan-payment-form input { width: 100%; min-height: 43px; padding: 0 11px; border: 1px solid #dfe4ed; border-radius: 8px; color: #29344b; background: #fff; font: inherit; font-size: 13px; }

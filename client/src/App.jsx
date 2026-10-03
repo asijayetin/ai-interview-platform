@@ -487,7 +487,7 @@ function App() {
             {page === "practice" && <CodingPractice />}
             {page === "tutor" && <AITutor />}
             {page === "interview-report" && <InterviewReport onNavigate={setPage} />}
-            {page === "study-plan" && <StudyPlan />}
+            {page === "study-plan" && <StudyPlan onNavigate={setPage} />}
             {page === "organizer" && <Organizer />}
           </div>
         </div>
