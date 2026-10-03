@@ -1,4 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+const API_URL = (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:5000" : ""))
+  .trim().replace(/\/+$/, "").replace(/\/api$/i, "");
 
 const navigation = [
   { id: "dashboard", label: "Overview", icon: "overview", group: "WORKSPACE" },
@@ -22,6 +25,7 @@ function WorkspaceIcon({ name }) {
     tutor: <><path d="m12 3 1.9 5.8L20 11l-6.1 2.1L12 19l-1.9-5.9L4 11l6.1-2.2L12 3Z" /><path d="m19 14 .9 2.1L22 17l-2.1.9L19 20l-.9-2.1L16 17l2.1-.9L19 14Z" /></>,
     report: <><path d="M4 19V5M4 19h17" /><path d="m7 15 4-4 3 2 6-7" /><path d="M17 6h3v3" /></>,
     plan: <><rect x="4" y="4" width="16" height="17" rx="2" /><path d="M8 2v4M16 2v4M4 9h16M8 13h3M8 17h7" /></>,
+    organizer: <><path d="M3 20h18M5 20V9l7-5 7 5v11M9 20v-6h6v6" /><path d="M8 10h.01M12 10h.01M16 10h.01" /></>,
   };
   return <svg {...common}>{paths[name] || paths.overview}</svg>;
 }
@@ -36,8 +40,21 @@ function readUser() {
 
 function WorkspaceSidebar({ currentPage, onNavigate, onProfile, onLogout }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isOrganizer, setIsOrganizer] = useState(false);
   const user = readUser();
-  const groups = [...new Set(navigation.map((item) => item.group))];
+  const visibleNavigation = isOrganizer
+    ? [...navigation, { id: "organizer", label: "Organizer", icon: "organizer", group: "MANAGE" }]
+    : navigation;
+  const groups = [...new Set(visibleNavigation.map((item) => item.group))];
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    fetch(`${API_URL}/api/payments/subscription`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => setIsOrganizer(Boolean(data?.isPaymentAdmin)))
+      .catch(() => setIsOrganizer(false));
+  }, []);
 
   const navigate = (page) => {
     setMobileOpen(false);
@@ -51,7 +68,7 @@ function WorkspaceSidebar({ currentPage, onNavigate, onProfile, onLogout }) {
           {mobileOpen ? "×" : "☰"}
         </button>
         <button className="workspace-mobile-brand" onClick={() => navigate("dashboard")}>AI Interview Arena</button>
-        <span className="workspace-mobile-current">{navigation.find((item) => item.id === currentPage)?.label}</span>
+        <span className="workspace-mobile-current">{visibleNavigation.find((item) => item.id === currentPage)?.label}</span>
       </div>
       {mobileOpen && <button className="workspace-sidebar-scrim" aria-label="Close navigation" onClick={() => setMobileOpen(false)} />}
 
@@ -65,7 +82,7 @@ function WorkspaceSidebar({ currentPage, onNavigate, onProfile, onLogout }) {
           {groups.map((group) => (
             <div className="workspace-nav-group" key={group}>
               <p className="workspace-nav-label">{group}</p>
-              {navigation.filter((item) => item.group === group).map((item) => (
+              {visibleNavigation.filter((item) => item.group === group).map((item) => (
                 <button
                   className={`workspace-nav-item${currentPage === item.id ? " is-active" : ""}`}
                   key={item.id}

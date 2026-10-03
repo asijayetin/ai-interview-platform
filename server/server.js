@@ -2101,6 +2101,75 @@ app.post("/api/payments/admin/requests/:id/review", authMiddleware, async (req, 
   }
 });
 
+app.get("/api/organizer/overview", authMiddleware, async (req, res) => {
+  if (!isManualPaymentAdmin(req)) return res.status(403).json({ message: "Organizer access is not configured for this account." });
+  try {
+    const [learners, pendingPayments, approvedPayments, interviews] = await Promise.all([
+      User.countDocuments(),
+      ManualPaymentRequest.countDocuments({ status: "pending" }),
+      ManualPaymentRequest.countDocuments({ status: "approved" }),
+      Interview.countDocuments(),
+    ]);
+    return res.json({ learners, pendingPayments, approvedPayments, interviews });
+  } catch (error) {
+    console.error("Organizer overview error:", error);
+    return res.status(500).json({ message: "Could not load organizer overview." });
+  }
+});
+
+app.get("/api/organizer/learners", authMiddleware, async (req, res) => {
+  if (!isManualPaymentAdmin(req)) return res.status(403).json({ message: "Organizer access is not configured for this account." });
+  try {
+    const learners = await User.find({}).sort({ createdAt: -1 }).limit(250)
+      .select("name email createdAt studyPlanAccessUntil emailVerified").lean();
+    const learnerIds = learners.map((learner) => learner._id);
+    const interviewCounts = await Interview.aggregate([
+      { $match: { userId: { $in: learnerIds } } },
+      { $group: { _id: "$userId", total: { $sum: 1 } } },
+    ]);
+    const countByUser = new Map(interviewCounts.map((item) => [String(item._id), item.total]));
+    const now = Date.now();
+    return res.json({ learners: learners.map((learner) => ({
+      id: String(learner._id),
+      name: learner.name,
+      email: learner.email,
+      joinedAt: learner.createdAt,
+      emailVerified: Boolean(learner.emailVerified),
+      accessUntil: learner.studyPlanAccessUntil || null,
+      planActive: Boolean(learner.studyPlanAccessUntil && new Date(learner.studyPlanAccessUntil).getTime() > now),
+      interviews: countByUser.get(String(learner._id)) || 0,
+    })) });
+  } catch (error) {
+    console.error("Organizer learners error:", error);
+    return res.status(500).json({ message: "Could not load learner accounts." });
+  }
+});
+
+app.post("/api/organizer/learners/:id/access", authMiddleware, async (req, res) => {
+  if (!isManualPaymentAdmin(req)) return res.status(403).json({ message: "Organizer access is not configured for this account." });
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ message: "Invalid learner account." });
+  const action = String(req.body?.action || "").toLowerCase();
+  if (!["grant", "revoke"].includes(action)) return res.status(400).json({ message: "Choose grant or revoke." });
+  try {
+    const learner = await User.findById(req.params.id);
+    if (!learner) return res.status(404).json({ message: "Learner account not found." });
+    if (action === "revoke") {
+      learner.studyPlanAccessUntil = null;
+      await learner.save();
+      return res.json({ message: `Study Plan access revoked for ${learner.email}.` });
+    }
+    const now = new Date();
+    const currentAccessUntil = learner.studyPlanAccessUntil ? new Date(learner.studyPlanAccessUntil) : now;
+    const accessUntil = new Date(Math.max(now.getTime(), currentAccessUntil.getTime()) + 30 * 24 * 60 * 60 * 1000);
+    learner.studyPlanAccessUntil = accessUntil;
+    await learner.save();
+    return res.json({ message: `30-day Study Plan access granted to ${learner.email}.`, accessUntil });
+  } catch (error) {
+    console.error("Organizer learner access update error:", error);
+    return res.status(500).json({ message: "Could not update learner access." });
+  }
+});
+
 app.post("/api/ai/voice-interview/:id/answer", authMiddleware, async (req, res) => {
   try {
     const answer = typeof req.body?.answer === "string" ? req.body.answer.trim().slice(0, 5000) : "";
