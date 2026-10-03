@@ -2015,6 +2015,92 @@ app.get("/api/payments/manual-request/latest", authMiddleware, async (req, res) 
   }
 });
 
+const isManualPaymentAdmin = (req) => {
+  const adminEmail = String(process.env.MANUAL_PAYMENT_ADMIN_EMAIL || "").trim().toLowerCase();
+  const accountEmail = String(req.user?.email || "").trim().toLowerCase();
+  return Boolean(adminEmail && accountEmail && adminEmail === accountEmail);
+};
+
+app.get("/api/payments/subscription", authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId).select("studyPlanAccessUntil");
+    if (!user) return res.status(401).json({ message: "Please log in again." });
+    const accessUntil = user.studyPlanAccessUntil || null;
+    return res.json({
+      accessUntil,
+      isActive: Boolean(accessUntil && new Date(accessUntil).getTime() > Date.now()),
+      isPaymentAdmin: isManualPaymentAdmin(req),
+    });
+  } catch (error) {
+    console.error("Study plan access status error:", error);
+    return res.status(500).json({ message: "Could not load Study Plan access status." });
+  }
+});
+
+app.get("/api/payments/admin/requests", authMiddleware, async (req, res) => {
+  if (!isManualPaymentAdmin(req)) return res.status(403).json({ message: "Admin access is not configured for this account." });
+  try {
+    const requests = await ManualPaymentRequest.find({ status: "pending" })
+      .sort({ createdAt: 1 })
+      .limit(100)
+      .select("name email amount currency utr status createdAt");
+    return res.json({ requests });
+  } catch (error) {
+    console.error("Manual payment review list error:", error);
+    return res.status(500).json({ message: "Could not load payment requests." });
+  }
+});
+
+app.post("/api/payments/admin/requests/:id/review", authMiddleware, async (req, res) => {
+  if (!isManualPaymentAdmin(req)) return res.status(403).json({ message: "Admin access is not configured for this account." });
+  const decision = String(req.body?.decision || "").toLowerCase();
+  if (!["approve", "reject"].includes(decision)) return res.status(400).json({ message: "Choose approve or reject." });
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ message: "Invalid payment request." });
+
+  try {
+    const request = await ManualPaymentRequest.findOneAndUpdate(
+      { _id: req.params.id, status: "pending" },
+      { $set: { status: "processing" } },
+      { new: true }
+    );
+    if (!request) return res.status(409).json({ message: "This request has already been reviewed or is being processed." });
+
+    if (decision === "reject") {
+      request.status = "rejected";
+      request.reviewedAt = new Date();
+      await request.save();
+      return res.json({ message: "Payment request rejected.", status: request.status });
+    }
+
+    try {
+      const user = await User.findById(request.userId);
+      if (!user) throw new Error("The account for this payment request no longer exists.");
+      const now = new Date();
+      const currentAccessUntil = user.studyPlanAccessUntil ? new Date(user.studyPlanAccessUntil) : now;
+      const grantedUntil = request.grantedUntil || new Date(Math.max(now.getTime(), currentAccessUntil.getTime()) + 30 * 24 * 60 * 60 * 1000);
+
+      request.grantedUntil = grantedUntil;
+      await request.save();
+      if (!user.studyPlanAccessUntil || new Date(user.studyPlanAccessUntil) < grantedUntil) {
+        user.studyPlanAccessUntil = grantedUntil;
+        await user.save();
+      }
+
+      request.status = "approved";
+      request.reviewedAt = now;
+      await request.save();
+      return res.json({ message: "Payment verified and 30-day Study Plan access granted.", status: request.status, accessUntil: grantedUntil });
+    } catch (grantError) {
+      request.status = "pending";
+      await request.save();
+      throw grantError;
+    }
+  } catch (error) {
+    console.error("Manual payment review error:", error);
+    return res.status(500).json({ message: error.message || "Could not review this payment request." });
+  }
+});
+
 app.post("/api/ai/voice-interview/:id/answer", authMiddleware, async (req, res) => {
   try {
     const answer = typeof req.body?.answer === "string" ? req.body.answer.trim().slice(0, 5000) : "";

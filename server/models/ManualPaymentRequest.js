@@ -9,8 +9,9 @@ const manualPaymentRequestSchema = new mongoose.Schema(
     amount: { type: Number, enum: [259], required: true },
     currency: { type: String, enum: ["INR"], default: "INR" },
     utr: { type: String, required: true, uppercase: true, trim: true, unique: true },
-    status: { type: String, enum: ["pending", "approved", "rejected"], default: "pending", index: true },
+    status: { type: String, enum: ["pending", "processing", "approved", "rejected"], default: "pending", index: true },
     reviewedAt: { type: Date, default: null },
+    grantedUntil: { type: Date, default: null },
   },
   { timestamps: true }
 );

@@ -66,6 +66,11 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+
+    studyPlanAccessUntil: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,

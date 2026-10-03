@@ -8,6 +8,9 @@ const QR_IMAGE_URL = import.meta.env.VITE_UPI_QR_IMAGE_URL || "/study-plan-upi-q
 function StudyPlan() {
   const [utr, setUtr] = useState("");
   const [request, setRequest] = useState(null);
+  const [access, setAccess] = useState({ isActive: false, accessUntil: null, isPaymentAdmin: false });
+  const [adminRequests, setAdminRequests] = useState([]);
+  const [reviewingId, setReviewingId] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -15,15 +18,52 @@ function StudyPlan() {
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) return;
-    fetch(`${API_URL}/api/payments/manual-request/latest`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(async (response) => {
-        const data = await response.json();
-        if (response.ok) setRequest(data.request || null);
+    const headers = { Authorization: `Bearer ${token}` };
+    Promise.all([
+      fetch(`${API_URL}/api/payments/manual-request/latest`, { headers }),
+      fetch(`${API_URL}/api/payments/subscription`, { headers }),
+    ])
+      .then(async ([requestResponse, accessResponse]) => {
+        const [requestData, accessData] = await Promise.all([requestResponse.json(), accessResponse.json()]);
+        if (requestResponse.ok) setRequest(requestData.request || null);
+        if (accessResponse.ok) setAccess(accessData);
+        if (accessResponse.ok && accessData.isPaymentAdmin) {
+          const adminResponse = await fetch(`${API_URL}/api/payments/admin/requests`, { headers });
+          const adminData = await adminResponse.json();
+          if (adminResponse.ok) setAdminRequests(adminData.requests || []);
+        }
       })
       .catch(() => {});
   }, []);
+
+  const reviewRequest = async (requestId, decision) => {
+    setError("");
+    setMessage("");
+    setReviewingId(requestId);
+    const token = localStorage.getItem("token");
+    try {
+      const response = await fetch(`${API_URL}/api/payments/admin/requests/${requestId}/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ decision }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Could not review this request.");
+      setMessage(data.message);
+      setAdminRequests((current) => current.filter((item) => item._id !== requestId));
+      if (decision === "approve") {
+        const latest = await fetch(`${API_URL}/api/payments/subscription`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const latestData = await latest.json();
+        if (latest.ok) setAccess(latestData);
+      }
+    } catch (reviewError) {
+      setError(reviewError.message || "Could not review this request.");
+    } finally {
+      setReviewingId("");
+    }
+  };
 
   const submitPayment = async (event) => {
     event.preventDefault();
@@ -88,6 +128,12 @@ function StudyPlan() {
           <div className="study-plan-plan-label"><span>✦</span> STUDY PLAN PLUS</div>
           <div className="study-plan-price"><strong>₹259</strong><span>/ month</span></div>
           <p className="study-plan-billing-note">Manual UPI payment · no auto-renewal</p>
+          {access.isActive && (
+            <div className="study-plan-active-banner">
+              <span>✓</span>
+              <div><strong>Study Plan access is active</strong><small>Valid through {new Date(access.accessUntil).toLocaleDateString()}</small></div>
+            </div>
+          )}
 
           <div className={`study-plan-qr${QR_IMAGE_URL ? " has-qr" : ""}`}>
             {QR_IMAGE_URL ? (
@@ -133,6 +179,39 @@ function StudyPlan() {
           <p className="study-plan-payment-footnote">Never share your UPI PIN or OTP. Keep your payment receipt until your request is reviewed.</p>
         </aside>
       </div>
+
+      {access.isPaymentAdmin && (
+        <section className="study-plan-admin-panel">
+          <div className="study-plan-section-heading">
+            <p className="study-plan-eyebrow">ADMIN · MANUAL UPI REVIEW</p>
+            <h2>Payment requests</h2>
+            <p>Match each UTR against your UPI account before approving access.</p>
+          </div>
+          {adminRequests.length === 0 ? (
+            <div className="study-plan-admin-empty">No pending payment requests.</div>
+          ) : (
+            <div className="study-plan-admin-list">
+              {adminRequests.map((item) => (
+                <article className="study-plan-admin-request" key={item._id}>
+                  <div className="study-plan-admin-person">
+                    <strong>{item.name}</strong><span>{item.email}</span>
+                  </div>
+                  <div className="study-plan-admin-payment">
+                    <strong>₹{item.amount}</strong><span>UTR: <code>{item.utr}</code></span>
+                    <small>{new Date(item.createdAt).toLocaleString()}</small>
+                  </div>
+                  <div className="study-plan-admin-actions">
+                    <button type="button" className="is-reject" disabled={Boolean(reviewingId)} onClick={() => reviewRequest(item._id, "reject")}>{reviewingId === item._id ? "Working…" : "Reject"}</button>
+                    <button type="button" className="is-approve" disabled={Boolean(reviewingId)} onClick={() => reviewRequest(item._id, "approve")}>{reviewingId === item._id ? "Working…" : "Verify & grant 30 days"}</button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+          {message && <p className="study-plan-feedback is-success" role="status">{message}</p>}
+          {error && <p className="study-plan-feedback is-error" role="alert">{error}</p>}
+        </section>
+      )}
     </main>
   );
 }
