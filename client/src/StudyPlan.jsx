@@ -61,30 +61,12 @@ function StudyPlan({ onNavigate }) {
           return;
         }
 
-        // Keep a previous device selection for existing accounts, then save it
-        // on the account so the language stays fixed across devices.
-        const legacyLanguage = localStorage.getItem("studyPlanLanguage") || "";
-        if (STUDY_LANGUAGES.some((item) => item.id === legacyLanguage)) {
-          const saveResponse = await fetch(`${API_URL}/api/auth/study-plan-language`, {
-            method: "PUT",
-            headers: { ...headers, "Content-Type": "application/json" },
-            body: JSON.stringify({ language: legacyLanguage }),
-          });
-          const saved = await saveResponse.json();
-          const confirmedLanguage = saved.language || (saveResponse.ok ? legacyLanguage : "");
-          if (confirmedLanguage) {
-            setSelectedLanguage(confirmedLanguage);
-            setLanguageLocked(true);
-            localStorage.setItem("studyPlanLanguage", confirmedLanguage);
-          }
-        }
       })
       .catch(() => {
-        const localLanguage = localStorage.getItem("studyPlanLanguage") || "";
-        if (STUDY_LANGUAGES.some((item) => item.id === localLanguage)) {
-          setSelectedLanguage(localLanguage);
-          setLanguageLocked(true);
-        }
+        // A browser-stored language can belong to a different account on this
+        // device. Only the authenticated account record can lock this choice.
+        setSelectedLanguage("");
+        setLanguageLocked(false);
       })
       .finally(() => setLanguageLoading(false));
   }, []);
@@ -203,13 +185,15 @@ function StudyPlan({ onNavigate }) {
               <h2>What do you want to practise in?</h2>
               <p>{languageLoading ? "Loading your saved choice…" : languageLocked ? "Your language is fixed for this Study Plan and saved to your account." : "Choose carefully: this language will be locked to your account."}</p>
             </div>
-            <div className="study-plan-language-grid">
+            {languageLoading && <div className="study-plan-locked-language"><span>…</span><div><strong>Loading your account’s language choice</strong><small>Each account keeps its own Study Plan language.</small></div></div>}
+            {!languageLocked && !languageLoading && <div className="study-plan-language-grid">
               {STUDY_LANGUAGES.map((language) => (
                 <button type="button" key={language.id} className={selectedLanguage === language.id ? "is-selected" : ""} disabled={languageLoading || languageSaving || languageLocked} onClick={() => chooseLanguage(language.id)}>
-                  <span>{language.icon}</span><strong>{language.label}{selectedLanguage === language.id && languageLocked ? " · Selected" : ""}</strong><small>{languageSaving && selectedLanguage === language.id ? "Saving choice…" : ["java", "cpp", "python"].includes(language.id) ? "DSA sheet + notes available" : "Notes ready · DSA templates coming"}</small>
+                  <span>{language.icon}</span><strong>{language.label}{selectedLanguage === language.id && languageLocked ? " · Selected" : ""}</strong><small>{languageSaving && selectedLanguage === language.id ? "Saving choice…" : "100+ DSA questions + notes"}</small>
                 </button>
               ))}
-            </div>
+            </div>}
+            {languageLocked && <div className="study-plan-locked-language"><span>✓</span><div><strong>{notes.name} is selected for your account</strong><small>This setting follows your account on any device. Other accounts can choose their own language.</small></div></div>}
             {error && <p className="study-plan-feedback is-error" role="alert">{error}</p>}
           </section>
 
@@ -230,7 +214,7 @@ function StudyPlan({ onNavigate }) {
                   <p>Open the DSA sheet to solve interview problems, or download your language notes for offline revision.</p>
                 </div>
                 <div className="study-plan-resource-grid">
-                  <article><span className="study-plan-resource-icon">⌘</span><p className="study-plan-eyebrow">PRACTICE</p><h3>DSA Sheet</h3><p>{["java", "cpp", "python"].includes(selectedLanguage) ? `Browse 100+ topic-wise questions, use the ${notes.name} coding editor, and track accepted solutions.` : `${notes.name} notes are ready. Language-specific DSA compiler templates are coming soon.`}</p><button type="button" onClick={() => setActiveTab("dsa")}>{["java", "cpp", "python"].includes(selectedLanguage) ? "Open DSA Sheet →" : "View availability →"}</button></article>
+                  <article><span className="study-plan-resource-icon">⌘</span><p className="study-plan-eyebrow">PRACTICE</p><h3>DSA Sheet</h3><p>{`Browse 100+ topic-wise questions, use the ${notes.name} coding editor, and track accepted solutions.`}</p><button type="button" onClick={() => setActiveTab("dsa")}>Open DSA Sheet →</button></article>
                   <article><span className="study-plan-resource-icon">▤</span><p className="study-plan-eyebrow">OFFLINE REFERENCE</p><h3>{notes.name} Notes</h3><p>Review syntax, data structures, common patterns, and complexity reminders.</p><button type="button" onClick={() => setActiveTab("notes")}>View notes →</button></article>
                 </div>
               </>}
@@ -239,9 +223,9 @@ function StudyPlan({ onNavigate }) {
                 <div className="study-plan-section-heading">
                   <p className="study-plan-eyebrow">DSA QUESTION BANK</p>
                   <h2>{notes.name} coding practice</h2>
-                  <p>{["java", "cpp", "python"].includes(selectedLanguage) ? `Open the 100+ question sheet and continue your saved ${notes.name} progress.` : `${notes.name} notes are available here; its separate coding templates are still being prepared.`}</p>
+                  <p>{`Open the 100+ question sheet and continue your saved ${notes.name} progress.`}</p>
                 </div>
-                {["java", "cpp", "python"].includes(selectedLanguage) ? <button className="study-plan-primary-action" type="button" onClick={() => onNavigate?.("dsa-sheet")}>Open {notes.name} DSA Sheet →</button> : <div className="study-plan-coming-note"><strong>JavaScript and C# DSA templates are being prepared.</strong><span>Open your {notes.name} notes while those question templates are converted.</span><button type="button" onClick={() => setActiveTab("notes")}>Open {notes.name} notes →</button></div>}
+                <button className="study-plan-primary-action" type="button" onClick={() => onNavigate?.("dsa-sheet")}>Open {notes.name} DSA Sheet →</button>
               </>}
 
               {activeTab === "notes" && <>

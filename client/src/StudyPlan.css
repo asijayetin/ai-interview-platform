@@ -143,6 +143,11 @@
 .study-plan-loading-mark { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 13px; color: #5d52c4; background: #f0eeff; font-size: 21px; animation: study-plan-pulse 1.15s ease-in-out infinite alternate; }
 .study-plan-language-grid button:disabled { opacity: .72; cursor: not-allowed; transform: none; }
 .study-plan-language-grid button:disabled:not(.is-selected) { background: #f8f9fc; }
+.study-plan-locked-language { display:flex; align-items:center; gap:12px; margin-top:18px; padding:15px 17px; border:1px solid #dedbfb; border-radius:12px; background:#faf9ff; }
+.study-plan-locked-language > span { display:grid; place-items:center; width:34px; height:34px; flex:0 0 34px; border-radius:50%; color:#24754d; background:#e8f7ef; font-weight:900; }
+.study-plan-locked-language strong,.study-plan-locked-language small { display:block; }
+.study-plan-locked-language strong { color:#354159; font-size:14px; }
+.study-plan-locked-language small { margin-top:4px; color:#78849a; font-size:12px; line-height:1.5; }
 .study-plan-notes-code-label { margin: 13px 0 6px; color: #5d52c4; font-size: 11px; font-weight: 800; letter-spacing: .04em; }
 .study-plan-notes-code { overflow-x: auto; margin: 0; padding: 13px 15px; border: 1px solid #e4e7ef; border-radius: 9px; color: #dce5ff; background: #192131; font: 12px/1.65 ui-monospace, SFMono-Regular, Consolas, monospace; }
 .study-plan-notes-code code { white-space: pre; }
