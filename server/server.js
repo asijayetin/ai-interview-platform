@@ -2182,7 +2182,7 @@ app.get("/api/organizer/learners", authMiddleware, async (req, res) => {
   if (!isManualPaymentAdmin(req)) return res.status(403).json({ message: "Organizer access is not configured for this account." });
   try {
     const learners = await User.find({}).sort({ createdAt: -1 }).limit(250)
-      .select("name email createdAt studyPlanAccessUntil emailVerified").lean();
+      .select("name email createdAt studyPlanAccessUntil studyPlanLanguage emailVerified").lean();
     const learnerIds = learners.map((learner) => learner._id);
     const interviewCounts = await Interview.aggregate([
       { $match: { userId: { $in: learnerIds } } },
@@ -2197,6 +2197,7 @@ app.get("/api/organizer/learners", authMiddleware, async (req, res) => {
       joinedAt: learner.createdAt,
       emailVerified: Boolean(learner.emailVerified),
       accessUntil: learner.studyPlanAccessUntil || null,
+      studyPlanLanguage: learner.studyPlanLanguage || "",
       planActive: Boolean(learner.studyPlanAccessUntil && new Date(learner.studyPlanAccessUntil).getTime() > now),
       interviews: countByUser.get(String(learner._id)) || 0,
     })) });
@@ -2216,8 +2217,9 @@ app.post("/api/organizer/learners/:id/access", authMiddleware, async (req, res) 
     if (!learner) return res.status(404).json({ message: "Learner account not found." });
     if (action === "revoke") {
       learner.studyPlanAccessUntil = null;
+      learner.studyPlanLanguage = "";
       await learner.save();
-      return res.json({ message: `Study Plan access revoked for ${learner.email}.` });
+      return res.json({ message: `Study Plan access revoked and language choice reset for ${learner.email}.` });
     }
     const now = new Date();
     const currentAccessUntil = learner.studyPlanAccessUntil ? new Date(learner.studyPlanAccessUntil) : now;
@@ -2228,6 +2230,26 @@ app.post("/api/organizer/learners/:id/access", authMiddleware, async (req, res) 
   } catch (error) {
     console.error("Organizer learner access update error:", error);
     return res.status(500).json({ message: "Could not update learner access." });
+  }
+});
+
+app.put("/api/organizer/learners/:id/language", authMiddleware, async (req, res) => {
+  if (!isManualPaymentAdmin(req)) return res.status(403).json({ message: "Organizer access is not configured for this account." });
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ message: "Invalid learner account." });
+  const language = String(req.body?.language || "").trim().toLowerCase();
+  const supportedLanguages = ["java", "cpp", "python", "javascript", "csharp"];
+  if (!supportedLanguages.includes(language)) return res.status(400).json({ message: "Choose a supported study language." });
+  try {
+    const learner = await User.findByIdAndUpdate(
+      req.params.id,
+      { $set: { studyPlanLanguage: language } },
+      { new: true, runValidators: true }
+    ).select("email studyPlanLanguage");
+    if (!learner) return res.status(404).json({ message: "Learner account not found." });
+    return res.json({ message: `Language updated to ${language} for ${learner.email}.`, language: learner.studyPlanLanguage });
+  } catch (error) {
+    console.error("Organizer learner language update error:", error);
+    return res.status(500).json({ message: "Could not update learner language." });
   }
 });
 
