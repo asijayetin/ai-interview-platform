@@ -2770,6 +2770,10 @@ const chooseWandboxCompiler = (compilers, languageId) => {
 };
 
 const normalizeWandboxOutput = (value) => String(value ?? "").replace(/\r\n/g, "\n").trim();
+const isTransientWandboxInfrastructureError = (execution) =>
+  /OCI runtime error|crun:\s*clone:\s*Resource temporarily unavailable|Resource temporarily unavailable|failed to create.*container|container.*temporarily unavailable/i
+    .test([execution?.stdout, execution?.stderr, execution?.compileOutput, execution?.message].filter(Boolean).join("\n"));
+const waitForWandboxRetry = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 const compileWandboxCode = async (compiler, language, code, stdin) => {
   // Wandbox compiles Java source from prog.java, so a public Main class fails
   // Java's public-type/file-name rule. Keep Main launchable but package-private.
@@ -2868,20 +2872,29 @@ app.post("/api/code/run-tests", authMiddleware, async (req, res) => {
     const compiler = chooseWandboxCompiler(compilers, language);
     if (!compiler) return res.status(400).json({ message: "That language is temporarily unavailable in the hosted compiler." });
 
-    const results = await Promise.all(testCases.map(async (testCase, index) => {
-      const execution = await compileWandboxCode(compiler, language, code, testCase.input);
-      const accepted = execution.exitCode === 0 && normalizeWandboxOutput(execution.stdout) === normalizeWandboxOutput(testCase.output);
+    const results = [];
+    for (let index = 0; index < testCases.length; index += 1) {
+      const testCase = testCases[index];
+      let execution;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        execution = await compileWandboxCode(compiler, language, code, testCase.input);
+        if (!isTransientWandboxInfrastructureError(execution) || attempt === 2) break;
+        await waitForWandboxRetry(400 * (attempt + 1));
+      }
+      const runnerUnavailable = isTransientWandboxInfrastructureError(execution);
+      const accepted = !runnerUnavailable && execution.exitCode === 0 && normalizeWandboxOutput(execution.stdout) === normalizeWandboxOutput(testCase.output);
       const compileFailed = execution.exitCode !== 0 && Boolean(execution.compileOutput);
-      return {
+      results.push({
         caseNumber: index + 1,
         accepted,
-        status: accepted ? "Accepted" : compileFailed ? "Compile Error" : execution.exitCode !== 0 ? "Runtime Error" : "Wrong Answer",
+        runnerUnavailable,
+        status: accepted ? "Accepted" : runnerUnavailable ? "Runner Unavailable" : compileFailed ? "Compile Error" : execution.exitCode !== 0 ? "Runtime Error" : "Wrong Answer",
         actualOutput: execution.stdout,
         expectedOutput: testCase.output,
         compileOutput: execution.compileOutput,
         stderr: execution.stderr,
-      };
-    }));
+      });
+    }
     const passedCount = results.filter((item) => item.accepted).length;
     res.json({ accepted: passedCount === results.length, passedCount, runtime: `${compiler.display_name || compiler.name} · ${compiler.version}`, results });
   } catch (error) {

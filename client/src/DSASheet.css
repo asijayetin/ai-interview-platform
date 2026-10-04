@@ -7,3 +7,4 @@
 .dsa-language-static small { color:#8b94a6; font-size:11px; font-weight:500; }
 @media(max-width:980px){.dsa-open-layout{grid-template-columns:minmax(260px,.8fr) minmax(390px,1.2fr)}.dsa-problem-pane{padding:17px}.dsa-lock-label{flex-basis:100%;margin-left:16px!important}}
 @media(max-width:760px){.dsa-open-layout{grid-template-columns:1fr}.dsa-problem-pane{position:static;max-height:none}.dsa-open-layout .dsa-code-editor,.dsa-open-layout .dsa-code-editor .cm-editor{min-height:420px}.dsa-open-toolbar{align-items:flex-start;flex-direction:column}.dsa-open-toolbar>div{width:100%;flex-wrap:wrap}}
+.dsa-case.is-runner-unavailable{border-color:#f4dfb5;background:#fffaf0;color:#8a5a0a}.dsa-runner-unavailable-note{margin:8px 0 0;color:#7a6745;font-size:12px;line-height:1.5}
