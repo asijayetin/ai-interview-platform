@@ -193,7 +193,6 @@ function StudyPlan({ onNavigate }) {
                 </button>
               ))}
             </div>}
-            {languageLocked && <div className="study-plan-locked-language"><span>✓</span><div><strong>{notes.name} is selected for your account</strong><small>This setting follows your account on any device. Other accounts can choose their own language.</small></div></div>}
             {error && <p className="study-plan-feedback is-error" role="alert">{error}</p>}
           </section>
 
