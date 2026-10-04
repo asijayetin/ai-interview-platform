@@ -837,14 +837,9 @@ function App() {
               </button>
 
 
-              <button
-                type="button"
-                onClick={() =>
-                  alert("Privacy Policy will be available soon.")
-                }
-              >
+              <a href="/privacy-policy.html">
                 Privacy
-              </button>
+              </a>
 
             </div>
 
