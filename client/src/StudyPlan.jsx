@@ -8,6 +8,7 @@ const QR_IMAGE_URL = import.meta.env.VITE_UPI_QR_IMAGE_URL || "/study-plan-upi-q
 
 function StudyPlan({ onNavigate }) {
   const [selectedLanguage, setSelectedLanguage] = useState("");
+  const [accountEmail, setAccountEmail] = useState("");
   const [languageLocked, setLanguageLocked] = useState(false);
   const [languageLoading, setLanguageLoading] = useState(true);
   const [languageSaving, setLanguageSaving] = useState(false);
@@ -29,8 +30,8 @@ function StudyPlan({ onNavigate }) {
     }
     const headers = { Authorization: `Bearer ${token}` };
     Promise.all([
-      fetch(`${API_URL}/api/payments/manual-request/latest`, { headers }),
-      fetch(`${API_URL}/api/payments/subscription`, { headers }),
+      fetch(`${API_URL}/api/payments/manual-request/latest`, { headers, cache: "no-store" }),
+      fetch(`${API_URL}/api/payments/subscription`, { headers, cache: "no-store" }),
     ])
       .then(async ([requestResponse, accessResponse]) => {
         const [requestData, accessData] = await Promise.all([requestResponse.json(), accessResponse.json()]);
@@ -49,11 +50,12 @@ function StudyPlan({ onNavigate }) {
     const token = localStorage.getItem("token");
     if (!token) { setLanguageLoading(false); return; }
     const headers = { Authorization: `Bearer ${token}` };
-    fetch(`${API_URL}/api/auth/me`, { headers })
+    fetch(`${API_URL}/api/auth/me`, { headers, cache: "no-store" })
       .then(async (response) => {
         const data = await response.json();
         if (!response.ok) throw new Error(data.message || "Could not load your saved language.");
         if (localStorage.getItem("token") !== token) return;
+        setAccountEmail(data.user?.email || "");
         const accountLanguage = data.user?.studyPlanLanguage || "";
         if (accountLanguage) {
           setSelectedLanguage(accountLanguage);
@@ -88,6 +90,7 @@ function StudyPlan({ onNavigate }) {
       if (decision === "approve") {
         const latest = await fetch(`${API_URL}/api/payments/subscription`, {
           headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
         });
         const latestData = await latest.json();
         if (latest.ok) setAccess(latestData);
@@ -181,7 +184,7 @@ function StudyPlan({ onNavigate }) {
             <div className="study-plan-section-heading">
               <p className="study-plan-eyebrow">{languageLocked ? "YOUR LANGUAGE" : "ONE-TIME SETUP · STEP 1"}</p>
               <h2>{languageLocked ? `${notes.name} practice is ready` : "Choose a language for this account"}</h2>
-              <p>{languageLoading ? "Loading your saved choice…" : languageLocked ? "Your notes and DSA workspace use this account’s saved language." : "Choose the language you want to use for your Study Plan."}</p>
+              <p>{languageLoading ? "Loading your saved choice…" : languageLocked ? `Your notes and DSA workspace use this account’s saved language${accountEmail ? ` · ${accountEmail}` : ""}.` : `Choose the language you want to use for your Study Plan${accountEmail ? ` · ${accountEmail}` : ""}.`}</p>
             </div>
             {languageLoading && <div className="study-plan-locked-language"><span>…</span><div><strong>Loading your account’s language choice</strong><small>Each account keeps its own Study Plan language.</small></div></div>}
             {!languageLocked && !languageLoading && <>

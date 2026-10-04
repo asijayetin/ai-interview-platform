@@ -1101,6 +1101,7 @@ app.get(
 
   async (req, res) => {
     try {
+      res.set("Cache-Control", "private, no-store");
       const user =
         await User.findById(
           req.user.userId
@@ -2082,6 +2083,7 @@ const isManualPaymentAdmin = (req) => {
 
 app.get("/api/payments/subscription", authMiddleware, async (req, res) => {
   try {
+    res.set("Cache-Control", "private, no-store");
     const user = await User.findById(req.user.userId).select("studyPlanAccessUntil");
     if (!user) return res.status(401).json({ message: "Please log in again." });
     const accessUntil = user.studyPlanAccessUntil || null;
