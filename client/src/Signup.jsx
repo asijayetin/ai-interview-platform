@@ -8,14 +8,13 @@ function Signup({ onLoginClick, onLoginSuccess }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [signupSuccess, setSignupSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
   const handleGoogleCredential = async (credential) => {
     setError("");
-    setMessage("");
     if (!API_URL) {
       setError("API URL is not configured.");
       return;
@@ -48,7 +47,6 @@ function Signup({ onLoginClick, onLoginSuccess }) {
 
   const handleSignup = async (event) => {
     event.preventDefault();
-    setMessage("");
     setError("");
 
     if (!API_URL) {
@@ -75,7 +73,7 @@ function Signup({ onLoginClick, onLoginSuccess }) {
         return;
       }
 
-      setMessage("Signup successful! You can now log in.");
+      setSignupSuccess(true);
       setName("");
       setEmail("");
       setPassword("");
@@ -155,11 +153,31 @@ function Signup({ onLoginClick, onLoginSuccess }) {
         <GoogleSignInButton onCredential={handleGoogleCredential} disabled={googleLoading || loading} />
 
         {error && <p className="error-message">{error}</p>}
-        {message && <p className="success-message">{message}</p>}
 
         <p className="auth-switch">Already have an account? <button type="button" onClick={onLoginClick}>Sign in</button></p>
       </section>
       </div>
+
+      {signupSuccess && (
+        <div className="signup-success-backdrop">
+          <section
+            className="signup-success-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="signup-success-title"
+            aria-describedby="signup-success-description"
+          >
+            <div className="signup-success-icon" aria-hidden="true">✓</div>
+            <p className="auth-kicker">ACCOUNT READY</p>
+            <h2 id="signup-success-title">Account created</h2>
+            <p id="signup-success-description">Your account is ready. Continue to login to start practicing.</p>
+            <div className="signup-success-actions">
+              <button type="button" onClick={onLoginClick}>Continue to login</button>
+              <button type="button" className="signup-success-secondary" onClick={() => setSignupSuccess(false)}>Stay here</button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

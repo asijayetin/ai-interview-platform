@@ -477,6 +477,20 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .google-signin-busy { position: absolute; inset: 0; display: grid; place-items: center; color: #46516a; font-size: 13px; }
 .google-signin-not-configured { margin: 0 0 12px !important; padding: 11px 12px; border: 1px solid #e4e8ef; border-radius: 9px; background: #f8f9fc; color: #7b8495 !important; font-size: 12px !important; line-height: 1.5 !important; }
 
+.signup-success-backdrop { position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center; padding: 22px; background: rgba(16, 22, 39, .58); backdrop-filter: blur(5px); }
+.signup-success-dialog { width: min(100%, 430px); padding: 34px; border: 1px solid #e4e8f1; border-radius: 20px; background: #fff; box-shadow: 0 28px 90px rgba(12, 18, 35, .25); text-align: center; animation: signup-dialog-in .2s ease-out; }
+.signup-success-icon { display: grid; width: 54px; height: 54px; margin: 0 auto 18px; place-items: center; border-radius: 17px; background: #eaf8f0; color: #168253; font-size: 28px; font-weight: 800; }
+.signup-success-dialog .auth-kicker { margin: 0 0 8px; color: #6558d3; font-size: 10px; font-weight: 800; letter-spacing: 1.5px; }
+.signup-success-dialog h2 { margin: 0; color: #1b2438; font-size: 27px; letter-spacing: -.7px; }
+.signup-success-dialog > p:not(.auth-kicker) { margin: 10px 0 24px; color: #69758b; font-size: 14px; line-height: 1.6; }
+.signup-success-actions { display: grid; gap: 10px; }
+.signup-success-actions button { min-height: 46px; border: 0; border-radius: 10px; background: #252d46; color: white; font-size: 14px; font-weight: 750; cursor: pointer; }
+.signup-success-actions button:hover { background: #343e60; }
+.signup-success-actions .signup-success-secondary { border: 1px solid #dce2ed; background: #fff; color: #4e5970; }
+.signup-success-actions .signup-success-secondary:hover { background: #f6f7fb; }
+@keyframes signup-dialog-in { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@media (prefers-reduced-motion: reduce) { .signup-success-dialog { animation: none; } }
+
 /* Refined interview type cards and language controls */
 .workspace-main .setup-card { max-width: 1160px; padding: clamp(23px, 3.3vw, 38px); border-color: #e4e7ef; border-radius: 18px; box-shadow: 0 14px 40px rgba(29, 37, 65, .055); }
 .workspace-main .setup-eyebrow { margin-bottom: 8px; color: #6558d3; font-size: 10px; font-weight: 800; letter-spacing: 1.5px; }
