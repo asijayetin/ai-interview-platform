@@ -4,6 +4,7 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
+const { OAuth2Client } = require("google-auth-library");
 const multer = require("multer");
 const mammoth = require("mammoth");
 const { PDFParse } = require("pdf-parse");
@@ -15,6 +16,7 @@ require("dotenv").config();
 const User = require("./models/User");
 const ManualPaymentRequest = require("./models/ManualPaymentRequest");
 const authMiddleware = require("./middleware/authMiddleware");
+const googleOAuthClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const app = express();
 
@@ -721,6 +723,70 @@ app.post(
     }
   }
 );
+
+// ========================================
+// GOOGLE SIGN-IN (LOGIN OR CREATE ACCOUNT)
+// ========================================
+
+app.post("/api/auth/google", async (req, res) => {
+  try {
+    const { credential } = req.body || {};
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+
+    if (!clientId) {
+      return res.status(503).json({ message: "Google sign-in is not configured on the server yet." });
+    }
+    if (!credential || typeof credential !== "string") {
+      return res.status(400).json({ message: "Google did not provide a sign-in credential. Please try again." });
+    }
+
+    const ticket = await googleOAuthClient.verifyIdToken({ idToken: credential, audience: clientId });
+    const googleUser = ticket.getPayload();
+    if (!googleUser?.sub || !googleUser.email || googleUser.email_verified !== true) {
+      return res.status(401).json({ message: "Use a Google account with a verified email address." });
+    }
+
+    const normalizedEmail = googleUser.email.toLowerCase().trim();
+    let user = await User.findOne({ googleId: googleUser.sub });
+
+    if (!user) {
+      user = await User.findOne({ email: normalizedEmail });
+      if (user) {
+        if (user.googleId && user.googleId !== googleUser.sub) {
+          return res.status(409).json({ message: "This email is linked to a different Google account." });
+        }
+        user.googleId = googleUser.sub;
+        user.emailVerified = true;
+        if (!user.name && googleUser.name) user.name = googleUser.name;
+        await user.save();
+      } else {
+        user = await User.create({
+          name: String(googleUser.name || normalizedEmail.split("@")[0]).trim(),
+          email: normalizedEmail,
+          password: await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 10),
+          googleId: googleUser.sub,
+          emailVerified: true,
+        });
+      }
+    }
+
+    const token = jwt.sign({ userId: user._id, email: user.email }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    return res.json({
+      message: "Google sign-in successful",
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        emailVerified: user.emailVerified || false,
+        studyPlanLanguage: user.studyPlanLanguage || "",
+      },
+    });
+  } catch (error) {
+    console.error("Google sign-in error:", error.message);
+    return res.status(401).json({ message: "Google sign-in could not be verified. Please try again." });
+  }
+});
 
 // ========================================
 // CHANGE PASSWORD

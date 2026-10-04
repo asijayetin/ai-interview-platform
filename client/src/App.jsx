@@ -461,6 +461,10 @@ function App() {
 
         <Signup
 
+          onLoginSuccess={() =>
+            setPage("dashboard")
+          }
+
           onLoginClick={() =>
             setPage("login")
           }

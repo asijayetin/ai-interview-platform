@@ -1,4 +1,5 @@
 import { useState } from "react";
+import GoogleSignInButton from "./GoogleSignInButton";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -7,6 +8,42 @@ function Login({ onSignupClick, onLoginSuccess }) {
   const [password, setPassword] = useState("");
 
   const [error, setError] = useState("");
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  const finishLogin = (data) => {
+    localStorage.removeItem("studyPlanLanguage");
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("user", JSON.stringify(data.user));
+    onLoginSuccess();
+  };
+
+  const handleGoogleCredential = async (credential) => {
+    setError("");
+    if (!API_URL) {
+      setError("API URL is not configured.");
+      return;
+    }
+
+    setGoogleLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/auth/google`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credential }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setError(data.message || "Google sign-in failed. Please try again.");
+        return;
+      }
+      finishLogin(data);
+    } catch (requestError) {
+      console.error("Google login error:", requestError);
+      setError("Could not connect to the server. Please try again.");
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -44,21 +81,8 @@ function Login({ onSignupClick, onLoginSuccess }) {
         return;
       }
 
-      // Save JWT token
-      // Never carry a language hint from the previous account on this device.
-      localStorage.removeItem("studyPlanLanguage");
-      localStorage.setItem("token", data.token);
-
-      // Save user information
-      localStorage.setItem(
-        "user",
-        JSON.stringify(data.user)
-      );
-
       console.log("Login successful:", data.user);
-
-      // Go to Dashboard
-      onLoginSuccess();
+      finishLogin(data);
 
     } catch (error) {
       console.log("Login error:", error);
@@ -118,6 +142,9 @@ function Login({ onSignupClick, onLoginSuccess }) {
           </button>
 
         </form>
+
+        <div className="auth-divider"><span>or continue with</span></div>
+        <GoogleSignInButton onCredential={handleGoogleCredential} disabled={googleLoading} />
 
         {error && (
           <p className="error-message">

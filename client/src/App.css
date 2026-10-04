@@ -460,6 +460,23 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .auth-switch button { padding: 0; border: 0; background: transparent; color: #5a50bd; font-size: inherit; font-weight: 750; }
 .auth-switch button:hover { color: #393181; text-decoration: underline; }
 
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0 16px;
+  color: #8a93a3;
+  font-size: 12px;
+}
+.auth-divider::before,
+.auth-divider::after { content: ""; height: 1px; flex: 1; background: #e4e8ef; }
+.google-signin-wrap { position: relative; display: flex; justify-content: center; min-height: 42px; }
+.google-signin-button { width: 100%; display: flex; justify-content: center; }
+.google-signin-button > div { max-width: 100%; }
+.google-signin-wrap.is-disabled { opacity: .55; pointer-events: none; }
+.google-signin-busy { position: absolute; inset: 0; display: grid; place-items: center; color: #46516a; font-size: 13px; }
+.google-signin-not-configured { margin: 0 0 12px !important; padding: 11px 12px; border: 1px solid #e4e8ef; border-radius: 9px; background: #f8f9fc; color: #7b8495 !important; font-size: 12px !important; line-height: 1.5 !important; }
+
 /* Refined interview type cards and language controls */
 .workspace-main .setup-card { max-width: 1160px; padding: clamp(23px, 3.3vw, 38px); border-color: #e4e7ef; border-radius: 18px; box-shadow: 0 14px 40px rgba(29, 37, 65, .055); }
 .workspace-main .setup-eyebrow { margin-bottom: 8px; color: #6558d3; font-size: 10px; font-weight: 800; letter-spacing: 1.5px; }

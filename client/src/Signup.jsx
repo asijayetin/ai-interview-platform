@@ -1,8 +1,9 @@
 import { useState } from "react";
+import GoogleSignInButton from "./GoogleSignInButton";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
-function Signup({ onLoginClick }) {
+function Signup({ onLoginClick, onLoginSuccess }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -10,6 +11,40 @@ function Signup({ onLoginClick }) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  const handleGoogleCredential = async (credential) => {
+    setError("");
+    setMessage("");
+    if (!API_URL) {
+      setError("API URL is not configured.");
+      return;
+    }
+
+    setGoogleLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/auth/google`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credential }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setError(data.message || "Google sign-in failed. Please try again.");
+        return;
+      }
+
+      localStorage.removeItem("studyPlanLanguage");
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      onLoginSuccess?.();
+    } catch (requestError) {
+      console.error("Google signup error:", requestError);
+      setError("Could not connect to the server. Please try again.");
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
   const handleSignup = async (event) => {
     event.preventDefault();
@@ -115,6 +150,9 @@ function Signup({ onLoginClick }) {
             {loading ? "Creating Account..." : "Create Account"}
           </button>
         </form>
+
+        <div className="auth-divider"><span>or continue with</span></div>
+        <GoogleSignInButton onCredential={handleGoogleCredential} disabled={googleLoading || loading} />
 
         {error && <p className="error-message">{error}</p>}
         {message && <p className="success-message">{message}</p>}
