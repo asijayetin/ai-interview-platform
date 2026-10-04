@@ -52,7 +52,9 @@ export default function GoogleSignInButton({ onCredential, disabled = false }) {
         });
         window.google.accounts.id.renderButton(buttonRef.current, {
           theme: "outline",
-          size: "large",
+          // Medium keeps Google's standard CTA instead of showing the
+          // personalized "Continue as <account>" button.
+          size: "medium",
           text: "continue_with",
           shape: "rectangular",
           width: Math.min(buttonRef.current.clientWidth || 360, 360),
