@@ -108,6 +108,10 @@
 .study-plan-language-grid button > span { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; color: #5c50c4; background: #f0eeff; font-size: 13px; font-weight: 850; }
 .study-plan-language-grid strong { font-size: 14px; }
 .study-plan-language-grid small { color: #828da1; font-size: 11px; }
+.study-plan-language-commitment { display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: start; gap: 12px; margin-top: 18px; padding: 14px 16px; border: 1px solid #dedbfb; border-radius: 12px; background: linear-gradient(110deg, #f8f7ff, #fcfbff); }
+.study-plan-language-commitment > span { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; color: #554bc0; background: #ebe8ff; font-size: 15px; font-weight: 900; }
+.study-plan-language-commitment strong { display: block; color: #354159; font-size: 14px; }
+.study-plan-language-commitment p { margin: 4px 0 0; color: #707d94; font-size: 13px; line-height: 1.55; }
 .study-plan-learning-layout { display: grid; grid-template-columns: 218px minmax(0, 1fr); align-items: start; gap: 16px; margin-top: 16px; }
 .study-plan-learning-nav { position: sticky; top: 16px; display: grid; gap: 6px; padding: 17px 13px; }
 .study-plan-learning-nav > .study-plan-eyebrow { margin: 0 8px 7px; }

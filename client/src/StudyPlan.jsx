@@ -53,18 +53,17 @@ function StudyPlan({ onNavigate }) {
       .then(async (response) => {
         const data = await response.json();
         if (!response.ok) throw new Error(data.message || "Could not load your saved language.");
+        if (localStorage.getItem("token") !== token) return;
         const accountLanguage = data.user?.studyPlanLanguage || "";
         if (accountLanguage) {
           setSelectedLanguage(accountLanguage);
           setLanguageLocked(true);
-          localStorage.setItem("studyPlanLanguage", accountLanguage);
           return;
         }
-
+        setSelectedLanguage("");
+        setLanguageLocked(false);
       })
       .catch(() => {
-        // A browser-stored language can belong to a different account on this
-        // device. Only the authenticated account record can lock this choice.
         setSelectedLanguage("");
         setLanguageLocked(false);
       })
@@ -147,7 +146,6 @@ function StudyPlan({ onNavigate }) {
       const savedLanguage = data.language || language;
       setSelectedLanguage(savedLanguage);
       setLanguageLocked(true);
-      localStorage.setItem("studyPlanLanguage", savedLanguage);
       setActiveTab("home");
     } catch (languageError) {
       setError(languageError.message || "Could not save your language choice.");
@@ -181,18 +179,24 @@ function StudyPlan({ onNavigate }) {
 
           <section className="study-plan-language-picker" aria-label="Choose programming language">
             <div className="study-plan-section-heading">
-              <p className="study-plan-eyebrow">STEP 1 · LANGUAGE</p>
-              <h2>What do you want to practise in?</h2>
-              <p>{languageLoading ? "Loading your saved choice…" : languageLocked ? "Your language is fixed for this Study Plan and saved to your account." : "Choose carefully: this language will be locked to your account."}</p>
+              <p className="study-plan-eyebrow">{languageLocked ? "YOUR LANGUAGE" : "ONE-TIME SETUP · STEP 1"}</p>
+              <h2>{languageLocked ? `${notes.name} practice is ready` : "Choose a language for this account"}</h2>
+              <p>{languageLoading ? "Loading your saved choice…" : languageLocked ? "Your notes and DSA workspace use this account’s saved language." : "Choose the language you want to use for your Study Plan."}</p>
             </div>
             {languageLoading && <div className="study-plan-locked-language"><span>…</span><div><strong>Loading your account’s language choice</strong><small>Each account keeps its own Study Plan language.</small></div></div>}
-            {!languageLocked && !languageLoading && <div className="study-plan-language-grid">
-              {STUDY_LANGUAGES.map((language) => (
-                <button type="button" key={language.id} className={selectedLanguage === language.id ? "is-selected" : ""} disabled={languageLoading || languageSaving || languageLocked} onClick={() => chooseLanguage(language.id)}>
-                  <span>{language.icon}</span><strong>{language.label}{selectedLanguage === language.id && languageLocked ? " · Selected" : ""}</strong><small>{languageSaving && selectedLanguage === language.id ? "Saving choice…" : "100+ DSA questions + notes"}</small>
-                </button>
-              ))}
-            </div>}
+            {!languageLocked && !languageLoading && <>
+              <div className="study-plan-language-commitment" role="note">
+                <span aria-hidden="true">✓</span>
+                <div><strong>This choice is permanent for this account</strong><p>After you select a language, its notes and DSA sheet will be unlocked. You cannot change it later. Each account on this device gets its own language choice.</p></div>
+              </div>
+              <div className="study-plan-language-grid">
+                {STUDY_LANGUAGES.map((language) => (
+                  <button type="button" key={language.id} className={selectedLanguage === language.id ? "is-selected" : ""} disabled={languageSaving} onClick={() => chooseLanguage(language.id)}>
+                    <span>{language.icon}</span><strong>{language.label}</strong><small>{languageSaving ? "Saving choice…" : "Notes + 100 DSA questions"}</small>
+                  </button>
+                ))}
+              </div>
+            </>}
             {error && <p className="study-plan-feedback is-error" role="alert">{error}</p>}
           </section>
 

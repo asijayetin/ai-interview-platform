@@ -45,6 +45,8 @@ function Login({ onSignupClick, onLoginSuccess }) {
       }
 
       // Save JWT token
+      // Never carry a language hint from the previous account on this device.
+      localStorage.removeItem("studyPlanLanguage");
       localStorage.setItem("token", data.token);
 
       // Save user information

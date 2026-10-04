@@ -1166,22 +1166,33 @@ app.put(
         return res.status(400).json({ message: "Choose a supported study language." });
       }
 
-      const user = await User.findById(req.user.userId);
+      const user = await User.findById(req.user.userId).select("studyPlanAccessUntil studyPlanLanguage");
       if (!user) return res.status(404).json({ message: "User not found." });
       const hasActiveStudyPlan = Boolean(user.studyPlanAccessUntil && new Date(user.studyPlanAccessUntil).getTime() > Date.now());
       if (!hasActiveStudyPlan && !isManualPaymentAdmin(req)) {
         return res.status(403).json({ message: "An approved, active Study Plan is required before choosing a language." });
       }
-      if (user.studyPlanLanguage && user.studyPlanLanguage !== language) {
+      const savedUser = await User.findOneAndUpdate(
+        {
+          _id: user._id,
+          $or: [
+            { studyPlanLanguage: "" },
+            { studyPlanLanguage: { $exists: false } },
+            { studyPlanLanguage: language },
+          ],
+        },
+        { $set: { studyPlanLanguage: language } },
+        { new: true, runValidators: true, projection: "studyPlanLanguage" }
+      );
+      if (!savedUser) {
+        const currentUser = await User.findById(user._id).select("studyPlanLanguage");
         return res.status(409).json({
           message: "Your Study Plan language is already set. Contact the administrator if it needs to be changed.",
-          language: user.studyPlanLanguage,
+          language: currentUser?.studyPlanLanguage || "",
         });
       }
 
-      user.studyPlanLanguage = language;
-      await user.save();
-      return res.json({ message: "Study Plan language saved.", language: user.studyPlanLanguage });
+      return res.json({ message: "Study Plan language saved.", language: savedUser.studyPlanLanguage });
     } catch (error) {
       console.error("Save Study Plan language error:", error.message);
       return res.status(500).json({ message: "Could not save your Study Plan language." });

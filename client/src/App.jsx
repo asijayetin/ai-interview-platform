@@ -236,6 +236,10 @@ function App() {
     );
 
     localStorage.removeItem(
+      "studyPlanLanguage"
+    );
+
+    localStorage.removeItem(
       "currentPage"
     );
 
