@@ -124,7 +124,8 @@ const acceptedCodeKey=(language,id,accountId)=>`dsaAcceptedCode:${accountKey(acc
 const acceptedResultsKey=(language,id,accountId)=>`dsaAcceptedResults:${accountKey(accountId)}:${language}:${id}`;
 
 const escapeHtml=(value)=>String(value).replace(/[&<>"']/g,(character)=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[character]));
-function printDsaCertificate({studentName,language,questionCount,completedOn}){
+export const DSA_QUESTION_COUNT=QUESTIONS.length;
+export function printDsaCertificate({studentName,language,questionCount,completedOn}){
  const printWindow=window.open("","_blank","width=1100,height=800");
  if(!printWindow){window.alert("Allow pop-ups for this site to open your certificate.");return;}
  const safeName=escapeHtml(studentName||"Student");

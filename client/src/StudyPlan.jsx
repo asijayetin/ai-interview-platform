@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { downloadLanguageNotes, getLanguageNotes, STUDY_LANGUAGES } from "./studyNotes";
+import { DSA_QUESTION_COUNT, printDsaCertificate } from "./DSASheet";
 import "./StudyPlan.css";
 
 const API_URL = (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:5000" : ""))
@@ -10,6 +11,8 @@ function StudyPlan({ onNavigate }) {
   const [selectedLanguage, setSelectedLanguage] = useState("");
   const [accountEmail, setAccountEmail] = useState("");
   const [accountName, setAccountName] = useState("");
+  const [accountId, setAccountId] = useState("");
+  const [dsaComplete, setDsaComplete] = useState(false);
   const [languageLocked, setLanguageLocked] = useState(false);
   const [languageLoading, setLanguageLoading] = useState(true);
   const [languageSaving, setLanguageSaving] = useState(false);
@@ -58,6 +61,7 @@ function StudyPlan({ onNavigate }) {
         if (localStorage.getItem("token") !== token) return;
         setAccountName(data.user?.name || "");
         setAccountEmail(data.user?.email || "");
+        setAccountId(String(data.user?._id || data.user?.id || data.user?.email || "").toLowerCase());
         const accountLanguage = data.user?.studyPlanLanguage || "";
         if (accountLanguage) {
           setSelectedLanguage(accountLanguage);
@@ -73,6 +77,16 @@ function StudyPlan({ onNavigate }) {
       })
       .finally(() => setLanguageLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (!accountId || !selectedLanguage) { setDsaComplete(false); return; }
+    try {
+      const progress = JSON.parse(localStorage.getItem(`arenaDsaProgress:v3:${accountId}:${selectedLanguage}`) || "{}");
+      setDsaComplete(Object.values(progress).filter(Boolean).length >= DSA_QUESTION_COUNT);
+    } catch {
+      setDsaComplete(false);
+    }
+  }, [accountId, selectedLanguage]);
 
   const reviewRequest = async (requestId, decision) => {
     setError("");
@@ -211,6 +225,7 @@ function StudyPlan({ onNavigate }) {
               <button type="button" className={activeTab === "home" ? "is-active" : ""} onClick={() => setActiveTab("home")}>⌂ <span>Study Plan</span></button>
               <button type="button" className={activeTab === "dsa" ? "is-active" : ""} onClick={() => setActiveTab("dsa")}>⌘ <span>DSA Sheet</span></button>
               <button type="button" className={activeTab === "notes" ? "is-active" : ""} onClick={() => setActiveTab("notes")}>▤ <span>{notes.name} Notes</span></button>
+              <button type="button" className={activeTab === "certificate" ? "is-active" : ""} onClick={() => setActiveTab("certificate")}>🏅 <span>Certificate</span>{dsaComplete ? <small className="study-plan-certificate-nav-status is-earned">Earned</small> : <small className="study-plan-certificate-nav-status">Locked</small>}</button>
               <div className="study-plan-learning-nav-note">Selected language<br/><strong>{notes.name}</strong></div>
             </nav>
 
@@ -225,10 +240,6 @@ function StudyPlan({ onNavigate }) {
                   <article><span className="study-plan-resource-icon">⌘</span><p className="study-plan-eyebrow">PRACTICE</p><h3>DSA Sheet</h3><p>{`Browse 100+ topic-wise questions, use the ${notes.name} coding editor, and track accepted solutions.`}</p><button type="button" onClick={() => setActiveTab("dsa")}>Open DSA Sheet →</button></article>
                   <article><span className="study-plan-resource-icon">▤</span><p className="study-plan-eyebrow">OFFLINE REFERENCE</p><h3>{notes.name} Notes</h3><p>Review syntax, data structures, common patterns, and complexity reminders.</p><button type="button" onClick={() => setActiveTab("notes")}>View notes →</button></article>
                 </div>
-                <section className="study-plan-certificate-preview" aria-label="Certificate preview">
-                  <div className="study-plan-certificate-copy"><p className="study-plan-eyebrow">EARN YOUR CERTIFICATE</p><h3>Finish the DSA sheet. Celebrate your progress.</h3><p>Pass all three compiler tests for every question to unlock your personalized course completion certificate.</p><span className="study-plan-certificate-lock">🔒 Certificate unlocks after full DSA completion</span></div>
-                  <div className="study-plan-certificate-paper"><div className="study-plan-certificate-inner"><strong className="study-plan-certificate-brand">AI INTERVIEW ARENA</strong><span className="study-plan-certificate-check">✓</span><small>CERTIFICATE OF COMPLETION</small><h4>DSA Practice Sheet</h4><span className="study-plan-certificate-presented">This certificate is presented to</span><strong className="study-plan-certificate-name">{accountName || "Your registered name"}</strong><p>For successfully completing the {notes.name} DSA Practice Sheet and passing every compiler test case.</p><b>COURSE COMPLETED SUCCESSFULLY</b><em>PREVIEW · EARN BY COMPLETING THE FULL SHEET</em></div></div>
-                </section>
               </>}
 
               {activeTab === "dsa" && <>
@@ -251,6 +262,14 @@ function StudyPlan({ onNavigate }) {
                 </div>
                 <div className="study-plan-notes-list">{notes.sections.map(([title, bullets, code, exercise], index) => <article key={title}><span>{String(index + 1).padStart(2, "0")}</span><div><h3>{title}</h3><ul>{bullets.map((bullet) => <li key={bullet}>{bullet}</li>)}</ul><p className="study-plan-notes-code-label">{notes.name} example</p><pre className="study-plan-notes-code"><code>{code}</code></pre><p className="study-plan-notes-exercise"><strong>Try it:</strong> {exercise}</p></div></article>)}</div>
               </>}
+
+              {activeTab === "certificate" && <section className="study-plan-certificate-page">
+                <div className="study-plan-certificate-page-heading"><div><p className="study-plan-eyebrow">YOUR ACHIEVEMENT</p><h2>{dsaComplete ? "Your DSA certificate" : "Certificate preview"}</h2><p>{dsaComplete ? "You completed the full DSA sheet. Your personalized certificate is ready." : `Complete all ${DSA_QUESTION_COUNT} ${notes.name} DSA questions and pass every compiler test to earn the real certificate.`}</p></div><span className={`study-plan-certificate-status${dsaComplete ? " is-earned" : ""}`}>{dsaComplete ? "✓ CERTIFICATE EARNED" : "🔒 LOCKED UNTIL COMPLETION"}</span></div>
+                <div className={`study-plan-certificate-stage${dsaComplete ? " is-earned" : " is-preview"}`}>
+                  <div className="study-plan-certificate-paper"><div className="study-plan-certificate-inner"><strong className="study-plan-certificate-brand">AI INTERVIEW ARENA</strong><span className="study-plan-certificate-check">✓</span><small>CERTIFICATE OF COMPLETION</small><h4>DSA Practice Sheet</h4><span className="study-plan-certificate-presented">This certificate is presented to</span><strong className="study-plan-certificate-name">{dsaComplete ? (accountName || "Student") : "Your Name"}</strong><p>For successfully completing the {notes.name} DSA Practice Sheet and passing all compiler test cases.</p><b>COURSE COMPLETED SUCCESSFULLY</b>{!dsaComplete && <em>PREVIEW · NOT EARNED YET</em>}</div>{!dsaComplete && <span className="study-plan-certificate-watermark" aria-hidden="true">PREVIEW</span>}</div>
+                </div>
+                <div className="study-plan-certificate-actions">{dsaComplete ? <button type="button" className="study-plan-primary-action" onClick={() => printDsaCertificate({ studentName: accountName, language: selectedLanguage, questionCount: DSA_QUESTION_COUNT, completedOn: localStorage.getItem(`dsaCertificateDate:${accountId}:${selectedLanguage}`) })}>↓ Download certificate · Save as PDF</button> : <><p>Your name stays as a sample in this preview. The real certificate with your registered name becomes available only after the full sheet is completed.</p><button type="button" className="study-plan-primary-action" onClick={() => setActiveTab("dsa")}>Open DSA Sheet →</button></>}</div>
+              </section>}
             </section>
           </div>}
         </>
