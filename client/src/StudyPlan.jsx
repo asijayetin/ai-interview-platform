@@ -9,6 +9,7 @@ const QR_IMAGE_URL = import.meta.env.VITE_UPI_QR_IMAGE_URL || "/study-plan-upi-q
 function StudyPlan({ onNavigate }) {
   const [selectedLanguage, setSelectedLanguage] = useState("");
   const [accountEmail, setAccountEmail] = useState("");
+  const [accountName, setAccountName] = useState("");
   const [languageLocked, setLanguageLocked] = useState(false);
   const [languageLoading, setLanguageLoading] = useState(true);
   const [languageSaving, setLanguageSaving] = useState(false);
@@ -55,6 +56,7 @@ function StudyPlan({ onNavigate }) {
         const data = await response.json();
         if (!response.ok) throw new Error(data.message || "Could not load your saved language.");
         if (localStorage.getItem("token") !== token) return;
+        setAccountName(data.user?.name || "");
         setAccountEmail(data.user?.email || "");
         const accountLanguage = data.user?.studyPlanLanguage || "";
         if (accountLanguage) {
@@ -223,6 +225,10 @@ function StudyPlan({ onNavigate }) {
                   <article><span className="study-plan-resource-icon">⌘</span><p className="study-plan-eyebrow">PRACTICE</p><h3>DSA Sheet</h3><p>{`Browse 100+ topic-wise questions, use the ${notes.name} coding editor, and track accepted solutions.`}</p><button type="button" onClick={() => setActiveTab("dsa")}>Open DSA Sheet →</button></article>
                   <article><span className="study-plan-resource-icon">▤</span><p className="study-plan-eyebrow">OFFLINE REFERENCE</p><h3>{notes.name} Notes</h3><p>Review syntax, data structures, common patterns, and complexity reminders.</p><button type="button" onClick={() => setActiveTab("notes")}>View notes →</button></article>
                 </div>
+                <section className="study-plan-certificate-preview" aria-label="Certificate preview">
+                  <div className="study-plan-certificate-copy"><p className="study-plan-eyebrow">EARN YOUR CERTIFICATE</p><h3>Finish the DSA sheet. Celebrate your progress.</h3><p>Pass all three compiler tests for every question to unlock your personalized course completion certificate.</p><span className="study-plan-certificate-lock">🔒 Certificate unlocks after full DSA completion</span></div>
+                  <div className="study-plan-certificate-paper"><div className="study-plan-certificate-inner"><strong className="study-plan-certificate-brand">AI INTERVIEW ARENA</strong><span className="study-plan-certificate-check">✓</span><small>CERTIFICATE OF COMPLETION</small><h4>DSA Practice Sheet</h4><span className="study-plan-certificate-presented">This certificate is presented to</span><strong className="study-plan-certificate-name">{accountName || "Your registered name"}</strong><p>For successfully completing the {notes.name} DSA Practice Sheet and passing every compiler test case.</p><b>COURSE COMPLETED SUCCESSFULLY</b><em>PREVIEW · EARN BY COMPLETING THE FULL SHEET</em></div></div>
+                </section>
               </>}
 
               {activeTab === "dsa" && <>
@@ -357,7 +363,7 @@ function StudyPlan({ onNavigate }) {
                   <div className="study-plan-admin-actions">
                     <button type="button" className="is-reject" disabled={Boolean(reviewingId)} onClick={() => reviewRequest(item._id, "reject")}>{reviewingId === item._id ? "Working…" : "Reject"}</button>
                     <button type="button" className="is-approve" disabled={Boolean(reviewingId)} onClick={() => reviewRequest(item._id, "approve")}>{reviewingId === item._id ? "Working…" : "Verify & grant 30 days"}</button>
-                  </div>
+                  </div>git add client/src/DSASheet.jsx client/src/DSASheet.css
                 </article>
               ))}
             </div>
