@@ -513,6 +513,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .workspace-main .role-section p { color: #737d90; }
 .workspace-main .role-section select { min-height: 47px; border-color: #dce1eb; border-radius: 9px; }
 .workspace-main .role-section select:focus { border-color: #766be0; box-shadow: 0 0 0 3px rgba(101, 88, 211, .1); }
+.workspace-main .role-section input { width: 100%; min-height: 47px; box-sizing: border-box; padding: 0 13px; border: 1px solid #dce1eb; border-radius: 9px; color: #313c52; background: #fff; font: inherit; }
+.workspace-main .role-section input:focus { border-color: #766be0; outline: none; box-shadow: 0 0 0 3px rgba(101, 88, 211, .1); }
+.workspace-main .interview-fixed-role { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 47px; box-sizing: border-box; padding: 0 13px; border: 1px solid #dce1eb; border-radius: 9px; color: #313c52; background: #f8f7ff; font-weight: 750; }
+.workspace-main .interview-fixed-role small { color: #78839a; font-size: 11px; font-weight: 500; }
 .coding-session-note { margin-top: 13px; padding: 12px 14px; display: grid; gap: 4px; border: 1px solid #e5e2ff; border-radius: 9px; background: #f8f7ff; }
 .coding-session-note strong { color: #39347e; font-size: 12px; }
 .coding-session-note span { color: #6f7189; font-size: 11px; line-height: 1.5; }

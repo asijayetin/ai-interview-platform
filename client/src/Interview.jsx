@@ -10,21 +10,9 @@ const API_URL = (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://
 const INTERVIEW_SESSION_KEY =
   "activeInterviewSession";
 
-const ROLE_OPTIONS = [
-  "Software Developer",
-  "Java Developer",
-  "C++ Developer",
-  "Python Developer",
-  "Frontend Developer",
-  "Backend Developer",
-  "Full Stack Developer",
-  "Data Analyst",
-  "Data Scientist",
-];
-const CODING_ROLE_OPTIONS = ROLE_OPTIONS.filter((roleOption) =>
-  ["Software Developer", "Java Developer", "C++ Developer", "Python Developer", "Frontend Developer", "Backend Developer", "Full Stack Developer"].includes(roleOption)
-);
+const CODING_ROLE = "Java Developer";
 const CODING_LANGUAGES = ["Java", "C++", "Python", "JavaScript", "C#"];
+const ROLE_SUGGESTIONS = ["Software Engineer", "Product Manager", "Data Analyst", "Data Scientist", "UX Designer", "Marketing Manager", "Financial Analyst", "Business Analyst", "Teacher", "Mechanical Engineer", "Civil Engineer", "HR Manager"];
 const INTERVIEW_FLOW_STAGES = {
   HR: ["Introduction & career story", "Role motivation", "Behavioral · STAR", "Collaboration & conflict", "Strengths & growth"],
   Technical: ["Core role concepts", "Applied problem-solving", "Debugging & edge cases", "Design & trade-offs", "Role-specific depth"],
@@ -93,19 +81,21 @@ const getSavedInterviewSession = () => {
   }
 };
 
-function Interview({ onBackToDashboard }) {
+function Interview({ onBackToDashboard, codingMode = false }) {
 
-  const savedSession =
-    getSavedInterviewSession();
+  const storedSession = getSavedInterviewSession();
+  const savedSession = codingMode
+    ? storedSession?.interviewType === "Coding" ? storedSession : null
+    : storedSession?.interviewType !== "Coding" ? storedSession : null;
 
   const [interviewType, setInterviewType] =
     useState(
-      savedSession?.interviewType || ""
+      codingMode ? "Coding" : savedSession?.interviewType || ""
     );
 
   const [role, setRole] =
     useState(
-      savedSession?.role || ""
+      codingMode ? CODING_ROLE : savedSession?.role || ""
     );
 
   const [codingLanguage, setCodingLanguage] = useState(
@@ -115,15 +105,11 @@ function Interview({ onBackToDashboard }) {
   const [resumeFileError, setResumeFileError] = useState("");
   const resumeContextInputRef = useRef(null);
 
-  const availableRoles = interviewType === "Coding" ? CODING_ROLE_OPTIONS : ROLE_OPTIONS;
-
   const selectInterviewType = (type) => {
+    if (codingMode || type === "Coding") return;
     setInterviewType(type);
     setResumeFileError("");
-    if (type === "Coding") setResumeFile(null);
-    if (type === "Coding" && !CODING_ROLE_OPTIONS.includes(role)) {
-      setRole("");
-    }
+    setResumeFile(null);
   };
 
   const selectResumeContext = (file) => {
@@ -1156,11 +1142,11 @@ function Interview({ onBackToDashboard }) {
 
     if (
       !interviewType ||
-      !role ||
+      !role.trim() || role.trim().length > 80 ||
       (interviewType === "Coding" && !codingLanguage)
     ) {
 
-      setError("Choose an interview type and role. For coding, also choose a language.");
+      setError("Choose an interview type and enter a role (up to 80 characters). For coding, also choose a language.");
 
       return;
 
@@ -1687,8 +1673,8 @@ function Interview({ onBackToDashboard }) {
       INTERVIEW_SESSION_KEY
     );
 
-    setInterviewType("");
-    setRole("");
+    setInterviewType(codingMode ? "Coding" : "");
+    setRole(codingMode ? CODING_ROLE : "");
     setResumeFile(null);
     setResumeFileError("");
     if (resumeContextInputRef.current) resumeContextInputRef.current.value = "";
@@ -1776,14 +1762,13 @@ function Interview({ onBackToDashboard }) {
             <div className="setup-card">
 
               <p className="setup-eyebrow">YOUR PRACTICE SESSION</p>
-              <h2>Choose your interview format</h2>
+              <h2>{codingMode ? "Coding interview" : "Choose your interview format"}</h2>
 
               <p>
-                Select the type of interview
-                you want to practice.
+                {codingMode ? "Solve three coding problems in your chosen language. This track is designed for Java Developer roles." : "Select an interview type and enter the role you want to practise for."}
               </p>
 
-              <div className="type-grid">
+              {!codingMode && <div className="type-grid">
 
                 {/* HR */}
 
@@ -1823,26 +1808,7 @@ function Interview({ onBackToDashboard }) {
 
                 </button>
 
-                {/* CODING */}
-
-                <button
-                  className={
-                    interviewType ===
-                    "Coding"
-                      ? "type-card selected"
-                      : "type-card"
-                  }
-                  type="button"
-                  aria-pressed={interviewType === "Coding"}
-                  onClick={() => selectInterviewType("Coding")}
-                >
-                  <span className="type-icon type-icon-coding">{`</>`}</span>
-                  <div className="type-card-copy"><h3>Coding Interview</h3><p>Three focused data-structure and algorithm challenges.</p></div>
-                  {interviewType === "Coding" && <span className="type-selected-check">✓</span>}
-
-                </button>
-
-              </div>
+              </div>}
 
               {(interviewType === "HR" || interviewType === "Technical") && (
                 <div className={`interview-flow-preview interview-flow-${interviewType.toLowerCase()}`}>
@@ -1859,33 +1825,16 @@ function Interview({ onBackToDashboard }) {
 
               <div className="role-section">
 
-                <h2>Select your role</h2>
+                <h2>{codingMode ? "Target role" : "What role are you preparing for?"}</h2>
 
                 <p>
-                  {interviewType === "Coding"
-                    ? "Choose a software role to get coding problems matched to your interview."
-                    : "Choose the role you are preparing for."}
+                  {codingMode ? "This coding track is focused on Java Developer interviews." : "Type any job title or field. The AI will tailor questions to this role."}
                 </p>
 
-                <select
-                  id="interview-role"
-                  aria-label="Select your role"
-                  value={role}
-                  onChange={(e) =>
-                    setRole(
-                      e.target.value
-                    )
-                  }
-                >
-
-                  <option value="">
-                    Select a role
-                  </option>
-
-                  {availableRoles.map((roleOption) => (
-                    <option key={roleOption} value={roleOption}>{roleOption}</option>
-                  ))}
-                </select>
+                {codingMode ? <div className="interview-fixed-role">{CODING_ROLE}<small>Fixed for this coding interview track</small></div> : <>
+                  <input id="interview-role" aria-label="Target role" list="interview-role-suggestions" maxLength={80} placeholder="e.g. Product Manager, Nurse, UX Designer" value={role} onChange={(event) => setRole(event.target.value)} onBlur={(event) => setRole(event.target.value.trim())} />
+                  <datalist id="interview-role-suggestions">{ROLE_SUGGESTIONS.map((roleSuggestion) => <option key={roleSuggestion} value={roleSuggestion} />)}</datalist>
+                </>}
 
               </div>
 

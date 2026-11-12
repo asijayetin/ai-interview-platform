@@ -64,7 +64,7 @@ function App() {
   const [profileMenuOpen, setProfileMenuOpen] =
     useState(false);
 
-  const workspacePages = ["dashboard", "interview", "voice-interview", "resume-review", "practice", "tutor", "interview-report", "study-plan", "dsa-sheet", "organizer"];
+  const workspacePages = ["dashboard", "interview", "coding-interview", "voice-interview", "resume-review", "practice", "tutor", "interview-report", "study-plan", "dsa-sheet", "organizer"];
   const isWorkspacePage = workspacePages.includes(page);
 
 
@@ -492,6 +492,7 @@ function App() {
             {page === "interview" && (
               <Interview onBackToDashboard={() => setPage("dashboard")} />
             )}
+            {page === "coding-interview" && <Interview key="coding-interview" codingMode onBackToDashboard={() => setPage("dashboard")} />}
             {page === "voice-interview" && <VoiceInterview />}
             {page === "practice" && <CodingPractice />}
             {page === "tutor" && <AITutor />}
