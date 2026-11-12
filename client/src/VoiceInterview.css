@@ -20,7 +20,9 @@
 .voice-type-options button strong { color: #30394e; font-size: 14px; }
 .voice-type-options button small { margin-top: 4px; color: #8791a2; font-size: 12px; }
 .voice-role-label { display: grid; gap: 8px; margin-top: 22px; }
-.voice-role-label select { width: 100%; min-height: 43px; padding: 0 12px; border: 1px solid #dfe4ed; border-radius: 9px; color: #313c52; background: #fff; font-family: inherit; font-size: 13px; }
+.voice-role-label small { color: #8791a2; font-size: 11px; font-weight: 500; letter-spacing: 0; text-transform: none; }
+.voice-role-label input { width: 100%; min-height: 43px; padding: 0 12px; border: 1px solid #dfe4ed; border-radius: 9px; color: #313c52; background: #fff; font-family: inherit; font-size: 13px; }
+.voice-role-label input:focus { border-color: #8178e0; outline: none; box-shadow: 0 0 0 3px rgba(101, 88, 211, .1); }
 .voice-setup-footer { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 24px; padding-top: 18px; border-top: 1px solid #edf0f5; }
 .voice-setup-footer > span { color: #8490a4; font-size: 13px; }
 .voice-setup-footer button, .voice-submit-button { min-height: 41px; display: inline-flex; align-items: center; justify-content: center; gap: 13px; padding: 0 15px; border: 1px solid #5e52c2; border-radius: 9px; color: #fff; background: linear-gradient(135deg, #7569df, #574abd); font-family: inherit; font-size: 13px; font-weight: 800; cursor: pointer; box-shadow: 0 5px 14px rgba(88, 74, 189, .15); }

@@ -3,12 +3,12 @@ import "./VoiceInterview.css";
 
 const API_URL = (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:5000" : ""))
   .trim().replace(/\/+$/, "").replace(/\/api$/i, "");
-const ROLES = ["Software Engineer", "Java Developer", "Full Stack Developer", "Frontend Developer", "Backend Developer", "Data Analyst"];
+const ROLE_SUGGESTIONS = ["Software Engineer", "Product Manager", "Data Analyst", "Data Scientist", "UX Designer", "Marketing Manager", "Financial Analyst", "Business Analyst", "Teacher", "Mechanical Engineer", "Civil Engineer", "HR Manager"];
 const TOTAL_QUESTIONS = 5;
 
 function VoiceInterview() {
   const [type, setType] = useState("HR");
-  const [role, setRole] = useState("Software Engineer");
+  const [role, setRole] = useState("");
   const [interviewId, setInterviewId] = useState("");
   const [question, setQuestion] = useState("");
   const [questionNumber, setQuestionNumber] = useState(0);
@@ -53,6 +53,11 @@ function VoiceInterview() {
 
   const startInterview = async () => {
     setError("");
+    const targetRole = role.trim();
+    if (!targetRole || targetRole.length > 100) {
+      setError("Enter a target role (up to 100 characters) so the AI can tailor your questions.");
+      return;
+    }
     setStarting(true);
     setReport(null);
     setTurns([]);
@@ -61,7 +66,7 @@ function VoiceInterview() {
       const response = await fetch(API_URL + "/api/ai/voice-interview/start", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: "Bearer " + localStorage.getItem("token") },
-        body: JSON.stringify({ role, interviewType: type }),
+        body: JSON.stringify({ role: targetRole, interviewType: type }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.message || "Could not start the voice interview.");
@@ -184,7 +189,7 @@ function VoiceInterview() {
           <button type="button" className={type === "HR" ? "is-selected" : ""} onClick={() => setType("HR")}><span>◉</span><strong>HR & behavioural</strong><small>Experience, teamwork, motivation</small></button>
           <button type="button" className={type === "Technical" ? "is-selected" : ""} onClick={() => setType("Technical")}><span>⌘</span><strong>Technical discussion</strong><small>Role knowledge, reasoning, trade-offs</small></button>
         </div>
-        <label className="voice-role-label">TARGET ROLE<select value={role} onChange={(event) => setRole(event.target.value)}>{ROLES.map((item) => <option key={item}>{item}</option>)}</select></label>
+        <label className="voice-role-label" htmlFor="voice-target-role">TARGET ROLE <small>Type any job title or field; AI will tailor the interview to it.</small><input id="voice-target-role" list="voice-role-suggestions" maxLength={100} value={role} onChange={(event) => setRole(event.target.value)} onBlur={(event) => setRole(event.target.value.trim())} placeholder="e.g. Product Manager, Nurse, UX Designer" /><datalist id="voice-role-suggestions">{ROLE_SUGGESTIONS.map((item) => <option key={item} value={item} />)}</datalist></label>
         <div className="voice-setup-footer"><span>5 questions · AI follow-ups · Personal feedback</span><button type="button" onClick={startInterview} disabled={starting}>{starting ? "Preparing interviewer…" : "Start voice interview"}<b>→</b></button></div>
         <p className="voice-browser-note">Use Chrome or Edge and allow microphone access to answer out loud. You can also type your answers.</p>
         {error && <p className="voice-error" role="alert">{error}</p>}

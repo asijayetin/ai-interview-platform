@@ -496,7 +496,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .workspace-main .setup-eyebrow { margin-bottom: 8px; color: #6558d3; font-size: 10px; font-weight: 800; letter-spacing: 1.5px; }
 .workspace-main .setup-card > h2 { color: #171d2f; font-size: 25px; letter-spacing: -.65px; }
 .workspace-main .setup-card > p:not(.setup-eyebrow) { margin-bottom: 23px; color: #717b8d; }
-.workspace-main .type-grid { gap: 13px; }
+.workspace-main .type-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
 .workspace-main .type-card { min-height: 160px; position: relative; padding: 17px; display: flex; align-items: flex-start; gap: 13px; border-color: #e2e6ef; border-radius: 13px; }
 .workspace-main .type-card:hover { border-color: #c8c2ff; background: #fcfbff; transform: translateY(-2px); }
 .workspace-main .type-card.selected { border-color: #7065d8; background: linear-gradient(145deg, #f6f4ff, #fff); box-shadow: 0 0 0 2px rgba(101, 88, 211, .09); }
