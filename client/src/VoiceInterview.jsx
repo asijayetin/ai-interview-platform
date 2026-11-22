@@ -19,11 +19,15 @@ function VoiceInterview() {
   const [submitting, setSubmitting] = useState(false);
   const [recording, setRecording] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
+  const [manualInput, setManualInput] = useState(false);
   const [speechStatus, setSpeechStatus] = useState("");
   const [error, setError] = useState("");
   const recognitionRef = useRef(null);
+  const recordingRef = useRef(false);
   const answerRef = useRef("");
   const startedRef = useRef(false);
+  const manualInputRef = useRef(false);
+  const ignoreRecognitionEndRef = useRef(false);
 
   useEffect(() => {
     setSpeechSupported(Boolean(window.SpeechRecognition || window.webkitSpeechRecognition));
@@ -40,15 +44,31 @@ function VoiceInterview() {
   }, [question, report]);
 
   const speakQuestion = () => {
-    if (!question || !window.speechSynthesis) return;
+    if (!question) return;
+    stopRecording();
+    if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) {
+      setSpeechStatus("The question is shown below. Listening for your answer…");
+      startRecording();
+      return;
+    }
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(question);
     utterance.lang = "en-IN";
     utterance.rate = 0.96;
     utterance.pitch = 1;
     utterance.onstart = () => setSpeechStatus("Interviewer is speaking");
-    utterance.onend = () => setSpeechStatus("");
-    utterance.onerror = () => setSpeechStatus("");
+    utterance.onend = () => {
+      if (manualInputRef.current) {
+        setSpeechStatus("Type your answer below, then send it.");
+        return;
+      }
+      setSpeechStatus("");
+      startRecording();
+    };
+    utterance.onerror = () => {
+      setSpeechStatus("The question is shown below. Listening for your answer…");
+      if (!manualInputRef.current) startRecording();
+    };
     window.speechSynthesis.speak(utterance);
   };
 
@@ -86,22 +106,31 @@ function VoiceInterview() {
   }, []);
 
   const stopRecording = () => {
-    try { recognitionRef.current?.stop(); } catch { setRecording(false); }
+    if (!recognitionRef.current) {
+      recordingRef.current = false;
+      setRecording(false);
+      return;
+    }
+    ignoreRecognitionEndRef.current = true;
+    try { recognitionRef.current.stop(); } catch { recordingRef.current = false; setRecording(false); ignoreRecognitionEndRef.current = false; }
   };
 
   const startRecording = () => {
+    if (manualInputRef.current) return;
     const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!Recognition) {
-      setSpeechStatus("Speech recognition is unavailable. Type your answer below.");
+      manualInputRef.current = true;
+      setManualInput(true);
+      setSpeechStatus("Speech recognition is unavailable. Type your answer below, then send it.");
       return;
     }
     try {
-      recognitionRef.current?.abort();
+      if (recordingRef.current) return;
       const recognition = new Recognition();
       recognition.lang = "en-IN";
-      recognition.continuous = true;
+      recognition.continuous = false;
       recognition.interimResults = true;
-      recognition.onstart = () => { setRecording(true); setSpeechStatus("Listening — speak naturally"); };
+      recognition.onstart = () => { recordingRef.current = true; setRecording(true); setSpeechStatus("Listening automatically — speak naturally"); };
       recognition.onresult = (event) => {
         let spoken = "";
         for (let index = 0; index < event.results.length; index += 1) spoken += event.results[index][0].transcript + (event.results[index].isFinal ? " " : "");
@@ -110,36 +139,56 @@ function VoiceInterview() {
       };
       recognition.onerror = (event) => {
         const messages = {
-          "not-allowed": "Microphone access is blocked. Allow microphone access or type your answer.",
-          "audio-capture": "No microphone was found. Connect one or type your answer.",
-          "network": "Speech recognition needs an internet connection. You can type your answer instead.",
-          "no-speech": "I didn’t catch that. Try again or type your answer.",
+          "not-allowed": "Microphone access is blocked. Allow it in your browser, or type your answer below.",
+          "audio-capture": "No microphone was found. Connect one, or type your answer below.",
+          "network": "Speech recognition needs an internet connection. Type your answer below instead.",
+          "no-speech": "I didn’t catch that. Listening again…",
         };
         setSpeechStatus(messages[event.error] || "Speech recognition stopped. You can continue by typing.");
+        recordingRef.current = false;
         setRecording(false);
+        if (event.error !== "no-speech") {
+          manualInputRef.current = true;
+          setManualInput(true);
+        }
       };
       recognition.onend = () => {
+        recordingRef.current = false;
         setRecording(false);
-        setSpeechStatus((status) => status.startsWith("Listening") ? "" : status);
+        if (ignoreRecognitionEndRef.current) {
+          ignoreRecognitionEndRef.current = false;
+          return;
+        }
+        if (manualInputRef.current || submitting) return;
+        if (answerRef.current.trim()) {
+          setSpeechStatus("Answer captured. Moving to the next question…");
+          window.setTimeout(() => submitAnswer(), 350);
+        } else if (interviewId && !report) {
+          setSpeechStatus("No speech detected yet. Listening again…");
+          window.setTimeout(() => startRecording(), 500);
+        }
       };
       recognitionRef.current = recognition;
       answerRef.current = "";
       setAnswer("");
       recognition.start();
     } catch {
+      recordingRef.current = false;
       setRecording(false);
-      setSpeechStatus("Could not start the microphone. Check browser permission or type your answer.");
+      manualInputRef.current = true;
+      setManualInput(true);
+      setSpeechStatus("Could not start the microphone. Check browser permission or type your answer below.");
     }
   };
 
   const submitAnswer = async () => {
-    if (!answer.trim() || submitting || !interviewId) return;
+    const submittedAnswer = (answerRef.current || answer).trim();
+    if (!submittedAnswer || submitting || !interviewId) return;
     setError("");
     setSubmitting(true);
     stopRecording();
     window.speechSynthesis?.cancel();
     const submittedQuestion = question;
-    const submittedAnswer = answer.trim();
     try {
       const response = await fetch(API_URL + "/api/ai/voice-interview/" + encodeURIComponent(interviewId) + "/answer", {
         method: "POST",
@@ -151,6 +200,8 @@ function VoiceInterview() {
       if (!setup) setTurns((items) => [...items, { question: submittedQuestion, answer: submittedAnswer, feedback: data.feedback || "" }]);
       setAnswer("");
       answerRef.current = "";
+      setManualInput(false);
+      manualInputRef.current = false;
       setSpeechStatus("");
       if (data.interviewType) setType(data.interviewType);
       if (data.role) setRole(data.role);
@@ -181,6 +232,8 @@ function VoiceInterview() {
     setReport(null);
     setError("");
     setSpeechStatus("");
+    setManualInput(false);
+    manualInputRef.current = false;
     setType("");
     setRole("");
     setSetup(true);
@@ -206,15 +259,15 @@ function VoiceInterview() {
         <div className="voice-progress"><i style={{ width: ((questionNumber / TOTAL_QUESTIONS) * 100) + "%" }} /></div>
         <div className="voice-stage">
           <div className="voice-interviewer-avatar"><span>AI</span><i>●</i></div>
-          <div className="voice-question-copy"><span>AI INTERVIEWER {speechStatus === "Interviewer is speaking" ? "· SPEAKING" : ""}</span><h2>{question}</h2><button className="voice-replay-question" type="button" onClick={speakQuestion}>▶ Play question again</button></div>
+          <div className="voice-question-copy"><span>AI INTERVIEWER {speechStatus === "Interviewer is speaking" ? "· SPEAKING" : ""}</span><h2>{question}</h2></div>
         </div>
         {turns.length > 0 && <div className="voice-last-feedback"><span>INTERVIEWER FEEDBACK</span><p>{turns[turns.length - 1].feedback}</p></div>}
         <div className="voice-answer-box">
           <div className="voice-answer-heading"><div><strong>Your answer</strong><small>Speak or type what you would say in a real interview.</small></div><span>{answer.trim().split(/\s+/).filter(Boolean).length} words</span></div>
-          <textarea value={answer} onChange={(event) => { setAnswer(event.target.value); answerRef.current = event.target.value; }} placeholder="Your spoken answer will appear here. You can edit the transcript or type instead…" rows={5} maxLength={5000} aria-label="Your interview answer" />
+          <textarea value={answer} onChange={(event) => { setAnswer(event.target.value); answerRef.current = event.target.value; if (!manualInputRef.current) { manualInputRef.current = true; setManualInput(true); stopRecording(); setSpeechStatus("Typed answer mode. Send your answer when ready."); } }} placeholder="Your spoken answer will appear here automatically…" rows={5} maxLength={5000} aria-label="Your interview answer" />
           <div className="voice-answer-actions">
-            <span className={"voice-speech-status" + (recording ? " is-recording" : "")}>{recording && <i />}{speechStatus || (speechSupported ? "Speech transcript · editable" : "Speech recognition isn’t supported in this browser")}</span>
-            <div><button className={"voice-record-button" + (recording ? " is-recording" : "")} type="button" onClick={recording ? stopRecording : startRecording}>{recording ? "■ Stop recording" : "🎙 Answer by voice"}</button><button className="voice-submit-button" type="button" onClick={submitAnswer} disabled={!answer.trim() || submitting}>{submitting ? "Thinking…" : setup ? "Reply to interviewer" : questionNumber === TOTAL_QUESTIONS ? "Finish interview" : "Submit answer"}<b>→</b></button></div>
+            <span className={"voice-speech-status" + (recording ? " is-recording" : "")}>{recording && <i />}{speechStatus || (speechSupported ? "The mic starts automatically after each question." : "Speech recognition isn’t supported; type your answer below.")}</span>
+            {manualInput && <div><button className="voice-submit-button" type="button" onClick={submitAnswer} disabled={!answer.trim() || submitting}>{submitting ? "Thinking…" : setup ? "Reply to interviewer" : questionNumber === TOTAL_QUESTIONS ? "Finish interview" : "Send answer"}<b>→</b></button></div>}
           </div>
         </div>
         <p className="voice-privacy-note">Your answer transcript and feedback are saved to interview history. Audio isn’t stored by the app; your browser handles speech recognition and may use its own service.</p>
