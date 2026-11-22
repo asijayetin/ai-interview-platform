@@ -21,6 +21,7 @@ function VoiceInterview() {
   const recordingRef = useRef(false);
   const submittingRef = useRef(false);
   const submitTimerRef = useRef(null);
+  const noResponseTimerRef = useRef(null);
   const answerRef = useRef("");
   const spokenTextRef = useRef("");
   const startedRef = useRef(false);
@@ -31,6 +32,7 @@ function VoiceInterview() {
     setSpeechSupported(Boolean(window.SpeechRecognition || window.webkitSpeechRecognition));
     return () => {
       window.clearTimeout(submitTimerRef.current);
+      window.clearTimeout(noResponseTimerRef.current);
       try { recognitionRef.current?.abort(); } catch { /* no active mic session */ }
       window.speechSynthesis?.cancel();
     };
@@ -39,7 +41,10 @@ function VoiceInterview() {
   useEffect(() => {
     if (!question || report) return undefined;
     const timer = window.setTimeout(() => speakQuestion(), 180);
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      window.clearTimeout(noResponseTimerRef.current);
+    };
   }, [question, report]);
 
   const speakQuestion = () => {
@@ -47,6 +52,7 @@ function VoiceInterview() {
     stopRecording();
     if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) {
       setSpeechStatus("The question is shown below. Listening for your answer…");
+      armNoResponseTimer();
       startRecording();
       return;
     }
@@ -59,10 +65,12 @@ function VoiceInterview() {
     utterance.onstart = () => setSpeechStatus("Interviewer is speaking");
     utterance.onend = () => {
       setSpeechStatus("");
+      armNoResponseTimer();
       startRecording();
     };
     utterance.onerror = () => {
       setSpeechStatus("The question is shown below. Listening for your answer…");
+      armNoResponseTimer();
       startRecording();
     };
     window.speechSynthesis.speak(utterance);
@@ -110,6 +118,29 @@ function VoiceInterview() {
     try { recognitionRef.current.stop(); } catch { recordingRef.current = false; setRecording(false); ignoreRecognitionEndRef.current = false; }
   };
 
+  const handleNoResponse = () => {
+    if (answerRef.current.trim() || submittingRef.current || !interviewId) return;
+    setSpeechStatus("No response received. Submitting the interview…");
+    window.clearTimeout(noResponseTimerRef.current);
+    stopRecording();
+    window.speechSynthesis?.cancel();
+    const submitWithoutAnswer = () => submitAnswer(true);
+    if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) {
+      submitWithoutAnswer();
+      return;
+    }
+    const notice = new window.SpeechSynthesisUtterance("I didn't receive a response. I'll submit your interview now.");
+    notice.lang = "en-IN";
+    notice.onend = submitWithoutAnswer;
+    notice.onerror = submitWithoutAnswer;
+    window.speechSynthesis.speak(notice);
+  };
+
+  const armNoResponseTimer = () => {
+    window.clearTimeout(noResponseTimerRef.current);
+    noResponseTimerRef.current = window.setTimeout(handleNoResponse, 20000);
+  };
+
   const startRecording = () => {
     const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!Recognition) {
@@ -130,6 +161,7 @@ function VoiceInterview() {
         for (let index = 0; index < event.results.length; index += 1) spoken += event.results[index][0].transcript + (event.results[index].isFinal ? " " : "");
         answerRef.current = spoken.trim();
         setAnswer(answerRef.current);
+        if (answerRef.current) window.clearTimeout(noResponseTimerRef.current);
         window.clearTimeout(submitTimerRef.current);
         submitTimerRef.current = window.setTimeout(() => {
           if (answerRef.current.trim()) submitAnswer();
@@ -177,11 +209,12 @@ function VoiceInterview() {
     }
   };
 
-  const submitAnswer = async () => {
-    const submittedAnswer = (answerRef.current || answer).trim();
+  const submitAnswer = async (finishEarly = false) => {
+    const submittedAnswer = (answerRef.current || answer).trim() || (finishEarly ? "No response provided." : "");
     if (!submittedAnswer || submittingRef.current || !interviewId) return;
     submittingRef.current = true;
     window.clearTimeout(submitTimerRef.current);
+    window.clearTimeout(noResponseTimerRef.current);
     setError("");
     stopRecording();
     window.speechSynthesis?.cancel();
@@ -190,7 +223,7 @@ function VoiceInterview() {
       const response = await fetch(API_URL + "/api/ai/voice-interview/" + encodeURIComponent(interviewId) + "/answer", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: "Bearer " + localStorage.getItem("token") },
-        body: JSON.stringify({ answer: submittedAnswer, question: submittedQuestion }),
+        body: JSON.stringify({ answer: submittedAnswer, question: submittedQuestion, finishEarly }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.message || "Could not submit your answer.");
@@ -240,6 +273,7 @@ function VoiceInterview() {
     setReport(null);
     setError("");
     setSpeechStatus("");
+    window.clearTimeout(noResponseTimerRef.current);
     recognitionErrorRef.current = "";
     setType("");
     setRole("");
