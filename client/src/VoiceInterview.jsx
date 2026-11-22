@@ -19,14 +19,13 @@ function VoiceInterview() {
   const [submitting, setSubmitting] = useState(false);
   const [recording, setRecording] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
-  const [manualInput, setManualInput] = useState(false);
   const [speechStatus, setSpeechStatus] = useState("");
   const [error, setError] = useState("");
   const recognitionRef = useRef(null);
   const recordingRef = useRef(false);
   const answerRef = useRef("");
   const startedRef = useRef(false);
-  const manualInputRef = useRef(false);
+  const recognitionErrorRef = useRef("");
   const ignoreRecognitionEndRef = useRef(false);
 
   useEffect(() => {
@@ -58,16 +57,12 @@ function VoiceInterview() {
     utterance.pitch = 1;
     utterance.onstart = () => setSpeechStatus("Interviewer is speaking");
     utterance.onend = () => {
-      if (manualInputRef.current) {
-        setSpeechStatus("Type your answer below, then send it.");
-        return;
-      }
       setSpeechStatus("");
       startRecording();
     };
     utterance.onerror = () => {
       setSpeechStatus("The question is shown below. Listening for your answer…");
-      if (!manualInputRef.current) startRecording();
+      startRecording();
     };
     window.speechSynthesis.speak(utterance);
   };
@@ -116,16 +111,15 @@ function VoiceInterview() {
   };
 
   const startRecording = () => {
-    if (manualInputRef.current) return;
     const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!Recognition) {
-      manualInputRef.current = true;
-      setManualInput(true);
-      setSpeechStatus("Speech recognition is unavailable. Type your answer below, then send it.");
+      recognitionErrorRef.current = "unsupported";
+      setSpeechStatus("Voice recognition is unavailable in this browser. Please open the interview in Chrome or Edge.");
       return;
     }
     try {
       if (recordingRef.current) return;
+      recognitionErrorRef.current = "";
       const recognition = new Recognition();
       recognition.lang = "en-IN";
       recognition.continuous = false;
@@ -139,18 +133,16 @@ function VoiceInterview() {
       };
       recognition.onerror = (event) => {
         const messages = {
-          "not-allowed": "Microphone access is blocked. Allow it in your browser, or type your answer below.",
-          "audio-capture": "No microphone was found. Connect one, or type your answer below.",
-          "network": "Speech recognition needs an internet connection. Type your answer below instead.",
+          "not-allowed": "Microphone access is blocked. Allow microphone access in your browser, then refresh this page.",
+          "service-not-allowed": "The browser blocked speech recognition. Allow microphone access and refresh the page.",
+          "audio-capture": "No microphone was found. Connect a microphone and refresh this page.",
+          "network": "Speech recognition lost its network connection. Check your connection and refresh the page.",
           "no-speech": "I didn’t catch that. Listening again…",
         };
-        setSpeechStatus(messages[event.error] || "Speech recognition stopped. You can continue by typing.");
+        setSpeechStatus(messages[event.error] || "Speech recognition stopped. Check microphone permission and refresh the page.");
+        recognitionErrorRef.current = event.error === "no-speech" ? "" : event.error || "recognition-error";
         recordingRef.current = false;
         setRecording(false);
-        if (event.error !== "no-speech") {
-          manualInputRef.current = true;
-          setManualInput(true);
-        }
       };
       recognition.onend = () => {
         recordingRef.current = false;
@@ -159,11 +151,11 @@ function VoiceInterview() {
           ignoreRecognitionEndRef.current = false;
           return;
         }
-        if (manualInputRef.current || submitting) return;
+        if (submitting) return;
         if (answerRef.current.trim()) {
           setSpeechStatus("Answer captured. Moving to the next question…");
           window.setTimeout(() => submitAnswer(), 350);
-        } else if (interviewId && !report) {
+        } else if (!recognitionErrorRef.current && interviewId && !report) {
           setSpeechStatus("No speech detected yet. Listening again…");
           window.setTimeout(() => startRecording(), 500);
         }
@@ -175,9 +167,8 @@ function VoiceInterview() {
     } catch {
       recordingRef.current = false;
       setRecording(false);
-      manualInputRef.current = true;
-      setManualInput(true);
-      setSpeechStatus("Could not start the microphone. Check browser permission or type your answer below.");
+      recognitionErrorRef.current = "recognition-error";
+      setSpeechStatus("Could not start the microphone. Check browser permission and refresh the page.");
     }
   };
 
@@ -200,8 +191,7 @@ function VoiceInterview() {
       if (!setup) setTurns((items) => [...items, { question: submittedQuestion, answer: submittedAnswer, feedback: data.feedback || "" }]);
       setAnswer("");
       answerRef.current = "";
-      setManualInput(false);
-      manualInputRef.current = false;
+      recognitionErrorRef.current = "";
       setSpeechStatus("");
       if (data.interviewType) setType(data.interviewType);
       if (data.role) setRole(data.role);
@@ -232,8 +222,7 @@ function VoiceInterview() {
     setReport(null);
     setError("");
     setSpeechStatus("");
-    setManualInput(false);
-    manualInputRef.current = false;
+    recognitionErrorRef.current = "";
     setType("");
     setRole("");
     setSetup(true);
@@ -248,8 +237,8 @@ function VoiceInterview() {
   return (
     <main className="voice-interview-page">
       <header className="voice-interview-hero">
-        <div><p className="voice-eyebrow">YOUR AI INTERVIEWER</p><h1>Let’s talk through your next interview.</h1><p>Speak naturally or type. The AI will learn what you’re preparing for and adapt its follow-up questions.</p></div>
-        <span className="voice-ready"><i /> Voice + text</span>
+        <div><p className="voice-eyebrow">YOUR AI INTERVIEWER</p><h1>Let’s talk through your next interview.</h1><p>Speak naturally. The AI will learn what you’re preparing for and adapt its follow-up questions.</p></div>
+        <span className="voice-ready"><i /> Voice conversation</span>
       </header>
 
       {!interviewId && !report && <section className="voice-setup voice-conversation-loading" aria-live="polite"><span className="voice-loading-orb">✦</span><h2>{starting ? "Your interviewer is joining…" : "Getting your conversation ready…"}</h2><p>The interviewer will greet you and ask what kind of role you want to practise for.</p>{error && <p className="voice-error" role="alert">{error}<button type="button" onClick={startInterview}>Try again</button></p>}</section>}
@@ -263,11 +252,10 @@ function VoiceInterview() {
         </div>
         {turns.length > 0 && <div className="voice-last-feedback"><span>INTERVIEWER FEEDBACK</span><p>{turns[turns.length - 1].feedback}</p></div>}
         <div className="voice-answer-box">
-          <div className="voice-answer-heading"><div><strong>Your answer</strong><small>Speak or type what you would say in a real interview.</small></div><span>{answer.trim().split(/\s+/).filter(Boolean).length} words</span></div>
-          <textarea value={answer} onChange={(event) => { setAnswer(event.target.value); answerRef.current = event.target.value; if (!manualInputRef.current) { manualInputRef.current = true; setManualInput(true); stopRecording(); setSpeechStatus("Typed answer mode. Send your answer when ready."); } }} placeholder="Your spoken answer will appear here automatically…" rows={5} maxLength={5000} aria-label="Your interview answer" />
+          <div className="voice-answer-heading"><div><strong>Your answer</strong><small>Your spoken words appear here automatically.</small></div><span>{answer.trim().split(/\s+/).filter(Boolean).length} words</span></div>
+          <textarea value={answer} readOnly placeholder="Your spoken answer will appear here automatically…" rows={5} maxLength={5000} aria-label="Live speech transcript" />
           <div className="voice-answer-actions">
-            <span className={"voice-speech-status" + (recording ? " is-recording" : "")}>{recording && <i />}{speechStatus || (speechSupported ? "The mic starts automatically after each question." : "Speech recognition isn’t supported; type your answer below.")}</span>
-            {manualInput && <div><button className="voice-submit-button" type="button" onClick={submitAnswer} disabled={!answer.trim() || submitting}>{submitting ? "Thinking…" : setup ? "Reply to interviewer" : questionNumber === TOTAL_QUESTIONS ? "Finish interview" : "Send answer"}<b>→</b></button></div>}
+            <span className={"voice-speech-status" + (recording ? " is-recording" : "")}>{recording && <i />}{speechStatus || (speechSupported ? "The mic starts automatically after each question." : "Voice recognition is not available in this browser.")}</span>
           </div>
         </div>
         <p className="voice-privacy-note">Your answer transcript and feedback are saved to interview history. Audio isn’t stored by the app; your browser handles speech recognition and may use its own service.</p>
