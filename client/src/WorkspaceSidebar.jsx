@@ -7,7 +7,6 @@ const navigation = [
   { id: "dashboard", label: "Overview", icon: "overview", group: "WORKSPACE" },
   { id: "interview", label: "Start Interview", icon: "interview", group: "PREPARATION" },
   { id: "coding-interview", label: "Coding Interview", icon: "code", group: "PREPARATION" },
-  { id: "voice-interview", label: "Voice Interview", icon: "voice", group: "PREPARATION" },
   { id: "resume-review", label: "Resume Reviewer", icon: "resume", group: "PREPARATION" },
   { id: "practice", label: "Coding Practice", icon: "code", group: "PREPARATION" },
   { id: "dsa-sheet", label: "DSA Sheet", icon: "sheet", group: "PREPARATION" },

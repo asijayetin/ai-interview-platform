@@ -3,13 +3,13 @@ import "./VoiceInterview.css";
 
 const API_URL = (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:5000" : ""))
   .trim().replace(/\/+$/, "").replace(/\/api$/i, "");
-const ROLE_SUGGESTIONS = ["Software Engineer", "Product Manager", "Data Analyst", "Data Scientist", "UX Designer", "Marketing Manager", "Financial Analyst", "Business Analyst", "Teacher", "Mechanical Engineer", "Civil Engineer", "HR Manager"];
 const TOTAL_QUESTIONS = 5;
 
 function VoiceInterview() {
-  const [type, setType] = useState("HR");
+  const [type, setType] = useState("");
   const [role, setRole] = useState("");
   const [interviewId, setInterviewId] = useState("");
+  const [setup, setSetup] = useState(true);
   const [question, setQuestion] = useState("");
   const [questionNumber, setQuestionNumber] = useState(0);
   const [answer, setAnswer] = useState("");
@@ -23,6 +23,7 @@ function VoiceInterview() {
   const [error, setError] = useState("");
   const recognitionRef = useRef(null);
   const answerRef = useRef("");
+  const startedRef = useRef(false);
 
   useEffect(() => {
     setSpeechSupported(Boolean(window.SpeechRecognition || window.webkitSpeechRecognition));
@@ -73,12 +74,21 @@ function VoiceInterview() {
       setInterviewId(data.interviewId);
       setQuestion(data.question);
       setQuestionNumber(data.questionNumber || 1);
+      setSetup(Boolean(data.setup));
+      setType(data.interviewType || "");
+      setRole(data.role || "");
     } catch (requestError) {
       setError(requestError.message || "Could not start the voice interview.");
     } finally {
       setStarting(false);
     }
   };
+
+  useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
+    startInterview();
+  }, []);
 
   const stopRecording = () => {
     try { recognitionRef.current?.stop(); } catch { setRecording(false); }
@@ -143,10 +153,13 @@ function VoiceInterview() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.message || "Could not submit your answer.");
-      setTurns((items) => [...items, { question: submittedQuestion, answer: submittedAnswer, feedback: data.feedback || "" }]);
+      if (!setup) setTurns((items) => [...items, { question: submittedQuestion, answer: submittedAnswer, feedback: data.feedback || "" }]);
       setAnswer("");
       answerRef.current = "";
       setSpeechStatus("");
+      if (data.interviewType) setType(data.interviewType);
+      if (data.role) setRole(data.role);
+      setSetup(Boolean(data.setup));
       if (data.complete) {
         setReport(data.report);
         setQuestion("");
@@ -173,31 +186,29 @@ function VoiceInterview() {
     setReport(null);
     setError("");
     setSpeechStatus("");
+    setType("");
+    setRole("");
+    setSetup(true);
+    startedRef.current = false;
+    window.setTimeout(() => {
+      if (startedRef.current) return;
+      startedRef.current = true;
+      startInterview();
+    }, 0);
   };
 
   return (
     <main className="voice-interview-page">
       <header className="voice-interview-hero">
-        <div><p className="voice-eyebrow">SPEAK. THINK. PRACTISE.</p><h1>Voice AI Interview</h1><p>A live AI interviewer asks questions out loud and follows up on what you say.</p></div>
-        <span className="voice-ready"><i /> Voice practice</span>
+        <div><p className="voice-eyebrow">YOUR AI INTERVIEWER</p><h1>Let’s talk through your next interview.</h1><p>Speak naturally or type. The AI will learn what you’re preparing for and adapt its follow-up questions.</p></div>
+        <span className="voice-ready"><i /> Voice + text</span>
       </header>
 
-      {!interviewId && !report && <section className="voice-setup">
-        <div className="voice-setup-heading"><span>01</span><div><h2>Set up your interview</h2><p>Choose a round and the role you’re preparing for.</p></div></div>
-        <div className="voice-choice-label">INTERVIEW ROUND</div>
-        <div className="voice-type-options">
-          <button type="button" className={type === "HR" ? "is-selected" : ""} onClick={() => setType("HR")}><span>◉</span><strong>HR & behavioural</strong><small>Experience, teamwork, motivation</small></button>
-          <button type="button" className={type === "Technical" ? "is-selected" : ""} onClick={() => setType("Technical")}><span>⌘</span><strong>Technical discussion</strong><small>Role knowledge, reasoning, trade-offs</small></button>
-        </div>
-        <label className="voice-role-label" htmlFor="voice-target-role">TARGET ROLE <small>Type any job title or field; AI will tailor the interview to it.</small><input id="voice-target-role" list="voice-role-suggestions" maxLength={100} value={role} onChange={(event) => setRole(event.target.value)} onBlur={(event) => setRole(event.target.value.trim())} placeholder="e.g. Product Manager, Nurse, UX Designer" /><datalist id="voice-role-suggestions">{ROLE_SUGGESTIONS.map((item) => <option key={item} value={item} />)}</datalist></label>
-        <div className="voice-setup-footer"><span>5 questions · AI follow-ups · Personal feedback</span><button type="button" onClick={startInterview} disabled={starting}>{starting ? "Preparing interviewer…" : "Start voice interview"}<b>→</b></button></div>
-        <p className="voice-browser-note">Use Chrome or Edge and allow microphone access to answer out loud. You can also type your answers.</p>
-        {error && <p className="voice-error" role="alert">{error}</p>}
-      </section>}
+      {!interviewId && !report && <section className="voice-setup voice-conversation-loading" aria-live="polite"><span className="voice-loading-orb">✦</span><h2>{starting ? "Your interviewer is joining…" : "Getting your conversation ready…"}</h2><p>The interviewer will greet you and ask what kind of role you want to practise for.</p>{error && <p className="voice-error" role="alert">{error}<button type="button" onClick={startInterview}>Try again</button></p>}</section>}
 
       {interviewId && !report && <section className="voice-session">
-        <div className="voice-session-top"><div><p className="voice-eyebrow">{type.toUpperCase()} · {role.toUpperCase()}</p><h2>Live practice</h2></div><span>Question {questionNumber} of {TOTAL_QUESTIONS}</span></div>
-        <div className="voice-progress"><i style={{ width: (((questionNumber - 1) / TOTAL_QUESTIONS) * 100) + "%" }} /></div>
+        <div className="voice-session-top"><div><p className="voice-eyebrow">{setup ? "GETTING TO KNOW YOUR GOAL" : `${type.toUpperCase()} · ${role.toUpperCase()}`}</p><h2>{setup ? "Let’s choose your interview" : "Live practice"}</h2></div><span>{setup ? "Quick setup" : `Question ${questionNumber} of ${TOTAL_QUESTIONS}`}</span></div>
+        <div className="voice-progress"><i style={{ width: ((questionNumber / TOTAL_QUESTIONS) * 100) + "%" }} /></div>
         <div className="voice-stage">
           <div className="voice-interviewer-avatar"><span>AI</span><i>●</i></div>
           <div className="voice-question-copy"><span>AI INTERVIEWER {speechStatus === "Interviewer is speaking" ? "· SPEAKING" : ""}</span><h2>{question}</h2><button className="voice-replay-question" type="button" onClick={speakQuestion}>▶ Play question again</button></div>
@@ -208,7 +219,7 @@ function VoiceInterview() {
           <textarea value={answer} onChange={(event) => { setAnswer(event.target.value); answerRef.current = event.target.value; }} placeholder="Your spoken answer will appear here. You can edit the transcript or type instead…" rows={5} maxLength={5000} aria-label="Your interview answer" />
           <div className="voice-answer-actions">
             <span className={"voice-speech-status" + (recording ? " is-recording" : "")}>{recording && <i />}{speechStatus || (speechSupported ? "Speech transcript · editable" : "Speech recognition isn’t supported in this browser")}</span>
-            <div><button className={"voice-record-button" + (recording ? " is-recording" : "")} type="button" onClick={recording ? stopRecording : startRecording}>{recording ? "■ Stop recording" : "🎙 Answer by voice"}</button><button className="voice-submit-button" type="button" onClick={submitAnswer} disabled={!answer.trim() || submitting}>{submitting ? "Thinking…" : questionNumber === TOTAL_QUESTIONS ? "Finish interview" : "Submit answer"}<b>→</b></button></div>
+            <div><button className={"voice-record-button" + (recording ? " is-recording" : "")} type="button" onClick={recording ? stopRecording : startRecording}>{recording ? "■ Stop recording" : "🎙 Answer by voice"}</button><button className="voice-submit-button" type="button" onClick={submitAnswer} disabled={!answer.trim() || submitting}>{submitting ? "Thinking…" : setup ? "Reply to interviewer" : questionNumber === TOTAL_QUESTIONS ? "Finish interview" : "Submit answer"}<b>→</b></button></div>
           </div>
         </div>
         <p className="voice-privacy-note">Your answer transcript and feedback are saved to interview history. Audio isn’t stored by the app; your browser handles speech recognition and may use its own service.</p>

@@ -490,7 +490,7 @@ function App() {
             )}
             {page === "resume-review" && <ResumeReview />}
             {page === "interview" && (
-              <Interview onBackToDashboard={() => setPage("dashboard")} />
+              <VoiceInterview />
             )}
             {page === "coding-interview" && <Interview key="coding-interview" codingMode onBackToDashboard={() => setPage("dashboard")} />}
             {page === "voice-interview" && <VoiceInterview />}
