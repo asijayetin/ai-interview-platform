@@ -13,14 +13,16 @@ function VoiceInterview() {
   const [turns, setTurns] = useState([]);
   const [report, setReport] = useState(null);
   const [starting, setStarting] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const [recording, setRecording] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
   const [speechStatus, setSpeechStatus] = useState("");
   const [error, setError] = useState("");
   const recognitionRef = useRef(null);
   const recordingRef = useRef(false);
+  const submittingRef = useRef(false);
+  const submitTimerRef = useRef(null);
   const answerRef = useRef("");
+  const spokenTextRef = useRef("");
   const startedRef = useRef(false);
   const recognitionErrorRef = useRef("");
   const ignoreRecognitionEndRef = useRef(false);
@@ -28,6 +30,7 @@ function VoiceInterview() {
   useEffect(() => {
     setSpeechSupported(Boolean(window.SpeechRecognition || window.webkitSpeechRecognition));
     return () => {
+      window.clearTimeout(submitTimerRef.current);
       try { recognitionRef.current?.abort(); } catch { /* no active mic session */ }
       window.speechSynthesis?.cancel();
     };
@@ -48,7 +51,8 @@ function VoiceInterview() {
       return;
     }
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(question);
+    const utterance = new SpeechSynthesisUtterance(spokenTextRef.current || question);
+    spokenTextRef.current = "";
     utterance.lang = "en-IN";
     utterance.rate = 0.96;
     utterance.pitch = 1;
@@ -126,6 +130,10 @@ function VoiceInterview() {
         for (let index = 0; index < event.results.length; index += 1) spoken += event.results[index][0].transcript + (event.results[index].isFinal ? " " : "");
         answerRef.current = spoken.trim();
         setAnswer(answerRef.current);
+        window.clearTimeout(submitTimerRef.current);
+        submitTimerRef.current = window.setTimeout(() => {
+          if (answerRef.current.trim()) submitAnswer();
+        }, 2600);
       };
       recognition.onerror = (event) => {
         const messages = {
@@ -147,8 +155,9 @@ function VoiceInterview() {
           ignoreRecognitionEndRef.current = false;
           return;
         }
-        if (submitting) return;
+        if (submittingRef.current) return;
         if (answerRef.current.trim()) {
+          window.clearTimeout(submitTimerRef.current);
           setSpeechStatus("Answer captured. Moving to the next question…");
           window.setTimeout(() => submitAnswer(), 350);
         } else if (!recognitionErrorRef.current && interviewId && !report) {
@@ -170,9 +179,10 @@ function VoiceInterview() {
 
   const submitAnswer = async () => {
     const submittedAnswer = (answerRef.current || answer).trim();
-    if (!submittedAnswer || submitting || !interviewId) return;
+    if (!submittedAnswer || submittingRef.current || !interviewId) return;
+    submittingRef.current = true;
+    window.clearTimeout(submitTimerRef.current);
     setError("");
-    setSubmitting(true);
     stopRecording();
     window.speechSynthesis?.cancel();
     const submittedQuestion = question;
@@ -205,6 +215,7 @@ function VoiceInterview() {
           window.speechSynthesis.speak(closing);
         }
       } else {
+        spokenTextRef.current = [data.feedback, data.question].filter(Boolean).join(" ");
         setQuestion(data.question);
       }
     } catch (requestError) {
@@ -215,7 +226,7 @@ function VoiceInterview() {
       setSpeechStatus("I couldn’t process that reply. I’ll listen again so you can answer this question.");
       window.setTimeout(() => startRecording(), 800);
     } finally {
-      setSubmitting(false);
+      submittingRef.current = false;
     }
   };
 
@@ -259,7 +270,7 @@ function VoiceInterview() {
         {turns.length > 0 && <div className="voice-last-feedback"><span>INTERVIEWER FEEDBACK</span><p>{turns[turns.length - 1].feedback}</p></div>}
         <div className="voice-answer-box">
           <div className="voice-answer-heading"><div><strong>Your answer</strong><small>Your spoken words appear here automatically.</small></div><span>{answer.trim().split(/\s+/).filter(Boolean).length} words</span></div>
-          <textarea value={answer} readOnly placeholder="Your spoken answer will appear here automatically…" rows={5} maxLength={5000} aria-label="Live speech transcript" />
+          <div className={"voice-transcript-display" + (answer ? "" : " is-empty")} role="log" aria-live="polite" aria-label="Live speech transcript">{answer || (recording ? "Listening for your answer…" : "Your spoken answer will appear here automatically…")}</div>
           <div className="voice-answer-actions">
             <span className={"voice-speech-status" + (recording ? " is-recording" : "")}>{recording && <i />}{speechStatus || (speechSupported ? "The mic starts automatically after each question." : "Voice recognition is not available in this browser.")}</span>
           </div>
