@@ -3,15 +3,12 @@ import "./VoiceInterview.css";
 
 const API_URL = (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:5000" : ""))
   .trim().replace(/\/+$/, "").replace(/\/api$/i, "");
-const TOTAL_QUESTIONS = 5;
-
 function VoiceInterview() {
   const [type, setType] = useState("");
   const [role, setRole] = useState("");
   const [interviewId, setInterviewId] = useState("");
   const [setup, setSetup] = useState(true);
   const [question, setQuestion] = useState("");
-  const [questionNumber, setQuestionNumber] = useState(0);
   const [answer, setAnswer] = useState("");
   const [turns, setTurns] = useState([]);
   const [report, setReport] = useState(null);
@@ -83,7 +80,6 @@ function VoiceInterview() {
       if (!response.ok) throw new Error(data.message || "Could not start the voice interview.");
       setInterviewId(data.interviewId);
       setQuestion(data.question);
-      setQuestionNumber(data.questionNumber ?? 1);
       setSetup(Boolean(data.setup));
       setType(data.interviewType || "");
       setRole(data.role || "");
@@ -184,11 +180,14 @@ function VoiceInterview() {
       const response = await fetch(API_URL + "/api/ai/voice-interview/" + encodeURIComponent(interviewId) + "/answer", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: "Bearer " + localStorage.getItem("token") },
-        body: JSON.stringify({ answer: submittedAnswer }),
+        body: JSON.stringify({ answer: submittedAnswer, question: submittedQuestion }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.message || "Could not submit your answer.");
-      if (!setup) setTurns((items) => [...items, { question: submittedQuestion, answer: submittedAnswer, feedback: data.feedback || "" }]);
+      if (!setup && !data.setup) {
+        const savedTurn = data.savedTurn || { question: submittedQuestion, answer: submittedAnswer };
+        setTurns((items) => [...items, { ...savedTurn, feedback: data.feedback || "" }]);
+      }
       setAnswer("");
       answerRef.current = "";
       recognitionErrorRef.current = "";
@@ -199,13 +198,22 @@ function VoiceInterview() {
       if (data.complete) {
         setReport(data.report);
         setQuestion("");
-        setQuestionNumber(TOTAL_QUESTIONS);
+        if (window.speechSynthesis && window.SpeechSynthesisUtterance) {
+          const closing = new window.SpeechSynthesisUtterance(data.closingMessage || "I think that is enough for today. Thanks for your answers; your report is ready.");
+          closing.lang = "en-IN";
+          closing.rate = 0.96;
+          window.speechSynthesis.speak(closing);
+        }
       } else {
         setQuestion(data.question);
-        setQuestionNumber(data.questionNumber);
       }
     } catch (requestError) {
       setError(requestError.message || "Could not submit your answer.");
+      answerRef.current = "";
+      setAnswer("");
+      recognitionErrorRef.current = "";
+      setSpeechStatus("I couldn’t process that reply. I’ll listen again so you can answer this question.");
+      window.setTimeout(() => startRecording(), 800);
     } finally {
       setSubmitting(false);
     }
@@ -216,7 +224,6 @@ function VoiceInterview() {
     window.speechSynthesis?.cancel();
     setInterviewId("");
     setQuestion("");
-    setQuestionNumber(0);
     setAnswer("");
     setTurns([]);
     setReport(null);
@@ -244,8 +251,7 @@ function VoiceInterview() {
       {!interviewId && !report && <section className="voice-setup voice-conversation-loading" aria-live="polite"><span className="voice-loading-orb">✦</span><h2>{starting ? "Your interviewer is joining…" : "Getting your conversation ready…"}</h2><p>The interviewer will greet you and ask what kind of role you want to practise for.</p>{error && <p className="voice-error" role="alert">{error}<button type="button" onClick={startInterview}>Try again</button></p>}</section>}
 
       {interviewId && !report && <section className="voice-session">
-        <div className="voice-session-top"><div><p className="voice-eyebrow">{setup ? "GETTING TO KNOW YOUR GOAL" : `${type.toUpperCase()} · ${role.toUpperCase()}`}</p><h2>{setup ? "Let’s choose your interview" : "Live practice"}</h2></div><span>{setup ? "Quick setup" : `Question ${questionNumber} of ${TOTAL_QUESTIONS}`}</span></div>
-        <div className="voice-progress"><i style={{ width: ((questionNumber / TOTAL_QUESTIONS) * 100) + "%" }} /></div>
+        <div className="voice-session-top"><div><p className="voice-eyebrow">{setup ? "GETTING TO KNOW YOUR GOAL" : `${type.toUpperCase()} · ${role.toUpperCase()}`}</p><h2>{setup ? "Let’s choose your interview" : "Live practice"}</h2></div><span>{setup ? "Quick setup" : "Open conversation"}</span></div>
         <div className="voice-stage">
           <div className="voice-interviewer-avatar"><span>AI</span><i>●</i></div>
           <div className="voice-question-copy"><span>AI INTERVIEWER {speechStatus === "Interviewer is speaking" ? "· SPEAKING" : ""}</span><h2>{question}</h2></div>
