@@ -54,11 +54,6 @@ function VoiceInterview() {
 
   const startInterview = async () => {
     setError("");
-    const targetRole = role.trim();
-    if (!targetRole || targetRole.length > 100) {
-      setError("Enter a target role (up to 100 characters) so the AI can tailor your questions.");
-      return;
-    }
     setStarting(true);
     setReport(null);
     setTurns([]);
@@ -67,13 +62,13 @@ function VoiceInterview() {
       const response = await fetch(API_URL + "/api/ai/voice-interview/start", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: "Bearer " + localStorage.getItem("token") },
-        body: JSON.stringify({ role: targetRole, interviewType: type }),
+        body: JSON.stringify({}),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.message || "Could not start the voice interview.");
       setInterviewId(data.interviewId);
       setQuestion(data.question);
-      setQuestionNumber(data.questionNumber || 1);
+      setQuestionNumber(data.questionNumber ?? 1);
       setSetup(Boolean(data.setup));
       setType(data.interviewType || "");
       setRole(data.role || "");
